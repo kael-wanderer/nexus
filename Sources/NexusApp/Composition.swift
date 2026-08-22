@@ -23,6 +23,10 @@ final class Composition {
     let searchModel: SearchViewModel
     let panels: PanelController
     let searchPanel: SearchPanelController
+    let onboardingModel: OnboardingViewModel
+
+    private var settingsWindow: AuxiliaryWindowController?
+    private var onboardingWindow: AuxiliaryWindowController?
 
     private var permissionTask: Task<Void, Never>?
     private var configurationTask: Task<Void, Never>?
@@ -75,6 +79,11 @@ final class Composition {
             events: events
         )
         searchPanel = SearchPanelController(model: searchModel)
+        onboardingModel = OnboardingViewModel(
+            configuration: configuration,
+            permissions: permissions,
+            applications: applications
+        )
     }
 
     func start() {
@@ -100,6 +109,52 @@ final class Composition {
         observeConfiguration()
         applySearchConfiguration()
         registerHotKey()
+
+        if !configuration.configuration.onboarding.hasCompleted {
+            runOnboarding()
+        }
+    }
+
+    // MARK: - Settings and onboarding
+
+    func showSettings() {
+        let controller = settingsWindow ?? AuxiliaryWindowController(title: String(localized: "Nexus Settings")) { [self] in
+            SettingsView(
+                configuration: configuration,
+                permissions: permissions,
+                validateShortcut: { [weak self] in self?.validate($0) },
+                runOnboarding: { [weak self] in self?.runOnboarding() }
+            )
+        }
+        settingsWindow = controller
+        controller.show()
+    }
+
+    func runOnboarding() {
+        onboardingModel.start()
+        let controller = onboardingWindow ?? AuxiliaryWindowController(title: String(localized: "Set Up Nexus")) { [self] in
+            OnboardingView(
+                model: onboardingModel,
+                validateShortcut: { [weak self] in self?.validate($0) }
+            )
+        }
+        onboardingWindow = controller
+        onboardingModel.onFinish = { [weak controller] in controller?.close() }
+        controller.show()
+    }
+
+    /// Applies a candidate shortcut for real and reports why it failed, so the recorder can put
+    /// the previous binding back.
+    private func validate(_ shortcut: KeyboardShortcut) -> String? {
+        switch hotKeys.register(shortcut) {
+        case .success:
+            return nil
+        case .failure(.invalidShortcut):
+            return String(localized: "Add \u{2318}, \u{2325} or \u{2303} to the shortcut.")
+        case .failure(.systemRefused):
+            _ = hotKeys.register(configuration.configuration.search.shortcut)
+            return String(localized: "That shortcut is already in use by another application.")
+        }
     }
 
     // MARK: - Search
@@ -187,6 +242,8 @@ final class Composition {
     func statusItemActions() -> StatusItemController.Actions {
         StatusItemController.Actions(
             toggleSidebar: { [weak self] in self?.panels.toggleSidebar() },
+            openSettings: { [weak self] in self?.showSettings() },
+            runSetupAgain: { [weak self] in self?.runOnboarding() },
             openSearch: { [weak self] in self?.searchPanel.show() }
         )
     }
@@ -195,6 +252,8 @@ final class Composition {
         permissionTask?.cancel()
         configurationTask?.cancel()
         hotKeys.stop()
+        settingsWindow?.stop()
+        onboardingWindow?.stop()
         searchPanel.stop()
         applicationIndex.stop()
         windowMonitor.stop()

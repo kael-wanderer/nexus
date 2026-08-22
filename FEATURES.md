@@ -45,7 +45,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | Open Terminal | M5 | None | `NSWorkspace.openApplication` |
 | Open Downloads / Documents / Home | M5 | None | `NSWorkspace.open(URL)` |
 | Open System Settings | M5 | None | `x-apple.systempreferences:` URL |
-| Show Desktop | M5 | None | `com.apple.showdesktop` — Mission Control hot-key equivalent |
+| Show Desktop | — | — | **Not in MVP** — no such bundle exists on macOS 14+; the alternatives need Accessibility or AppleScript (D28) |
 | Lock Screen | M5 | None | `SACLockScreenImmediate` (login framework) |
 | Empty Trash | — | — | **Not in MVP** — destructive, needs confirmation UX |
 
@@ -67,6 +67,7 @@ permission and belong to the automation engine (§46, out of scope).
 | Custom opacity | M2 | None | |
 | Recent applications | M6 | None | Derived from frecency data already collected for ranking |
 | Window title preview | M4 | **Accessibility** | Title-only preview; the zero-cost fallback for #13 |
+| Spotlight shortcut status | M6 | None | Read-only heuristic on `com.apple.symbolichotkeys` key 64. If readable, the Spotlight guide shows a live "still enabled / disabled ✓" status; if not, the guide is static (review Note 2, D33) |
 
 ---
 

@@ -176,3 +176,22 @@ Enumerating every application's windows over AX on each keystroke would blow the
 `WindowService` keeps the last enumeration, `AXObserver`s keep it fresh, and opening the palette
 triggers one full refresh — a user event, not a timer. Measured: 454 applications plus 200
 windows ranked in under 50 ms.
+
+**D32. Settings and onboarding are ordinary titled `NSWindow`s, and Nexus activates itself to
+show them.** These two are the only surfaces that *should* take focus, and standard AppKit
+controls (sliders, pickers, steppers) only render in their active appearance in a key window —
+which is exactly why the sidebar and the flyout avoid them. `AuxiliaryWindowController` calls
+`NSApp.activate()` on show and `NSApp.hide(nil)` on close, so an `.accessory` app never sits
+"active" with nothing visible.
+
+**D33. The Spotlight shortcut status is read when the guide appears, not polled.**
+Review Note 2, implemented as progressive enhancement: `CFPreferencesCopyAppValue` on
+`com.apple.symbolichotkeys` key 64. `enabled`/`disabled` drives a live status line; anything
+unexpected reads as `unknown` and the guide falls back to its static text. Read on appear rather
+than on a timer, because the user leaves the screen to change the setting and comes back —
+D13's single poll stays single.
+
+**D34. Settings write through `ConfigurationController.binding(_:)`.**
+One key-path binding helper means every control goes through the same debounced, clamped,
+event-publishing path, so "applies live" and "persists" are properties of the plumbing rather
+than of each control.
