@@ -107,10 +107,23 @@ public actor ApplicationService: ApplicationServing {
         }
     }
 
+    /// Activation goes through LaunchServices, not `NSRunningApplication.activate()`. The latter
+    /// only brings the process forward: an application whose windows are all closed or hidden —
+    /// a menu-bar app, say — comes to the front showing nothing, which reads as a dead click.
+    /// Opening it again sends the reopen event the Dock sends, so the application shows a window.
     public func activate(_ identity: ApplicationIdentity) async throws {
-        let activated = await Self.withRunningApplication(identity) { $0.activate() }
-        guard activated == true else {
+        guard let url = await Self.withRunningApplication(identity, { $0.bundleURL }) ?? nil else {
             Log.applications.error("Activate failed: \(identity.bundleIdentifier, privacy: .public) is not running")
+            throw NexusError.targetDisappeared
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        do {
+            _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+        } catch {
+            Log.applications.error(
+                "Activate failed for \(identity.bundleIdentifier, privacy: .public): \(String(describing: error), privacy: .public)"
+            )
             throw NexusError.targetDisappeared
         }
         Log.applications.notice("Activated \(identity.bundleIdentifier, privacy: .public)")
@@ -138,10 +151,10 @@ public actor ApplicationService: ApplicationServing {
 
     /// `NSRunningApplication` is not `Sendable`; every use of one is confined to the main actor.
     @MainActor
-    private static func withRunningApplication(
+    private static func withRunningApplication<Result>(
         _ identity: ApplicationIdentity,
-        _ body: (NSRunningApplication) -> Bool
-    ) -> Bool? {
+        _ body: (NSRunningApplication) -> Result
+    ) -> Result? {
         let candidates = NSRunningApplication.runningApplications(
             withBundleIdentifier: identity.bundleIdentifier
         )

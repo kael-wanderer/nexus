@@ -90,6 +90,10 @@ public struct PermissionRequestView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text("Still no after a restart? Remove Nexus from the list with \u{2212} and add it back. A grant made under an earlier build stays tied to that build.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             FlatActionRow(title: String(localized: "Restart Nexus"), prominent: false) {
                 AppRelaunch.relaunch()
             }

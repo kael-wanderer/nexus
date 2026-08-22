@@ -140,7 +140,12 @@ final class Composition {
         }
         onboardingWindow = controller
         onboardingModel.onFinish = { [weak controller] in controller?.close() }
-        controller.show()
+        // Closing the window counts as finishing: otherwise onboarding reappears on every
+        // launch until someone reaches the last step.
+        controller.show { [weak self] in
+            guard let self, !configuration.configuration.onboarding.hasCompleted else { return }
+            onboardingModel.finish()
+        }
     }
 
     /// Applies a candidate shortcut for real and reports why it failed, so the recorder can put
