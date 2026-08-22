@@ -1,0 +1,163 @@
+import Foundation
+
+public enum SidebarPosition: String, Codable, Sendable, CaseIterable {
+    case left
+    case right
+}
+
+public enum ClickBehavior: String, Codable, Sendable, CaseIterable {
+    case activateOrLaunch
+    case showWindowList
+}
+
+public enum DisplayPreference: Codable, Sendable, Equatable {
+    case main
+    case withMouse
+    case specific(String)   // display UUID (D11)
+}
+
+public struct DisplayOverride: Codable, Sendable, Equatable {
+    public var position: SidebarPosition?
+    public var width: Double?
+    public init(position: SidebarPosition? = nil, width: Double? = nil) {
+        self.position = position
+        self.width = width
+    }
+}
+
+public struct KeyboardShortcut: Codable, Sendable, Equatable, Hashable {
+    /// Carbon virtual key code; identical to `NSEvent.keyCode`.
+    public var keyCode: UInt32
+    /// Carbon modifier mask (`cmdKey`, `optionKey`, `controlKey`, `shiftKey`).
+    public var modifiers: UInt32
+
+    public init(keyCode: UInt32, modifiers: UInt32) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+    }
+
+    // Carbon constants, restated so NexusCore does not have to import Carbon.
+    public static let cmdKey: UInt32 = 0x0100
+    public static let shiftKey: UInt32 = 0x0200
+    public static let optionKey: UInt32 = 0x0800
+    public static let controlKey: UInt32 = 0x1000
+    public static let spaceKeyCode: UInt32 = 49   // kVK_Space
+
+    public static let optionSpace = KeyboardShortcut(keyCode: spaceKeyCode, modifiers: optionKey)
+    public static let commandSpace = KeyboardShortcut(keyCode: spaceKeyCode, modifiers: cmdKey)
+
+    public var isCommandSpace: Bool { self == .commandSpace }
+
+    /// At least one non-shift modifier is required; modifier-only combinations are rejected (§5).
+    public var isValid: Bool {
+        modifiers & (Self.cmdKey | Self.optionKey | Self.controlKey) != 0
+    }
+}
+
+public struct FrecencyEntry: Codable, Sendable, Equatable {
+    public var count: Int
+    public var lastUsed: Date
+
+    public init(count: Int = 0, lastUsed: Date = .distantPast) {
+        self.count = count
+        self.lastUsed = lastUsed
+    }
+}
+
+public struct GeneralConfiguration: Codable, Sendable, Equatable {
+    public var launchAtLogin = false
+    public var showInMenuBar = true
+    public var globalShortcutEnabled = true
+    public init() {}
+}
+
+public struct AppearanceConfiguration: Codable, Sendable, Equatable {
+    public var position: SidebarPosition = .left
+    public var width: Double = 64            // 44...120
+    public var iconSize: Double = 40         // 24...96
+    public var iconSpacing: Double = 8       // 0...24
+    public var cornerRadius: Double = 16     // 0...32
+    public var opacity: Double = 1.0         // 0.3...1.0
+    public var display: DisplayPreference = .main
+    public var perDisplay: [String: DisplayOverride] = [:]
+    public init() {}
+
+    public static let widthRange: ClosedRange<Double> = 44...120
+    public static let iconSizeRange: ClosedRange<Double> = 24...96
+    public static let iconSpacingRange: ClosedRange<Double> = 0...24
+    public static let cornerRadiusRange: ClosedRange<Double> = 0...32
+    public static let opacityRange: ClosedRange<Double> = 0.3...1.0
+
+    /// Values arriving from a decoded file or a future migration are clamped rather than trusted.
+    public mutating func clamp() {
+        width = width.clamped(to: Self.widthRange)
+        iconSize = iconSize.clamped(to: Self.iconSizeRange)
+        iconSpacing = iconSpacing.clamped(to: Self.iconSpacingRange)
+        cornerRadius = cornerRadius.clamped(to: Self.cornerRadiusRange)
+        opacity = opacity.clamped(to: Self.opacityRange)
+    }
+}
+
+public struct BehaviorConfiguration: Codable, Sendable, Equatable {
+    public var autoHide = false
+    public var autoHideDelay: Double = 0.4
+    public var hoverExpand = true
+    public var showRunningApplications = true
+    public var showWindowCount = true
+    public var showFavorites = true
+    public var clickBehavior: ClickBehavior = .activateOrLaunch
+    public var reduceMotionOverride: Bool?
+    public init() {}
+}
+
+public struct SearchConfiguration: Codable, Sendable, Equatable {
+    public var shortcut = KeyboardShortcut.optionSpace
+    public var searchApplications = true
+    public var searchWindows = true
+    public var searchFiles = true
+    public var searchActions = true
+    public var maximumResults = 20
+    public init() {}
+}
+
+public struct OnboardingState: Codable, Sendable, Equatable {
+    public var hasCompleted = false
+    public var completedVersion = 0
+    public init() {}
+}
+
+public struct NexusConfiguration: Codable, Sendable, Equatable {
+    public static let currentVersion = 1
+
+    public var version: Int = currentVersion
+    public var general = GeneralConfiguration()
+    public var appearance = AppearanceConfiguration()
+    public var behavior = BehaviorConfiguration()
+    public var search = SearchConfiguration()
+    public var pinnedApplications: [String] = []
+    public var frecency: [String: FrecencyEntry] = [:]
+    public var onboarding = OnboardingState()
+
+    public init() {}
+
+    /// Decoding is tolerant: every field has a default, so a partial payload written by an older
+    /// build still loads. Ranges are clamped afterwards.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decodeIfPresent(Int.self, forKey: .version) ?? Self.currentVersion
+        general = try container.decodeIfPresent(GeneralConfiguration.self, forKey: .general) ?? .init()
+        appearance = try container.decodeIfPresent(AppearanceConfiguration.self, forKey: .appearance) ?? .init()
+        behavior = try container.decodeIfPresent(BehaviorConfiguration.self, forKey: .behavior) ?? .init()
+        search = try container.decodeIfPresent(SearchConfiguration.self, forKey: .search) ?? .init()
+        pinnedApplications = try container.decodeIfPresent([String].self, forKey: .pinnedApplications) ?? []
+        frecency = try container.decodeIfPresent([String: FrecencyEntry].self, forKey: .frecency) ?? [:]
+        onboarding = try container.decodeIfPresent(OnboardingState.self, forKey: .onboarding) ?? .init()
+        appearance.clamp()
+    }
+}
+
+extension Double {
+    func clamped(to range: ClosedRange<Double>) -> Double {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+    }
+}

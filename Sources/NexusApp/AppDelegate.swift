@@ -1,0 +1,45 @@
+import AppKit
+import NexusCore
+import NexusUI
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var composition: Composition?
+    private var statusItem: StatusItemController?
+    private var configurationObserver: Task<Void, Never>?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let state = Log.signposter.beginInterval("cold start")
+        NSApp.setActivationPolicy(.accessory)
+
+        let composition = Composition()
+        self.composition = composition
+
+        let statusItem = StatusItemController(actions: composition.statusItemActions())
+        statusItem.setVisible(composition.configuration.configuration.general.showInMenuBar)
+        self.statusItem = statusItem
+
+        composition.start()
+        observeConfiguration(composition)
+
+        Log.app.info("Nexus launched")
+        Log.signposter.endInterval("cold start", state)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        configurationObserver?.cancel()
+        composition?.shutDown()
+        Log.app.info("Nexus terminating")
+    }
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
+
+    private func observeConfiguration(_ composition: Composition) {
+        configurationObserver = Task { [weak self] in
+            for await event in composition.events.events() {
+                guard case .configurationChanged(let configuration) = event else { continue }
+                self?.statusItem?.setVisible(configuration.general.showInMenuBar)
+            }
+        }
+    }
+}
