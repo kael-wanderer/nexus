@@ -155,9 +155,3 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
         appearance.clamp()
     }
 }
-
-extension Double {
-    func clamped(to range: ClosedRange<Double>) -> Double {
-        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
-    }
-}

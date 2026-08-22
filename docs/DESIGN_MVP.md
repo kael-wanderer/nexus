@@ -99,19 +99,42 @@ final class SearchPanel: NSPanel {
 `.fullScreenAuxiliary` is what lets the palette appear over a fullscreen app **without
 switching Spaces** — the single most noticeable failure mode of a badly built palette.
 
-Show sequence, on the hotkey:
+Two show sequences. The **non-activating** path is tried first; the **activate-and-restore**
+path is the fallback. (Amended by review Note 1 — the earlier claim that "a non-active
+application's window cannot receive key events, whatever its style mask" is wrong. An
+`NSPanel` with `.nonactivatingPanel` and `canBecomeKey = true` *can* become key while the
+application stays inactive: the Alfred / LaunchBar pattern.)
+
+**Path A — non-activating (preferred).** The frontmost application never deactivates, so there
+is no restore step and no focus flicker.
 
 ```
-1. previousApplication = NSWorkspace.shared.frontmostApplication   // capture BEFORE activating
+1. previousApplication = NSWorkspace.shared.frontmostApplication   // capture first, either way
 2. position the panel on the screen containing NSEvent.mouseLocation
+3. panel.makeKeyAndOrderFront(nil)                                  // no NSApp.activate()
+4. panel.makeFirstResponder(the search field)
+```
+
+Known rough edge, accepted: SwiftUI `TextField` focus is unreliable in a window whose
+application is not active, so the field is an `NSTextField` behind `NSViewRepresentable`
+(`NativeSearchField`).
+
+**Path B — activate and restore (fallback).**
+
+```
+1. previousApplication = NSWorkspace.shared.frontmostApplication
+2. position the panel
 3. NSApp.activate()                                                 // macOS 14 API
 4. panel.makeKeyAndOrderFront(nil)
 5. focus the text field, select all existing text
 ```
 
-Step 3 is unavoidable: a non-active application's window cannot receive key events, whatever
-its style mask. This is correct behaviour here — the user pressed a hotkey and expects to type.
-The sidebar's guarantee is unaffected, because the sidebar panel still cannot become key.
+**How the choice is made.** Key status does not settle synchronously, so `SearchPanelController`
+starts on Path A and, 200 ms after the first open, logs
+`strategy / isKeyWindow / NSApp.isActive / frontmost` and switches permanently to Path B for the
+session if the panel did not become key. The decision is therefore made per session on real
+evidence rather than baked in. Either way the sidebar's guarantee is untouched: the sidebar
+panel still cannot become key.
 
 Dismiss sequence:
 

@@ -24,6 +24,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Log.app.info("Nexus launched")
         Log.signposter.endInterval("cold start", state)
+
+        // Development hook: opens the search palette without a key press, so the activation
+        // strategy (review Note 1) can be measured from a script.
+        if ProcessInfo.processInfo.environment["NEXUS_DEBUG_SHOW_SEARCH"] != nil {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                composition.searchPanel.show()
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

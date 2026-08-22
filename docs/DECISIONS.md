@@ -135,3 +135,44 @@ over 45 s idle after the fix.
 Sheets, popovers, palettes and toolbars are AX windows too; listing them would make the flyout
 noise. Windows without an `_AXUIElementGetWindow` id still list and activate under a synthetic
 identifier — only their preview is lost (DESIGN_MVP §3.1).
+
+**D26. The search palette starts on the non-activating key path and self-measures.**
+Review Note 1. `SearchPanelController` opens with `makeKeyAndOrderFront` and no `NSApp.activate()`;
+200 ms later it logs `strategy / isKeyWindow / NSApp.isActive / frontmost` and switches to
+activate-and-restore for the rest of the session if the panel did not become key. Checking
+`isKeyWindow` synchronously does not work — activation has not settled yet, and an immediate
+check falls back every time. `DESIGN_MVP.md` §2.2 now documents both paths.
+**The empirical result is not yet recorded: the machine's screen was locked
+(`IOConsoleLocked = true`, frontmost `com.apple.loginwindow`) for the whole implementation
+window, which makes key-window semantics meaningless. It is on the MANUAL VERIFICATION list.**
+
+**D27. The search field is an `NSTextField` behind `NSViewRepresentable`.**
+Review Note 1 predicted this: SwiftUI `TextField` focus is unreliable in a non-activated
+application, and the palette must accept the first keystroke after the hotkey. `↑ ↓ ⏎ ⇧⏎ ⎋` are
+handled through `control(_:textView:doCommandBy:)`; `⌘1`–`⌘9` through a local event monitor
+installed only while the palette is visible.
+
+**D28. "Show Desktop" is dropped from the MVP action list.**
+`FEATURES.md` names `com.apple.showdesktop`; no such bundle exists on macOS 14+ (the only match
+is `WindowManagerShowDesktopEducation.app`, a tutorial). The only implementations are a
+synthesised F11 key event, which needs Accessibility, or AppleScript, which D15 forbids. Dropped
+for the same reason as Empty Trash. The other six actions ship.
+
+**D29. "Lock Screen" resolves `SACLockScreenImmediate` at runtime with `dlopen`/`dlsym`.**
+It lives in `login.framework`, a private framework, so it cannot be linked. Resolving it at
+runtime means a future macOS that removes it makes the action fail quietly and log, rather than
+breaking the build or crashing. Verified present on macOS 26.6.
+
+**D30. The application index is a one-shot Spotlight query rebuilt on application-launch events,
+not a live `NSMetadataQuery`.** D8 asked for Spotlight, and this uses it — 454 applications
+indexed on the development machine — but keeping a query live for the process lifetime is
+background churn for a catalogue that changes when software is installed. The index is built
+lazily on the first palette open (cold start stays under budget) and rebuilt when an application
+launches, which is when a newly installed application first matters. Directory scan remains the
+fallback when Spotlight returns nothing.
+
+**D31. Windows for search come from a snapshot refreshed when the palette opens.**
+Enumerating every application's windows over AX on each keystroke would blow the 50 ms budget.
+`WindowService` keeps the last enumeration, `AXObserver`s keep it fresh, and opening the palette
+triggers one full refresh — a user event, not a timer. Measured: 454 applications plus 200
+windows ranked in under 50 ms.

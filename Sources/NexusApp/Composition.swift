@@ -14,11 +14,18 @@ final class Composition {
     let windows: WindowService
     let windowMonitor: WindowMonitor
     let previews: WindowPreviewService
+    let applicationIndex: ApplicationIndex
+    let searchEngine: SearchEngine
+    let actionRunner: ActionRunner
+    let hotKeys = HotKeyService()
     let sidebarModel: SidebarViewModel
     let flyoutModel: WindowFlyoutViewModel
+    let searchModel: SearchViewModel
     let panels: PanelController
+    let searchPanel: SearchPanelController
 
     private var permissionTask: Task<Void, Never>?
+    private var configurationTask: Task<Void, Never>?
 
     init() {
         configuration = ConfigurationController(store: ConfigurationStore(), events: events)
@@ -28,6 +35,22 @@ final class Composition {
         windows = WindowService()
         windowMonitor = WindowMonitor(service: windows, events: events)
         previews = WindowPreviewService()
+        applicationIndex = ApplicationIndex(events: events)
+        actionRunner = ActionRunner(applications: applications, windows: windows)
+
+        let windowService = windows
+        searchEngine = SearchEngine(
+            providers: [
+                ApplicationSearchProvider(
+                    index: applicationIndex.snapshot,
+                    runningBundleIdentifiers: { Self.runningBundleIdentifiers() }
+                ),
+                WindowSearchProvider(windows: { await windowService.cachedWindows() }),
+                FileSearchProvider(),
+                ActionSearchProvider(runningApplications: { Self.runningApplicationLabels() }),
+            ]
+        )
+
         sidebarModel = SidebarViewModel(
             applications: applications,
             configuration: configuration,
@@ -39,6 +62,11 @@ final class Composition {
             permissions: permissions,
             events: events
         )
+        searchModel = SearchViewModel(
+            engine: searchEngine,
+            configuration: configuration,
+            index: applicationIndex.snapshot
+        )
         panels = PanelController(
             model: sidebarModel,
             flyoutModel: flyoutModel,
@@ -46,19 +74,95 @@ final class Composition {
             configuration: configuration,
             events: events
         )
+        searchPanel = SearchPanelController(model: searchModel)
     }
 
     func start() {
         // Materialise the loaded (or default) configuration so it is inspectable with `defaults`
         // from the first launch onwards.
         configuration.flush()
+
         sidebarModel.refreshWindowCounts = { [weak self] in self?.applicationMonitor.refresh() }
+        sidebarModel.openSearch = { [weak self] in self?.searchPanel.show() }
+
+        searchModel.frontmostApplication = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
+        searchModel.onExecute = { [weak self] result, secondary in self?.execute(result, secondary: secondary) }
+        searchPanel.willShow = { [weak self] in self?.prepareSearch() }
+
         sidebarModel.start()
         flyoutModel.start()
         panels.start()
+        searchPanel.start()
         applicationMonitor.start()
         windowMonitor.start()
+        applicationIndex.start()
         observeAccessibilityGrant()
+        observeConfiguration()
+        applySearchConfiguration()
+        registerHotKey()
+    }
+
+    // MARK: - Search
+
+    private func prepareSearch() {
+        applicationIndex.ensureBuilt()
+        // Refresh the in-memory window snapshot on open — a user event, not a timer, and the
+        // Window provider must never trigger AX traffic from a keystroke.
+        Task { [windows] in _ = try? await windows.allWindows() }
+    }
+
+    private func execute(_ result: SearchResult, secondary: Bool) {
+        let action = secondary ? (result.secondaryAction ?? result.action) : result.action
+        let movesFocus = actionRunner.run(action)
+        searchPanel.hide(restoreFocus: !movesFocus)
+    }
+
+    private func applySearchConfiguration() {
+        let search = configuration.configuration.search
+        var enabled: Set<SearchProviderID> = []
+        if search.searchApplications { enabled.insert(.application) }
+        if search.searchWindows { enabled.insert(.window) }
+        if search.searchFiles { enabled.insert(.file) }
+        if search.searchActions { enabled.insert(.action) }
+        let maximumResults = search.maximumResults
+        Task { [searchEngine] in
+            await searchEngine.configure(enabled: enabled, maximumResults: maximumResults)
+        }
+    }
+
+    // MARK: - Hotkey
+
+    func registerHotKey() {
+        hotKeys.onPressed = { [weak self] in self?.searchPanel.toggle() }
+        guard configuration.configuration.general.globalShortcutEnabled else {
+            hotKeys.unregister()
+            return
+        }
+        let shortcut = configuration.configuration.search.shortcut
+        if case .failure(let error) = hotKeys.register(shortcut) {
+            Log.system.error("Could not register the global shortcut: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    // MARK: - Observation
+
+    private func observeConfiguration() {
+        let stream = events.events()
+        var lastShortcut = configuration.configuration.search.shortcut
+        var lastEnabled = configuration.configuration.general.globalShortcutEnabled
+        configurationTask = Task { [weak self] in
+            for await event in stream {
+                guard let self else { return }
+                guard case .configurationChanged(let updated) = event else { continue }
+                self.applySearchConfiguration()
+                if updated.search.shortcut != lastShortcut
+                    || updated.general.globalShortcutEnabled != lastEnabled {
+                    lastShortcut = updated.search.shortcut
+                    lastEnabled = updated.general.globalShortcutEnabled
+                    self.registerHotKey()
+                }
+            }
+        }
     }
 
     /// Accessibility can be granted (or revoked) while Nexus is running. Observers are installed
@@ -82,12 +186,17 @@ final class Composition {
 
     func statusItemActions() -> StatusItemController.Actions {
         StatusItemController.Actions(
-            toggleSidebar: { [weak self] in self?.panels.toggleSidebar() }
+            toggleSidebar: { [weak self] in self?.panels.toggleSidebar() },
+            openSearch: { [weak self] in self?.searchPanel.show() }
         )
     }
 
     func shutDown() {
         permissionTask?.cancel()
+        configurationTask?.cancel()
+        hotKeys.stop()
+        searchPanel.stop()
+        applicationIndex.stop()
         windowMonitor.stop()
         applicationMonitor.stop()
         panels.stop()
@@ -95,5 +204,25 @@ final class Composition {
         sidebarModel.stop()
         configuration.flush()
         events.finishAll()
+    }
+
+    // MARK: - Snapshots for the Sendable providers
+
+    nonisolated private static func runningBundleIdentifiers() -> Set<String> {
+        Set(
+            NSWorkspace.shared.runningApplications.compactMap {
+                $0.activationPolicy == .regular ? $0.bundleIdentifier : nil
+            }
+        )
+    }
+
+    nonisolated private static func runningApplicationLabels() -> [(name: String, bundleIdentifier: String)] {
+        NSWorkspace.shared.runningApplications.compactMap { running in
+            guard running.activationPolicy == .regular,
+                  let bundleIdentifier = running.bundleIdentifier,
+                  let name = running.localizedName
+            else { return nil }
+            return (name, bundleIdentifier)
+        }
     }
 }

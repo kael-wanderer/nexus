@@ -1,0 +1,196 @@
+import AppKit
+import NexusCore
+import SwiftUI
+
+/// Unlike the sidebar, the palette *must* take keyboard focus — and give it back.
+public final class SearchPanel: NSPanel {
+    public override var canBecomeKey: Bool { true }
+    public override var canBecomeMain: Bool { false }
+
+    public init(contentView: NSView) {
+        super.init(
+            contentRect: NSRect(x: 0, y: 0, width: SearchPaletteView.width, height: 52),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        level = .floating
+        // .fullScreenAuxiliary is what lets the palette appear over a fullscreen app WITHOUT
+        // switching Spaces — the most noticeable failure mode of a badly built palette.
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        hidesOnDeactivate = false
+        isOpaque = false
+        backgroundColor = .clear
+        isMovableByWindowBackground = false
+        animationBehavior = .none
+        hasShadow = true
+        isReleasedWhenClosed = false
+        self.contentView = contentView
+    }
+}
+
+@MainActor
+public final class SearchPanelController {
+    /// Review Note 1. The non-activating path is strictly better when it works: the frontmost
+    /// application never deactivates, so there is no restore step and no focus flicker. It is
+    /// tried first, and falls back the first time the panel does not actually become key.
+    public enum ActivationStrategy: String, Sendable {
+        case nonActivating
+        case activateAndRestore
+    }
+
+    private let model: SearchViewModel
+    private var panel: SearchPanel?
+    private var hosting: NSView?
+    private var previousApplication: NSRunningApplication?
+    private var digitMonitor: Any?
+    private var verificationTask: Task<Void, Never>?
+
+    public private(set) var strategy: ActivationStrategy = .nonActivating
+    public private(set) var isVisible = false
+    /// Injected so the palette can refresh the window snapshot the moment it opens.
+    public var willShow: (() -> Void)?
+
+    public init(model: SearchViewModel) {
+        self.model = model
+    }
+
+    public func start() {
+        let hostingView = FirstMouseHostingView(rootView: SearchPaletteView(model: model))
+        hosting = hostingView
+        panel = SearchPanel(contentView: hostingView)
+        model.onResultsChanged = { [weak self] in self?.resize() }
+        model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
+    }
+
+    public func stop() {
+        verificationTask?.cancel()
+        removeDigitMonitor()
+        panel?.orderOut(nil)
+        panel = nil
+    }
+
+    public func toggle() {
+        if isVisible { hide(restoreFocus: true) } else { show() }
+    }
+
+    public func show() {
+        guard let panel else { return }
+        willShow?()
+
+        // Capture BEFORE anything can change the frontmost application.
+        previousApplication = NSWorkspace.shared.frontmostApplication
+        model.prepareForDisplay()
+        position(panel)
+
+        if strategy == .activateAndRestore {
+            NSApp.activate()
+        }
+        panel.makeKeyAndOrderFront(nil)
+        focusField(in: panel)
+        installDigitMonitor()
+        isVisible = true
+        resize()
+
+        // Key status does not settle synchronously, so the prototype is measured a beat later:
+        // if a non-activating panel did not actually become key the user cannot type, and the
+        // strategy switches permanently for this session.
+        verificationTask?.cancel()
+        verificationTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled, let self, let panel = self.panel, self.isVisible else { return }
+            Log.search.info(
+                "Palette state: strategy \(self.strategy.rawValue, privacy: .public), key \(panel.isKeyWindow, privacy: .public), app active \(NSApp.isActive, privacy: .public), frontmost \(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none", privacy: .public)"
+            )
+            guard self.strategy == .nonActivating, !panel.isKeyWindow else { return }
+            Log.search.info("Non-activating palette did not become key; switching to activate-and-restore")
+            self.strategy = .activateAndRestore
+            NSApp.activate()
+            panel.makeKeyAndOrderFront(nil)
+            self.focusField(in: panel)
+        }
+    }
+
+    /// `restoreFocus` is false when the executed action activates something else — that target is
+    /// the intended destination.
+    public func hide(restoreFocus: Bool) {
+        guard let panel, isVisible else { return }
+        verificationTask?.cancel()
+        verificationTask = nil
+        removeDigitMonitor()
+        panel.orderOut(nil)
+        isVisible = false
+        model.reset()
+
+        if restoreFocus, strategy == .activateAndRestore {
+            // Explicit reactivation rather than NSApp.hide: `hide` restores whichever app macOS
+            // picks, which is not always the one the user came from.
+            previousApplication?.activate()
+        }
+        previousApplication = nil
+    }
+
+    // MARK: - Geometry
+
+    /// Always on the display containing the pointer, regardless of the sidebar's display —
+    /// that is where the user is looking.
+    private func position(_ panel: SearchPanel) {
+        guard let screen = DisplayService.screenContainingMouse() ?? NSScreen.main else { return }
+        let frame = screen.visibleFrame
+        let size = panel.frame.size
+        panel.setFrameOrigin(
+            NSPoint(
+                x: frame.midX - size.width / 2,
+                y: frame.minY + frame.height * 0.62 - size.height / 2
+            )
+        )
+    }
+
+    private func resize() {
+        guard let panel, let hosting, isVisible else { return }
+        hosting.layoutSubtreeIfNeeded()
+        let height = max(hosting.fittingSize.height, SearchPaletteView.fieldHeight)
+        guard abs(height - panel.frame.height) > 0.5 else { return }
+        // Grow downwards from a stable top edge.
+        let top = panel.frame.maxY
+        panel.setFrame(
+            NSRect(x: panel.frame.minX, y: top - height, width: SearchPaletteView.width, height: height),
+            display: true
+        )
+    }
+
+    private func focusField(in panel: SearchPanel) {
+        guard let field = Self.firstTextField(in: panel.contentView) else { return }
+        panel.makeFirstResponder(field)
+        field.currentEditor()?.selectAll(nil)
+    }
+
+    private static func firstTextField(in view: NSView?) -> NSTextField? {
+        guard let view else { return nil }
+        if let field = view as? NSTextField { return field }
+        for subview in view.subviews {
+            if let found = firstTextField(in: subview) { return found }
+        }
+        return nil
+    }
+
+    // MARK: - ⌘1…⌘9
+
+    private func installDigitMonitor() {
+        removeDigitMonitor()
+        digitMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.isVisible,
+                  event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  let characters = event.charactersIgnoringModifiers,
+                  let digit = Int(characters), (1...9).contains(digit)
+            else { return event }
+            self.model.selectRow(digit - 1)
+            return nil
+        }
+    }
+
+    private func removeDigitMonitor() {
+        if let digitMonitor { NSEvent.removeMonitor(digitMonitor) }
+        digitMonitor = nil
+    }
+}
