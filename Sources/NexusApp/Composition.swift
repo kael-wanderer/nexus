@@ -9,12 +9,14 @@ final class Composition {
     let events = EventBus()
     let configuration: ConfigurationController
     let applications: ApplicationService
+    let applicationMonitor: ApplicationMonitor
     let sidebarModel: SidebarViewModel
     let panels: PanelController
 
     init() {
         configuration = ConfigurationController(store: ConfigurationStore(), events: events)
         applications = ApplicationService()
+        applicationMonitor = ApplicationMonitor(service: applications, events: events)
         sidebarModel = SidebarViewModel(
             applications: applications,
             configuration: configuration,
@@ -31,8 +33,10 @@ final class Composition {
         // Materialise the loaded (or default) configuration so it is inspectable with `defaults`
         // from the first launch onwards.
         configuration.flush()
+        sidebarModel.refreshWindowCounts = { [weak self] in self?.applicationMonitor.refresh() }
         sidebarModel.start()
         panels.start()
+        applicationMonitor.start()
     }
 
     func statusItemActions() -> StatusItemController.Actions {
@@ -42,6 +46,7 @@ final class Composition {
     }
 
     func shutDown() {
+        applicationMonitor.stop()
         panels.stop()
         sidebarModel.stop()
         configuration.flush()

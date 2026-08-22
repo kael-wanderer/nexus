@@ -56,6 +56,9 @@ public final class SidebarViewModel {
     @ObservationIgnored public var showWindows: ((ApplicationIdentity) -> Void)?
     /// Pointer entered or left the sidebar; drives the auto-hide grace timer.
     @ObservationIgnored public var onHoverChange: ((Bool) -> Void)?
+    /// Recomputes window counts. Called when the pointer enters the sidebar, because macOS
+    /// publishes no notification for another application opening a window.
+    @ObservationIgnored public var refreshWindowCounts: (() -> Void)?
 
     public init(
         applications: any ApplicationServing,
@@ -215,6 +218,7 @@ public final class SidebarViewModel {
     /// via `onHoverChange`, the auto-hide grace timer in `PanelController`.
     public func hoverChanged(_ hovering: Bool) {
         setExpanded(hovering)
+        if hovering { refreshWindowCounts?() }
         onHoverChange?(hovering)
     }
 

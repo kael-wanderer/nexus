@@ -72,3 +72,36 @@ to auto-hide the Dock themselves.
 Those need Automation permission and belong to the automation engine (§46, out of scope).
 "Empty Trash" is dropped from the action list for the same reason plus its destructive
 confirmation UX.
+
+---
+
+## 2026-08-22 — Implementation (Milestones 1–7)
+
+**D16. Configuration stays at version 1; no v1→v2 migration was manufactured.**
+`NexusConfiguration` decodes every field with a default, so every schema change made during
+Milestones 1–7 was purely additive and needed no migration. The migration framework
+(`ConfigurationMigration`, ordered application, version bump, quarantine on a missing step) ships
+and is unit-tested with a concrete migration implementation. Inventing a breaking change purely
+to exercise the framework would have been worse code. Rejected: bumping to v2 with a synthetic
+rename.
+
+**D17. `Force Quit` is always present in the sidebar context menu, not revealed "after a
+timeout".** A context menu cannot be re-shown after a quit request times out, and the Dock
+behaves the same way. Nexus never blocks on `terminate()`, so a refusing application (unsaved
+document) cannot hang the sidebar — which is the acceptance criterion the timeout wording was
+protecting.
+
+**D18. Window counts are recomputed on every `NSWorkspace` application event and whenever the
+pointer enters the sidebar.** macOS publishes no notification for another application opening a
+window, and Milestone 3 must require zero permissions. Pointer entry is a user event, not a
+timer, so the no-polling rule holds. Live per-window tracking arrives with the `AXObserver`s at
+Milestone 4. Rejected: a refresh timer.
+
+**D19. The running-but-unpinned section shipped with the sidebar at Milestone 2.**
+It needs no permission and no new code beyond a filter, and an empty sidebar on first launch is a
+poor first impression. Milestone 3 added only the event plumbing that keeps it live.
+
+**D20. `#expect` comparisons keep both sides in `CGFloat`.**
+Swift Testing's macro rewrites its expression into subexpression captures, which defeats Swift's
+implicit `CGFloat`/`Double` conversion: `56.0 == 56.0` fails with identical bit patterns. Test
+code converts explicitly. Production code is unaffected.
