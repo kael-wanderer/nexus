@@ -1,0 +1,142 @@
+import Foundation
+import NexusCore
+import Testing
+
+@testable import NexusUI
+
+@MainActor
+private func makeModel(
+    _ applications: [NexusApplication] = [],
+    pinned: [String] = []
+) -> (SidebarViewModel, FakeApplicationService, ConfigurationController) {
+    let service = FakeApplicationService(applications)
+    var initial = NexusConfiguration()
+    initial.pinnedApplications = pinned
+    let controller = ConfigurationController(
+        store: InMemoryConfigurationStore(initial),
+        events: EventBus(),
+        saveDelay: .zero
+    )
+    let model = SidebarViewModel(
+        applications: service,
+        configuration: controller,
+        events: EventBus()
+    )
+    return (model, service, controller)
+}
+
+@Suite("SidebarViewModel")
+@MainActor
+struct SidebarViewModelTests {
+    @Test("Pinned applications keep their stored order, running-only apps go in their own section")
+    func sections() async {
+        let (model, _, _) = makeModel(
+            [
+                makeApplication("com.apple.Safari", name: "Safari", running: true),
+                makeApplication("com.apple.Terminal", name: "Terminal"),
+                makeApplication("com.apple.Music", name: "Music", running: true),
+            ],
+            pinned: ["com.apple.Terminal", "com.apple.Safari"]
+        )
+        await model.refresh()
+
+        #expect(model.pinned.map(\.id) == ["com.apple.Terminal", "com.apple.Safari"])
+        #expect(model.running.map(\.id) == ["com.apple.Music"])
+        #expect(model.pinned[1].isRunning)
+        #expect(model.pinned[0].isRunning == false)
+    }
+
+    @Test("A pinned application whose bundle has vanished is dropped, not rendered broken")
+    func missingBundle() async {
+        let (model, _, _) = makeModel([], pinned: ["com.example.gone"])
+        await model.refresh()
+        #expect(model.pinned.isEmpty)
+    }
+
+    @Test("Clicking a running application activates it; a stopped one launches")
+    func clickBehaviour() async throws {
+        let (model, service, _) = makeModel(
+            [
+                makeApplication("com.apple.Safari", name: "Safari", running: true),
+                makeApplication("com.apple.Terminal", name: "Terminal"),
+            ],
+            pinned: ["com.apple.Safari", "com.apple.Terminal"]
+        )
+        await model.refresh()
+
+        model.activateOrLaunch(model.pinned[0])
+        model.activateOrLaunch(model.pinned[1])
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(await service.activated == ["com.apple.Safari"])
+        #expect(await service.launched == ["com.apple.Terminal"])
+    }
+
+    @Test("Pin, unpin and reorder all round-trip through the configuration")
+    func pinning() async {
+        let (model, _, configuration) = makeModel(
+            [
+                makeApplication("a", name: "A"),
+                makeApplication("b", name: "B"),
+                makeApplication("c", name: "C"),
+            ],
+            pinned: ["a", "b"]
+        )
+        model.pin("c")
+        #expect(configuration.configuration.pinnedApplications == ["a", "b", "c"])
+
+        model.pin("c")   // idempotent
+        #expect(configuration.configuration.pinnedApplications == ["a", "b", "c"])
+
+        model.movePinned("c", before: "a")
+        #expect(configuration.configuration.pinnedApplications == ["c", "a", "b"])
+
+        model.movePinnedToEnd("c")
+        #expect(configuration.configuration.pinnedApplications == ["a", "b", "c"])
+
+        model.unpin("b")
+        #expect(configuration.configuration.pinnedApplications == ["a", "c"])
+    }
+
+    @Test("A reorder payload that is not a pinned identifier is ignored")
+    func rejectsForeignDragPayload() async {
+        let (model, _, configuration) = makeModel([], pinned: ["a", "b"])
+        model.movePinned("/Users/someone/Downloads/thing.txt", before: "a")
+        model.movePinned("a", before: "not-pinned")
+        model.movePinned("a", before: "a")
+        #expect(configuration.configuration.pinnedApplications == ["a", "b"])
+    }
+
+    @Test("Hover expand is suppressed when the behaviour is disabled")
+    func hoverExpandDisabled() async {
+        let (model, _, configuration) = makeModel()
+        model.hoverChanged(true)
+        #expect(model.isExpanded)
+
+        configuration.update { $0.behavior.hoverExpand = false }
+        model.configurationChanged()
+        model.hoverChanged(true)
+        #expect(model.isExpanded == false)
+    }
+
+    @Test("Section row counts drive the panel height and exclude hidden sections")
+    func sectionRowCounts() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("a", name: "A", running: true), makeApplication("b", name: "B", running: true)],
+            pinned: ["a"]
+        )
+        await model.refresh()
+        #expect(model.sectionRowCounts == [1, 1])
+
+        configuration.update { $0.behavior.showRunningApplications = false }
+        #expect(model.sectionRowCounts == [1])
+    }
+
+    @Test("Only .app bundles are accepted from a Finder drop")
+    func finderDrop() async {
+        let (model, _, configuration) = makeModel()
+        let accepted = model.pinApplications(at: [URL(fileURLWithPath: "/tmp/notes.txt")])
+        #expect(accepted == false)
+        #expect(configuration.configuration.pinnedApplications.isEmpty)
+    }
+}
