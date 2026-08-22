@@ -35,8 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
 
     private func observeConfiguration(_ composition: Composition) {
+        let stream = composition.events.events()
         configurationObserver = Task { [weak self] in
-            for await event in composition.events.events() {
+            for await event in stream {
                 guard case .configurationChanged(let configuration) = event else { continue }
                 self?.statusItem?.setVisible(configuration.general.showInMenuBar)
             }

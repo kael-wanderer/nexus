@@ -74,6 +74,55 @@ public enum SidebarLayout {
         return CGRect(x: hiddenX, y: y, width: size.width, height: height)
     }
 
+    /// Distance from the top of the panel to the centre of one row, so a flyout can be anchored
+    /// to the item that opened it without a SwiftUI measurement round-trip.
+    public static func rowCentreFromTop(
+        sectionRowCounts: [Int],
+        section: Int,
+        row: Int,
+        appearance: AppearanceConfiguration
+    ) -> CGFloat {
+        let sections = sectionRowCounts.filter { $0 > 0 }
+        let rowSize = rowHeight(appearance)
+        let spacing = CGFloat(appearance.iconSpacing)
+        var offset = outerPadding
+
+        for index in 0..<sections.count {
+            if index == section {
+                return offset + CGFloat(row) * (rowSize + spacing) + rowSize / 2
+            }
+            offset += CGFloat(sections[index]) * rowSize
+                + CGFloat(max(0, sections[index] - 1)) * spacing
+                + Design.separatorHeight + separatorSpacing * 2
+        }
+        return offset
+    }
+
+    /// Places a flyout beside the sidebar, anchored on `anchorFromTop` and clamped on screen.
+    public static func flyoutFrame(
+        size: CGSize,
+        beside sidebar: CGRect,
+        anchorFromTop: CGFloat,
+        in visibleFrame: CGRect,
+        position: SidebarPosition
+    ) -> CGRect {
+        let x: CGFloat = switch position {
+        case .left: sidebar.maxX + screenMargin
+        case .right: sidebar.minX - size.width - screenMargin
+        }
+        let anchorY = sidebar.maxY - anchorFromTop
+        let unclampedY = anchorY - size.height / 2
+        let y = min(
+            max(unclampedY, visibleFrame.minY + screenMargin),
+            visibleFrame.maxY - size.height - screenMargin
+        )
+        let clampedX = min(
+            max(x, visibleFrame.minX + screenMargin),
+            visibleFrame.maxX - size.width - screenMargin
+        )
+        return CGRect(x: clampedX, y: y, width: size.width, height: size.height)
+    }
+
     public static func edgeTriggerFrame(
         in visibleFrame: CGRect,
         position: SidebarPosition

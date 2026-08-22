@@ -7,11 +7,16 @@ import SwiftUI
 @MainActor
 public final class PanelController {
     private let model: SidebarViewModel
+    private let flyoutModel: WindowFlyoutViewModel
+    private let permissions: any PermissionChecking
     private let configuration: ConfigurationController
     private let events: EventBus
 
-    private var sidebarPanel: SidebarPanel?
+    private var sidebarPanel: NonActivatingPanel?
     private var edgePanel: EdgeTriggerPanel?
+    private var flyoutPanel: NonActivatingPanel?
+    private var flyoutHosting: NSView?
+    private var flyoutHideTask: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var screenObserver: (any NSObjectProtocol)?
@@ -23,10 +28,14 @@ public final class PanelController {
 
     public init(
         model: SidebarViewModel,
+        flyoutModel: WindowFlyoutViewModel,
+        permissions: any PermissionChecking,
         configuration: ConfigurationController,
         events: EventBus
     ) {
         self.model = model
+        self.flyoutModel = flyoutModel
+        self.permissions = permissions
         self.configuration = configuration
         self.events = events
     }
@@ -37,11 +46,21 @@ public final class PanelController {
         model.layoutDidChange = { [weak self] in self?.reframe(animated: false) }
         model.onHoverChange = { [weak self] hovering in self?.hoverChanged(hovering) }
 
-        let panel = SidebarPanel(contentView: FirstMouseHostingView(rootView: SidebarView(model: model)))
+        let panel = NonActivatingPanel(contentView: FirstMouseHostingView(rootView: SidebarView(model: model)))
         sidebarPanel = panel
 
         let edge = EdgeTriggerPanel { [weak self] in self?.reveal() }
         edgePanel = edge
+
+        model.showWindows = { [weak self] identity in self?.showFlyout(for: identity) }
+        flyoutModel.onDismiss = { [weak self] in self?.hideFlyout() }
+        flyoutModel.onContentChange = { [weak self] in self?.layoutFlyout() }
+        let flyoutHostingView = FirstMouseHostingView(
+            rootView: WindowFlyoutView(model: flyoutModel, permissions: permissions)
+                .onHover { [weak self] hovering in self?.flyoutHoverChanged(hovering) }
+        )
+        flyoutHosting = flyoutHostingView
+        flyoutPanel = NonActivatingPanel(contentView: flyoutHostingView)
 
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -55,8 +74,9 @@ public final class PanelController {
             }
         }
 
-        eventTask = Task { [weak self, events] in
-            for await event in events.events() {
+        let stream = events.events()
+        eventTask = Task { [weak self] in
+            for await event in stream {
                 guard let self else { return }
                 if case .configurationChanged = event { self.applyBehavior() }
             }
@@ -71,10 +91,91 @@ public final class PanelController {
 
     public func stop() {
         hideTask?.cancel()
+        flyoutHideTask?.cancel()
         eventTask?.cancel()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         sidebarPanel?.orderOut(nil)
         edgePanel?.orderOut(nil)
+        flyoutPanel?.orderOut(nil)
+    }
+
+    // MARK: - Window flyout
+
+    private func showFlyout(for identity: ApplicationIdentity) {
+        guard let item = (model.pinned + model.running).first(where: { $0.identity == identity })
+        else { return }
+        flyoutHideTask?.cancel()
+        flyoutModel.show(identity, name: item.name)
+        layoutFlyout()
+        flyoutPanel?.orderFrontRegardless()
+    }
+
+    private func hideFlyout() {
+        flyoutHideTask?.cancel()
+        flyoutHideTask = nil
+        flyoutPanel?.orderOut(nil)
+    }
+
+    private func flyoutHoverChanged(_ hovering: Bool) {
+        if hovering {
+            flyoutHideTask?.cancel()
+            flyoutHideTask = nil
+            return
+        }
+        flyoutHideTask?.cancel()
+        flyoutHideTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            self?.flyoutModel.hide()
+        }
+    }
+
+    /// The flyout's height depends on its content (window count, previews that finish loading,
+    /// the permission screen), so it is measured rather than computed.
+    private func layoutFlyout() {
+        guard let panel = flyoutPanel,
+              let hosting = flyoutHosting,
+              let sidebar = sidebarPanel,
+              let screen = targetScreen,
+              let identity = flyoutModel.target
+        else { return }
+
+        hosting.layoutSubtreeIfNeeded()
+        let size = CGSize(
+            width: WindowFlyoutView.width,
+            height: max(hosting.fittingSize.height, WindowFlyoutView.rowHeight)
+        )
+        panel.setFrame(
+            SidebarLayout.flyoutFrame(
+                size: size,
+                beside: sidebar.frame,
+                anchorFromTop: anchorOffset(for: identity),
+                in: screen.visibleFrame,
+                position: model.appearance.position
+            ),
+            display: true
+        )
+    }
+
+    private func anchorOffset(for identity: ApplicationIdentity) -> CGFloat {
+        let counts = model.sectionRowCounts
+        if let row = model.pinned.firstIndex(where: { $0.identity == identity }) {
+            return SidebarLayout.rowCentreFromTop(
+                sectionRowCounts: counts,
+                section: 0,
+                row: row,
+                appearance: model.appearance
+            )
+        }
+        if let row = model.running.firstIndex(where: { $0.identity == identity }) {
+            return SidebarLayout.rowCentreFromTop(
+                sectionRowCounts: counts,
+                section: model.pinned.isEmpty ? 0 : 1,
+                row: row,
+                appearance: model.appearance
+            )
+        }
+        return (sidebarPanel?.frame.height ?? 0) / 2
     }
 
     public func toggleSidebar() {

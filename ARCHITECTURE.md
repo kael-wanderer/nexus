@@ -149,10 +149,8 @@ enum NexusEvent: Sendable {
     case applicationLaunched(ApplicationIdentity)
     case applicationTerminated(ApplicationIdentity)
     case applicationActivated(ApplicationIdentity)
-    case windowCreated(WindowIdentity)
-    case windowClosed(WindowIdentity)
-    case windowTitleChanged(WindowIdentity, String)
-    case windowFocused(WindowIdentity)
+    case applicationsChanged
+    case windowsChanged(ApplicationIdentity)   // coalesced; consumers re-read (D22)
     case displaysChanged
     case configurationChanged(NexusConfiguration)
     case permissionChanged(Permission, PermissionStatus)
@@ -164,7 +162,7 @@ Sources — all push, zero timers:
 | Event | Source |
 |---|---|
 | application launched / terminated / activated | `NSWorkspace.shared.notificationCenter` |
-| window created / closed / title changed / focused | `AXObserver` per running application |
+| windows changed (coalesced) | `AXObserver` per running application (D22) |
 | displays changed | `NSApplication.didChangeScreenParametersNotification` |
 | configuration changed | `ConfigurationStore` on save |
 | permission changed | polled **only** while a permission screen is on-screen, then stopped |

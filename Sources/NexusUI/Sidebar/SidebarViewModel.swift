@@ -71,8 +71,9 @@ public final class SidebarViewModel {
     }
 
     public func start() {
-        eventTask = Task { [weak self, events] in
-            for await event in events.events() {
+        let stream = events.events()
+        eventTask = Task { [weak self] in
+            for await event in stream {
                 guard let self else { return }
                 switch event {
                 case .configurationChanged:
@@ -80,6 +81,10 @@ public final class SidebarViewModel {
                 case .applicationLaunched, .applicationTerminated, .applicationActivated,
                      .applicationsChanged:
                     await self.refresh()
+                case .windowsChanged:
+                    // Accessibility is granted, so window opens and closes are observable —
+                    // recompute the permission-free counts that drive the badges.
+                    self.refreshWindowCounts?()
                 default:
                     continue
                 }

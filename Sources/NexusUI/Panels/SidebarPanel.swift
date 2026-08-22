@@ -1,8 +1,8 @@
 import AppKit
 
-/// The Dock replacement. Never key, never main — the other application's insertion point is
-/// never disturbed (D3).
-public final class SidebarPanel: NSPanel {
+/// The sidebar and the window flyout. Never key, never main — the other application's
+/// insertion point is never disturbed (D3).
+public final class NonActivatingPanel: NSPanel {
     public override var canBecomeKey: Bool { false }
     public override var canBecomeMain: Bool { false }
 

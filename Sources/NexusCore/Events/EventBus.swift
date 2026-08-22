@@ -5,10 +5,9 @@ public enum NexusEvent: Sendable, Equatable {
     case applicationTerminated(ApplicationIdentity)
     case applicationActivated(ApplicationIdentity)
     case applicationsChanged
-    case windowCreated(WindowIdentity)
-    case windowClosed(WindowIdentity)
-    case windowTitleChanged(WindowIdentity, String)
-    case windowFocused(WindowIdentity)
+    /// One coalesced event per application whose window layer changed — created, closed,
+    /// retitled, minimised or focused. Consumers re-read the authoritative list from
+    /// `WindowService` (D22).
     case windowsChanged(ApplicationIdentity)
     case displaysChanged
     case configurationChanged(NexusConfiguration)

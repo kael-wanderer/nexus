@@ -105,3 +105,33 @@ poor first impression. Milestone 3 added only the event plumbing that keeps it l
 Swift Testing's macro rewrites its expression into subexpression captures, which defeats Swift's
 implicit `CGFloat`/`Double` conversion: `56.0 == 56.0` fails with identical bit patterns. Test
 code converts explicitly. Production code is unaffected.
+
+**D21. The window flyout opens on click or from the context menu, not on hover dwell.**
+`behavior.clickBehavior = .showWindowList` makes a click open it, and "Show Windows" is always in
+a running application's context menu. A hover-dwell trigger would pop a panel open every time the
+pointer crossed the sidebar on its way somewhere else. `ROADMAP.md` says "hover or click";
+this ships the click half and leaves hover unbuilt.
+
+**D22. `AXObserver` callbacks publish one coalesced `.windowsChanged(app)` per application
+instead of per-window created/closed/retitled/focused events.** AX elements are not `Sendable`
+and cannot cross into the event, and consumers re-read authoritative state on wake anyway
+(D12) — so the finer-grained events would have carried no extra information. Bursts are
+coalesced over 80 ms, which matters because `kAXTitleChangedNotification` fires on every
+keystroke in an editor. `NexusEvent.windowCreated/windowClosed/windowTitleChanged/windowFocused`
+were removed rather than left unpublished.
+
+**D23. `EventBus` subscriptions are created synchronously inside `start()`, not inside the
+consuming `Task`.** Creating the stream inside the task dropped every event published before the
+task's first run — a real race, found by a test. Each `start()` now calls `events.events()` on
+the caller's thread and hands the stream to the task.
+
+**D24. The flyout's whole content is gated on `target != nil`.**
+`NSHostingView` evaluates its body when it is constructed, not when its panel is ordered front,
+so the permission screen's `.task` started the 1 Hz poll at launch and never stopped. Gating on
+visibility is what actually enforces D13's "scoped to a visible screen". Measured: 0.00 s of CPU
+over 45 s idle after the fix.
+
+**D25. Only `AXStandardWindow` subroles appear in window lists.**
+Sheets, popovers, palettes and toolbars are AX windows too; listing them would make the flyout
+noise. Windows without an `_AXUIElementGetWindow` id still list and activate under a synthetic
+identifier — only their preview is lost (DESIGN_MVP §3.1).
