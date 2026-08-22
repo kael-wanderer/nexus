@@ -94,7 +94,7 @@ public final class OnboardingViewModel {
             $0.onboarding.completedVersion = NexusConfiguration.currentVersion
         }
         configuration.flush()
-        Log.app.info("Onboarding completed")
+        Log.app.notice("Onboarding completed")
         onFinish?()
     }
 }

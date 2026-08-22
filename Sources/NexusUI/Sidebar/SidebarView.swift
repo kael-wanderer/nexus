@@ -12,6 +12,30 @@ public struct SidebarView: View {
     }
 
     public var body: some View {
+        // The frame is clamped to the screen (SidebarLayout.frame), so with enough running
+        // applications the content is taller than the panel. Scrolling is what keeps the last
+        // rows reachable instead of clipped off the bottom.
+        ScrollView(.vertical) {
+            content
+        }
+        .scrollIndicators(.never)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(VisualEffectBackground())
+        .clipShape(RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous)
+                .strokeBorder(.separator, lineWidth: contrast == .increased ? 1 : 0.5)
+        }
+        .opacity(model.appearance.opacity)
+        .animation(Design.animation(Design.reveal, reduceMotion: reduceMotion), value: model.isExpanded)
+        .onHover { model.hoverChanged($0) }
+        .dropDestination(for: URL.self) { urls, _ in model.pinApplications(at: urls) }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(localized: "Nexus sidebar"))
+    }
+
+    private var content: some View {
         VStack(spacing: SidebarLayout.separatorSpacing) {
             if model.showsPlaceholder {
                 placeholder
@@ -29,19 +53,7 @@ public struct SidebarView: View {
             }
         }
         .padding(SidebarLayout.outerPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(VisualEffectBackground())
-        .clipShape(RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous)
-                .strokeBorder(.separator, lineWidth: contrast == .increased ? 1 : 0.5)
-        }
-        .opacity(model.appearance.opacity)
-        .animation(Design.animation(Design.reveal, reduceMotion: reduceMotion), value: model.isExpanded)
-        .onHover { model.hoverChanged($0) }
-        .dropDestination(for: URL.self) { urls, _ in model.pinApplications(at: urls) }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "Nexus sidebar"))
+        .frame(maxWidth: .infinity)
     }
 
     private func section(_ items: [SidebarItem]) -> some View {

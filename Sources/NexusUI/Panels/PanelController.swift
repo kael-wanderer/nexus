@@ -86,7 +86,7 @@ public final class PanelController {
         reframe(animated: false)
         panel.orderFrontRegardless()
         updateEdgePanel()
-        Log.sidebar.info("Sidebar panel shown")
+        Log.sidebar.notice("Sidebar panel shown")
     }
 
     public func stop() {

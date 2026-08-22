@@ -97,16 +97,27 @@ make clean
 No `.xcodeproj` is checked in (D1) and there are no third-party dependencies. Requires
 macOS 14+ and a Swift 6 toolchain.
 
-Logs:
+Logs. Everything worth diagnosing is logged at `.notice` or `.error`, which macOS persists;
+`.info` and `.debug` are memory-only and are not used for state changes.
 
 ```sh
-log stream --predicate 'subsystem == "com.congbui.nexus"' --level debug --style compact
+make logs        # persisted log, last 30 minutes
+```
+
+`log` is a **shell builtin** in some shells (zsh included) and shadows `/usr/bin/log`, which
+makes `log show …` fail with `too many arguments` or return nothing. Use `make logs`, or the
+absolute path:
+
+```sh
+/usr/bin/log show   --predicate 'subsystem == "com.congbui.nexus"' --last 30m --style compact
+/usr/bin/log stream --predicate 'subsystem == "com.congbui.nexus"' --level debug --style compact
 ```
 
 Configuration is versioned JSON in `UserDefaults`:
 
 ```sh
-defaults read com.congbui.nexus configuration
+defaults export com.congbui.nexus -   # readable dump
+make reset-config                     # wipe settings; next launch runs onboarding
 ```
 
 ## Measured performance

@@ -23,7 +23,7 @@ ifeq ($(strip $(SIGNING_IDENTITY)),)
 SIGNING_IDENTITY := -
 endif
 
-.PHONY: all build release test lint app run stop clean signing-info
+.PHONY: all build release test lint app run stop clean signing-info reset-config logs
 
 all: app
 
@@ -71,6 +71,15 @@ run: stop app
 stop:
 	@pkill -x NexusApp 2>/dev/null || true
 	@sleep 0.3
+
+## Wipe stored settings and start Nexus as if it had never run.
+reset-config:
+	@defaults delete $(BUNDLE_ID) 2>/dev/null || true
+	@echo "Configuration reset. The next launch runs onboarding."
+
+## Nexus's persisted log. `log` is a shell builtin in some shells, hence the absolute path.
+logs:
+	@/usr/bin/log show --predicate 'subsystem == "$(BUNDLE_ID)"' --last 30m --style compact
 
 clean:
 	swift package clean

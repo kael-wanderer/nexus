@@ -31,8 +31,11 @@ public final class ApplicationMonitor {
             self.events.publish(.applicationActivated(identity))
             self.refresh()
         }
+        // Without this the sidebar shows nothing as active until the user switches apps once.
+        let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        Task { [service] in await service.updateActiveApplication(frontmost) }
         refresh()
-        Log.applications.info("Application monitor started")
+        Log.applications.notice("Application monitor started")
     }
 
     public func stop() {

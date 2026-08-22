@@ -29,11 +29,19 @@ struct DisplayServiceTests {
         #expect(DisplayService.screen(matching: identity) === screen)
     }
 
+    @Test("The main preference means the menu-bar display, not whichever screen has focus")
+    func mainIsTheMenuBarScreen() {
+        // NSScreen.main follows the key window, so it wanders onto a second monitor whenever
+        // Settings or onboarding opens there. screens.first is the menu-bar display.
+        #expect(DisplayService.screen(for: .main) === NSScreen.screens.first)
+        #expect(DisplayService.menuBarScreen === NSScreen.screens.first)
+    }
+
     @Test("A disconnected preferred display falls back to the main display")
     func disconnectedFallback() {
         let missing = DisplayPreference.specific("00000000-0000-0000-0000-000000000000")
         #expect(DisplayService.screen(matching: DisplayIdentity(uuid: "00000000-0000-0000-0000-000000000000")) == nil)
-        #expect(DisplayService.screen(for: missing) === (NSScreen.main ?? NSScreen.screens.first))
+        #expect(DisplayService.screen(for: missing) === DisplayService.menuBarScreen)
     }
 
     @Test("Resolving a preference never mutates the stored preference")

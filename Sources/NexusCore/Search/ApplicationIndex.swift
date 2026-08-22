@@ -79,7 +79,7 @@ public final class ApplicationIndex {
             if urls.isEmpty {
                 self.usedFallback = true
                 urls = Self.scanStandardDirectories()
-                Log.search.info("Spotlight returned no applications; scanned \(urls.count, privacy: .public) from standard directories")
+                Log.search.notice("Spotlight returned no applications; scanned \(urls.count, privacy: .public) from standard directories")
             } else {
                 self.usedFallback = false
             }

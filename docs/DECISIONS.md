@@ -296,3 +296,60 @@ Move Up / Move Down / Move to End are now in the context menu, correctly disable
 `.draggable`/`.dropDestination` are left in place and cost nothing; dropping an application from
 Finder onto the sidebar to pin it is unaffected, because that drop target is the container, not
 the row.
+
+---
+
+## 2026-08-22 — User review, round 2
+
+**D45. "The sidebar only shows Calculator" was contaminated test state, not a defect.**
+The stored configuration read `showRunningApplications: false` with
+`pinnedApplications: ["com.apple.calculator"]` and `onboarding.hasCompleted: true` — values a
+round-1 debugging script wrote directly into the real `com.congbui.nexus` defaults domain and
+never cleaned up. The sidebar was rendering that configuration correctly. Proved by clearing it
+and relaunching against 25 running applications: the panel measured 1469 pt, exactly the height
+`SidebarLayout` predicts for 25 running rows plus the search row, so initial population from
+`NSWorkspace.shared.runningApplications` was never broken. Every hypothesis in the report
+(missing initial snapshot, a D23-style dropped-event race, a wrong `activationPolicy` filter,
+accumulate-only-from-launch-events) is disproved by that measurement and by the new
+`SidebarPopulationTests`. **Lesson recorded because the fault was in the process, not the code:
+never write to the product's real defaults domain from a test script.** `make reset-config` now
+exists so this state is one command to undo.
+
+**D46. The sidebar scrolls.** Clearing the contaminated configuration immediately exposed a real
+defect behind it: 25 running applications need 1469 pt on a screen with 1325 pt of usable
+height. `SidebarLayout.frame` clamped the *panel* to the screen but nothing clamped the
+*content*, so the last rows were simply cut off. The row stack now lives in a `ScrollView`.
+Verified: the same 25 applications now produce a 1310 pt panel that fits, with the overflow
+reachable by scrolling. `PanelRowInteraction` (D39) already ignores `.scrollWheel` events, so
+scrolling passes through to SwiftUI untouched.
+
+**D47. "Persisted logging still produces nothing" is a shell collision, not a logging fault.**
+`log` is a **shell builtin** in this environment and shadows `/usr/bin/log`; the user's
+`log show --predicate …` never reached the real binary, failing with
+`(eval):log:8: too many arguments`. Reproduced exactly. With the absolute path, plain
+`log show` (no `--info`, no `--debug`) returns the full trail, confirming that D43's move to
+`.notice` works. `make logs` now wraps the absolute path so nobody has to know this.
+
+**D48. Every remaining `.info` call was raised to `.notice`.**
+D43 raised the action and permission paths but left eight state-change lines behind — monitor
+start, onboarding completion, pin/unpin, Spotlight fallback, display fallback, configuration
+fallback. `os.Logger.info` is memory-only, so those were invisible in exactly the situation they
+are written for. There are now no `.info` calls in the source tree. Added a
+`Sidebar rows: N pinned, M running (showRunningApplications=…)` line on every layout change,
+which is the single line that would have answered this round's report immediately.
+
+**D49. The frontmost application is seeded at monitor start.**
+`ApplicationService.activeBundleIdentifier` was only ever set by
+`didActivateApplicationNotification`, so on a fresh launch no sidebar row showed as active until
+the user switched applications once. `ApplicationMonitor.start()` now seeds it from
+`NSWorkspace.shared.frontmostApplication`.
+
+**D50. `.main` resolves to the menu-bar display, not `NSScreen.main`.**
+Caught live while verifying D46: on a two-display setup the sidebar jumped to the second
+monitor (x = 2568) because the onboarding window had opened there. `NSScreen.main` is
+documented as *"the screen containing the window with keyboard focus"*, so it follows Settings
+or onboarding onto whichever monitor they land on and drags the sidebar along. `DESIGN_MVP.md`
+§8 defines `.main` as "the display with the menu bar", which is `NSScreen.screens.first`.
+Added `DisplayService.menuBarScreen` and routed `.main`, `.withMouse`'s fallback and the
+disconnected-`.specific` fallback through it. Verified: sidebar stays at x = 8 with onboarding
+open on the other display.

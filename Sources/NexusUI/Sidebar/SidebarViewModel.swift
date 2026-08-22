@@ -138,7 +138,12 @@ public final class SidebarViewModel {
         let layoutChanged = resolvedPinned.count != pinned.count || resolvedRunning.count != running.count
         pinned = resolvedPinned
         running = resolvedRunning
-        if layoutChanged { layoutDidChange?() }
+        if layoutChanged {
+            Log.sidebar.notice(
+                "Sidebar rows: \(resolvedPinned.count, privacy: .public) pinned, \(resolvedRunning.count, privacy: .public) running (showRunningApplications=\(self.behavior.showRunningApplications, privacy: .public))"
+            )
+            layoutDidChange?()
+        }
     }
 
     public func configurationChanged() {
@@ -169,12 +174,12 @@ public final class SidebarViewModel {
     public func pin(_ identifier: String) {
         guard !configuration.configuration.pinnedApplications.contains(identifier) else { return }
         configuration.update { $0.pinnedApplications.append(identifier) }
-        Log.sidebar.info("Pinned \(identifier, privacy: .public)")
+        Log.sidebar.notice("Pinned \(identifier, privacy: .public)")
     }
 
     public func unpin(_ identifier: String) {
         configuration.update { $0.pinnedApplications.removeAll { $0 == identifier } }
-        Log.sidebar.info("Unpinned \(identifier, privacy: .public)")
+        Log.sidebar.notice("Unpinned \(identifier, privacy: .public)")
     }
 
     /// Moves `identifier` so it sits immediately before `target`. Both must already be pinned;

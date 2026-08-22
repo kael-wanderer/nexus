@@ -45,6 +45,15 @@ These are load-bearing, not style preferences:
 10. **Privacy in logs.** File paths, window titles and search queries are `.private`. Bundle
     identifiers, counts and error codes are `.public`. Never log file contents or tokens.
 
+## Testing against a real machine
+
+Never write to the `com.congbui.nexus` defaults domain from a script — that is the product's
+real configuration, and leaving debug values behind produces bug reports against code that is
+working correctly (D45). Use `InMemoryConfigurationStore` in tests, and `make reset-config` to
+put a machine back to a clean first-run state.
+
+`log` is a shell builtin in zsh and shadows `/usr/bin/log`. Use `make logs`.
+
 ## Deciding things
 
 If a technical choice is ambiguous, take the simplest native macOS option that preserves

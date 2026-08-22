@@ -55,7 +55,7 @@ public final class ConfigurationStore: ConfigurationStoring {
     public func load() -> NexusConfiguration {
         guard let data = defaults.data(forKey: key) else {
             record(.defaultsNoStoredData)
-            Log.app.info("No stored configuration; using defaults")
+            Log.app.notice("No stored configuration; using defaults")
             return NexusConfiguration()
         }
         do {

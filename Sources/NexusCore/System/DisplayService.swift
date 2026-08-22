@@ -23,14 +23,22 @@ public enum DisplayService {
     public static func screen(for preference: DisplayPreference) -> NSScreen? {
         switch preference {
         case .main:
-            return NSScreen.main ?? NSScreen.screens.first
+            return menuBarScreen
         case .withMouse:
-            return screenContainingMouse() ?? NSScreen.main ?? NSScreen.screens.first
+            return screenContainingMouse() ?? menuBarScreen
         case .specific(let uuid):
             if let match = screen(matching: DisplayIdentity(uuid: uuid)) { return match }
-            Log.system.info("Preferred display is disconnected; falling back to the main display")
-            return NSScreen.main ?? NSScreen.screens.first
+            Log.system.notice("Preferred display is disconnected; falling back to the main display")
+            return menuBarScreen
         }
+    }
+
+    /// `NSScreen.main` is the screen containing the **key window**, not the main display — so it
+    /// follows Settings or onboarding onto a second monitor and drags the sidebar with it.
+    /// `screens.first` is the display with the menu bar, which is what `.main` means here
+    /// (DESIGN_MVP §8).
+    public static var menuBarScreen: NSScreen? {
+        NSScreen.screens.first ?? NSScreen.main
     }
 
     public static func screenContainingMouse() -> NSScreen? {
