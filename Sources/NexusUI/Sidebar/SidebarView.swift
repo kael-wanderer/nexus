@@ -148,14 +148,10 @@ struct SidebarItemView: View {
                 isHovered = hovering
             }
         }
-        .draggable(item.id) {
-            Image(nsImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize))
-        }
-        .dropDestination(for: String.self) { identifiers, _ in
-            guard let dragged = identifiers.first else { return false }
-            model.movePinned(dragged, before: item.id)
-            return true
-        }
+        // ponytail: no drag-to-reorder. A row cannot start a SwiftUI drag here — the panel never
+        // becomes key, so PanelRowInteraction has to claim every mouse-down for the click to work
+        // at all. Reordering is the Move Up / Move Down / Move to End menu items; add an AppKit
+        // dragging session in PanelRowInteraction if dragging is wanted.
         .nexusRow(onClick: { model.activateOrLaunch(item) }, menu: { contextMenuItems() })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
