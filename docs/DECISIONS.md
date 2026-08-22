@@ -142,9 +142,15 @@ Review Note 1. `SearchPanelController` opens with `makeKeyAndOrderFront` and no 
 activate-and-restore for the rest of the session if the panel did not become key. Checking
 `isKeyWindow` synchronously does not work — activation has not settled yet, and an immediate
 check falls back every time. `DESIGN_MVP.md` §2.2 now documents both paths.
-**The empirical result is not yet recorded: the machine's screen was locked
-(`IOConsoleLocked = true`, frontmost `com.apple.loginwindow`) for the whole implementation
-window, which makes key-window semantics meaningless. It is on the MANUAL VERIFICATION list.**
+**Measured 2026-08-22 on an unlocked session: `strategy nonActivating, key true, app active
+true, frontmost com.apple.TextEdit`. Review Note 1 is confirmed — the panel becomes key and
+accepts typing while the frontmost application stays TextEdit, so there is no restore step and
+no focus flicker. Path A is the shipping path.** (`NSApp.isActive` reads `true` because AppKit
+counts owning the key window as active; the number that matters is
+`NSWorkspace.frontmostApplication`, which never changed.) Earlier attempts read
+`key false / frontmost com.apple.loginwindow` purely because the screen was locked, which makes
+key-window semantics meaningless — a locked session is not a valid measurement environment.
+
 
 **D27. The search field is an `NSTextField` behind `NSViewRepresentable`.**
 Review Note 1 predicted this: SwiftUI `TextField` focus is unreliable in a non-activated
@@ -224,3 +230,69 @@ one.
 150-second scripted churn instead.** Six rounds of launching and quitting five applications with
 `ps` sampling in between, which is what can be automated without a human driving Instruments.
 Memory was flat. A real Instruments leak session stays on the MANUAL VERIFICATION list.
+
+---
+
+## 2026-08-22 — User review, round 1
+
+**D39. Clicks inside a panel that can never become key are handled in AppKit, not by SwiftUI's
+`.onTapGesture`.** Root cause of "clicking the sidebar / palette does nothing". A click into a
+non-key window is discarded unless the **view that is actually hit** returns
+`acceptsFirstMouse == true`; overriding it on the `NSHostingView`, as `DESIGN_MVP.md` §2.1
+assumed, is not enough, because the hit view is one of SwiftUI's internal subviews. And because
+the sidebar can *never* become key, every click is a first-mouse click — so the taps did not
+merely fail once, they never worked at all. `PanelRowInteraction` (the former
+`ContextMenuCatcher`) now claims left- and right-press events, returns `acceptsFirstMouse = true`,
+and distinguishes a click from a drag with a 5 pt slop. It is applied to every clickable row in
+a non-key surface: sidebar items, the search row, flyout window rows, and the grant screen's own
+buttons — which is why "Open System Settings" was also dead. Rejected: making the sidebar
+key-capable, which would break the product's central guarantee.
+
+**D40. The palette keeps a selection only once the user has moved it.**
+Root cause of "Enter executes nothing". `apply(_:)` kept any still-present `selectedID`
+unconditionally, so the first provider to answer set row 0 and the merge that followed left the
+selection stranded on a row that was no longer first. Live evidence: for the query `calcul`,
+`results[0]` was Calculator (0.90) while `selectedID` was `window:com.barebones.bbedit#2666`.
+Enter did execute — it raised a background BBEdit window, which looks exactly like nothing
+happening. The rule now matches `DESIGN_MVP.md` §4.1 as written: row 0 is preselected on every
+snapshot **until** the user arrows or clicks. Hover highlights without pinning, because the
+palette opens under the pointer and would otherwise hand Return to whatever row the mouse
+happened to be resting on.
+
+**D41. `make` signs with any stable codesigning identity, not only "Apple Development".**
+Root cause of "the Accessibility grant is not recognised". The lookup matched only
+`"Apple Development"`, found none, and fell back to ad-hoc — and an ad-hoc signature changes
+on every build, so TCC's entry stops matching the running binary and `AXIsProcessTrusted()`
+returns `false` however many times the user flips the switch. Stability is what TCC cares
+about, not the issuer: the detection order is now Apple Development → any valid identity →
+ad-hoc, the variable is `SIGNING_IDENTITY`, and this machine's self-signed
+`"Bugler Local Dev"` is picked up automatically. Verified: `codesign -dv` reports
+`Authority=Bugler Local Dev` and `flags=0x0(none)` instead of `0x2(adhoc)`. `--deep` was dropped
+from the `codesign` call — it is deprecated and there are no nested bundles.
+
+**D42. The grant screen offers a restart once the user has been to System Settings.**
+macOS hands a process its Accessibility trust at launch and does not reliably refresh it for an
+already-running process, so "granted in TCC but not effective here" is a real state with no
+public API to detect it. Rather than guess at TCC's contents, the screen offers the remedy: after
+the user has opened System Settings at least once, an "already switched it on?" note appears with
+a **Restart Nexus** button. `AppRelaunch` opens a replacement instance carrying a
+`NEXUS_RELAUNCHING` environment marker and then terminates; the marker makes the replacement's
+single-instance guard wait for the outgoing process to exit instead of deferring to it.
+
+**D43. Action outcomes, permission transitions and lifecycle events log at `.notice`.**
+Field testing produced no logs at all: `os.Logger.info` and `.debug` are memory-only, so
+`log show` without `--info` returned nothing. Everything a support question needs — launch,
+activate, quit, raise, action dispatch, permission changes, hotkey registration, palette
+activation strategy, cold-start time — is now `.notice` (persisted) or `.error`. `ActionRunner`
+no longer swallows failures with `try?`; every branch logs its error. Privacy annotations are
+unchanged per `ARCHITECTURE.md` §8: bundle identifiers and counts are `.public`, paths stay
+`.private`, and the action label deliberately carries no URL.
+
+**D44. Pinned reorder is available from the context menu.**
+`PanelRowInteraction` claims mouse-down, which is also where a SwiftUI `.draggable` would begin,
+so drag-reorder cannot be relied on in the sidebar. Working clicks matter more than working
+drags, and `DESIGN_MVP.md` §2.1 already listed a manual reorder as the sanctioned fallback.
+Move Up / Move Down / Move to End are now in the context menu, correctly disabled at the ends.
+`.draggable`/`.dropDestination` are left in place and cost nothing; dropping an application from
+Finder onto the sidebar to pin it is unaffected, because that drop target is the container, not
+the row.

@@ -12,7 +12,9 @@ public struct PermissionRequestView: View {
     public let onDismiss: (() -> Void)?
 
     @State private var status: PermissionStatus
-    @State private var pollTask: Task<Void, Never>?
+    /// Set once the user has been sent to System Settings, so the "already granted?" remedy is
+    /// only offered to someone who has actually been there.
+    @State private var didOpenSettings = false
     private let permissions: any PermissionChecking
 
     public init(
@@ -51,6 +53,7 @@ public struct PermissionRequestView: View {
             if status != .granted {
                 HStack(spacing: 8) {
                     FlatActionRow(title: String(localized: "Open System Settings"), prominent: true) {
+                        didOpenSettings = true
                         onGrantTapped()
                     }
                     if let onDismiss {
@@ -58,6 +61,9 @@ public struct PermissionRequestView: View {
                             onDismiss()
                         }
                     }
+                }
+                if didOpenSettings, permission == .accessibility {
+                    alreadyGrantedRemedy
                 }
             }
         }
@@ -70,6 +76,22 @@ public struct PermissionRequestView: View {
         .task {
             for await update in permissions.statusStream(for: permission) {
                 status = update
+            }
+        }
+    }
+
+    /// macOS hands a process its Accessibility trust at launch. If the switch is already on in
+    /// System Settings but this process still reads as untrusted, a restart is the only fix —
+    /// so say so, and offer to do it.
+    private var alreadyGrantedRemedy: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Divider()
+            Text("Already switched it on and Nexus still says no? macOS only hands out this permission when an app starts, so Nexus has to restart to pick it up.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            FlatActionRow(title: String(localized: "Restart Nexus"), prominent: false) {
+                AppRelaunch.relaunch()
             }
         }
     }
@@ -155,7 +177,7 @@ public struct FlatActionRow: View {
                     isHovered = hovering
                 }
             }
-            .onTapGesture(perform: action)
+            .nexusRow(onClick: action)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
             .accessibilityAddTraits(.isButton)

@@ -49,9 +49,14 @@ final class SidebarPanel: NSPanel {
 
 Three consequences of never becoming key, each with a designed answer:
 
-1. **Clicks.** Mouse events reach the window under the cursor whether or not it is key, but the
-   *first* click into a non-key window is normally swallowed. The hosting view overrides
-   `acceptsFirstMouse(for:) -> true`, so every click acts immediately — no click-to-focus step.
+1. **Clicks.** Mouse events reach the window under the cursor whether or not it is key, but a
+   click into a non-key window is swallowed unless the view that is *hit* returns
+   `acceptsFirstMouse(for:) -> true`. Overriding it on the `NSHostingView` is **not** sufficient:
+   the hit view is one of SwiftUI's internal subviews, so SwiftUI's own `.onTapGesture` never
+   fires here — and because this panel can never become key, that is true of every click, not
+   just the first. Clicks are therefore handled by `PanelRowInteraction`, a small
+   `NSViewRepresentable` overlay that claims mouse-press events, returns `acceptsFirstMouse`, and
+   tells a click from a drag with a 5 pt slop (D39).
 
 2. **AppKit controls look inactive.** SwiftUI renders standard controls in their inactive
    appearance in a non-key window. The sidebar therefore uses only custom-drawn rows with our
@@ -128,6 +133,10 @@ application is not active, so the field is an `NSTextField` behind `NSViewRepres
 4. panel.makeKeyAndOrderFront(nil)
 5. focus the text field, select all existing text
 ```
+
+**Measured (2026-08-22, unlocked session): Path A works.** `strategy nonActivating, key true,
+app active true, frontmost com.apple.TextEdit` — the panel becomes key and accepts typing while
+the frontmost application never changes. Path A ships; Path B remains the automatic fallback.
 
 **How the choice is made.** Key status does not settle synchronously, so `SearchPanelController`
 starts on Path A and, 200 ms after the first open, logs

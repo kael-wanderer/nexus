@@ -79,10 +79,7 @@ public struct SearchPaletteView: View {
                             )
                             .id(result.id)
                             .contentShape(Rectangle())
-                            .onTapGesture {
-                                model.select(result)
-                                model.execute(secondary: false)
-                            }
+                            .onTapGesture { model.click(result) }
                             .onHover { if $0 { model.select(result) } }
                         }
                     }

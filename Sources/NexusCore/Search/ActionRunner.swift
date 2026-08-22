@@ -17,41 +17,67 @@ public final class ActionRunner {
     /// previously frontmost application.
     @discardableResult
     public func run(_ action: NexusActionDescriptor) -> Bool {
+        Log.app.notice("Running action \(Self.label(for: action), privacy: .public)")
         switch action {
         case .launchApplication(let bundleIdentifier):
             let identity = ApplicationIdentity(bundleIdentifier: bundleIdentifier)
             Task { [applications] in
-                if NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).isEmpty {
-                    try? await applications.launch(identity)
-                } else {
-                    try? await applications.activate(identity)
+                do {
+                    if NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).isEmpty {
+                        try await applications.launch(identity)
+                    } else {
+                        try await applications.activate(identity)
+                    }
+                } catch {
+                    Log.app.error("Action launchApplication(\(bundleIdentifier, privacy: .public)) failed: \(String(describing: error), privacy: .public)")
                 }
             }
             return true
 
         case .activateWindow(let identity):
-            Task { [windows] in try? await windows.activate(identity) }
+            Task { [windows] in
+                do {
+                    try await windows.activate(identity)
+                } catch {
+                    Log.app.error("Action activateWindow failed: \(String(describing: error), privacy: .public)")
+                }
+            }
             return true
 
-        case .openFile(let url):
-            NSWorkspace.shared.open(url)
-            return true
-
-        case .openURL(let url):
-            NSWorkspace.shared.open(url)
-            return true
+        case .openFile(let url), .openURL(let url):
+            let opened = NSWorkspace.shared.open(url)
+            if !opened {
+                Log.app.error("Action open failed for \(url.path, privacy: .private)")
+            }
+            return opened
 
         case .quitApplication(let bundleIdentifier):
             Task { [applications] in
-                try? await applications.quit(
-                    ApplicationIdentity(bundleIdentifier: bundleIdentifier),
-                    force: false
-                )
+                do {
+                    try await applications.quit(
+                        ApplicationIdentity(bundleIdentifier: bundleIdentifier),
+                        force: false
+                    )
+                } catch {
+                    Log.app.error("Action quitApplication(\(bundleIdentifier, privacy: .public)) failed: \(String(describing: error), privacy: .public)")
+                }
             }
             return false
 
         case .runBuiltInAction(let builtIn):
             return runBuiltIn(builtIn)
+        }
+    }
+
+    /// Public identity only: a file path or URL would leak into a persisted log (§8).
+    private static func label(for action: NexusActionDescriptor) -> String {
+        switch action {
+        case .launchApplication(let id): "launchApplication(\(id))"
+        case .activateWindow(let identity): "activateWindow(\(identity.owner.bundleIdentifier)#\(identity.number))"
+        case .openFile: "openFile"
+        case .openURL: "openURL"
+        case .quitApplication(let id): "quitApplication(\(id))"
+        case .runBuiltInAction(let builtIn): "builtIn(\(builtIn.rawValue))"
         }
     }
 

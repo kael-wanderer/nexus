@@ -91,13 +91,14 @@ public actor ApplicationService: ApplicationServing {
 
     public func launch(_ identity: ApplicationIdentity) async throws {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identity.bundleIdentifier) else {
+            Log.applications.error("Launch failed: LaunchServices knows no \(identity.bundleIdentifier, privacy: .public)")
             throw NexusError.notFound
         }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         do {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-            Log.applications.info("Launched \(identity.bundleIdentifier, privacy: .public)")
+            Log.applications.notice("Launched \(identity.bundleIdentifier, privacy: .public)")
         } catch {
             Log.applications.error(
                 "Launch failed for \(identity.bundleIdentifier, privacy: .public): \(String(describing: error), privacy: .public)"
@@ -108,15 +109,22 @@ public actor ApplicationService: ApplicationServing {
 
     public func activate(_ identity: ApplicationIdentity) async throws {
         let activated = await Self.withRunningApplication(identity) { $0.activate() }
-        guard activated == true else { throw NexusError.targetDisappeared }
+        guard activated == true else {
+            Log.applications.error("Activate failed: \(identity.bundleIdentifier, privacy: .public) is not running")
+            throw NexusError.targetDisappeared
+        }
+        Log.applications.notice("Activated \(identity.bundleIdentifier, privacy: .public)")
     }
 
     public func quit(_ identity: ApplicationIdentity, force: Bool) async throws {
         let quit = await Self.withRunningApplication(identity) { running in
             force ? running.forceTerminate() : running.terminate()
         }
-        guard quit == true else { throw NexusError.targetDisappeared }
-        Log.applications.info(
+        guard quit == true else {
+            Log.applications.error("Quit failed: \(identity.bundleIdentifier, privacy: .public) is not running")
+            throw NexusError.targetDisappeared
+        }
+        Log.applications.notice(
             "Requested \(force ? "force quit" : "quit", privacy: .public) of \(identity.bundleIdentifier, privacy: .public)"
         )
     }

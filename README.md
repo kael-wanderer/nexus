@@ -57,19 +57,25 @@ make run
 `make run` builds `build/Nexus.app`, signs it, and launches it.
 
 **Signing matters.** macOS ties Accessibility and Screen Recording grants to the code
-signature. `make` prefers an "Apple Development" certificate from your keychain and falls back
-to ad-hoc signing — and an ad-hoc signature changes on **every rebuild**, so every permission
-you grant is reset the next time you build. Before you grant anything:
+signature. An ad-hoc signature changes on **every rebuild**, so every permission you grant is
+reset the next time you build — and because TCC's record no longer matches the running binary,
+`AXIsProcessTrusted()` keeps returning false however many times you flip the switch.
 
-1. Open Xcode → Settings → Accounts, sign in with a free Apple ID, and **Manage Certificates →
-   + → Apple Development**.
-2. `make signing-info` should then name that certificate instead of `-`.
-
-Or point it at any stable identity you already have:
+`make` picks an identity automatically: an "Apple Development" certificate if you have one, else
+**any** valid codesigning identity in your keychain, else ad-hoc with a warning. Any stable
+certificate works — TCC cares that the signature does not change, not who issued it.
 
 ```sh
-make app SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)"
+make signing-info                                  # shows what will be used
+make app SIGNING_IDENTITY="My Local Dev"           # or pick one explicitly
 ```
+
+If it reports `-`, create a certificate once: **Keychain Access → Certificate Assistant →
+Create a Certificate…**, type *Code Signing*; or add a free Apple Development certificate in
+Xcode → Settings → Accounts → Manage Certificates.
+
+If Accessibility still reads as denied right after you grant it, use **Restart Nexus** on the
+permission screen — macOS only hands out that permission when a process starts.
 
 ### Hiding the real Dock
 
@@ -109,7 +115,7 @@ Measured on an Apple silicon Mac running macOS 26.6, with 454 applications index
 
 | Metric | Budget | Measured |
 |---|---|---|
-| Cold start (process exec → sidebar on screen) | < 1 s | 702–753 ms warm; 1299 ms on the first launch after a build |
+| Cold start (process exec → sidebar on screen) | < 1 s | 702–753 ms warm; ~1.3 s on the first launch after a build |
 | Idle CPU | ~0 % | 0.00 s of CPU over 45 s idle |
 | CPU under churn | — | 0.90 s over 150 s while 60 applications launched and quit |
 | Resident memory | bounded | 60.1 MB → 60.5 MB over the same churn: flat |

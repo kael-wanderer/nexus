@@ -21,6 +21,14 @@ private func makeOnboarding(
     return (model, configuration)
 }
 
+/// `start()` loads candidates on a detached task; wait for it rather than guessing a delay.
+@MainActor
+private func waitForCandidates(_ model: OnboardingViewModel, _ expected: Int) async {
+    for _ in 0..<200 where model.candidates.count < expected {
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+}
+
 @Suite("Onboarding")
 @MainActor
 struct OnboardingTests {
@@ -86,7 +94,7 @@ struct OnboardingTests {
         ]
         let (model, configuration) = makeOnboarding(running: running)
         model.start()
-        try? await Task.sleep(for: .milliseconds(50))
+        await waitForCandidates(model, 3)
         #expect(model.candidates.count == 3)
 
         model.togglePin("com.c")
@@ -103,7 +111,7 @@ struct OnboardingTests {
             running: [makeApplication("com.a", name: "Alpha", running: true)]
         )
         model.start()
-        try? await Task.sleep(for: .milliseconds(50))
+        await waitForCandidates(model, 1)
         model.togglePin("com.a")
         model.togglePin("com.a")
         model.step = .sidebar

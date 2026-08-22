@@ -24,9 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Log.signposter.endInterval("cold start", state)
         if let elapsed = Log.secondsSinceProcessStart() {
-            Log.app.info("Nexus launched in \(elapsed * 1000, format: .fixed(precision: 0), privacy: .public) ms")
+            Log.app.notice("Nexus launched in \(elapsed * 1000, format: .fixed(precision: 0), privacy: .public) ms")
         } else {
-            Log.app.info("Nexus launched")
+            Log.app.notice("Nexus launched")
         }
 
         // Development hook: opens the search palette without a key press, so the activation
@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         configurationObserver?.cancel()
         composition?.shutDown()
-        Log.app.info("Nexus terminating")
+        Log.app.notice("Nexus terminating")
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }

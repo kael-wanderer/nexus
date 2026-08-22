@@ -18,24 +18,41 @@ final class ClosureMenuItem: NSMenuItem {
     @objc private func fire() { handler() }
 }
 
-/// SwiftUI's `.contextMenu` can activate the hosting application. `NSMenu.popUp` runs its own
-/// event loop from a non-key window and never activates Nexus, which is what the sidebar's
-/// no-focus-theft guarantee requires (DESIGN_MVP §2.1).
-struct ContextMenuCatcher: NSViewRepresentable {
+/// Click and context-menu handling for rows inside a panel that can never become key.
+///
+/// Two AppKit facts make this necessary rather than decorative:
+///
+/// 1. A click into a non-key window is swallowed unless the **view that is hit** returns
+///    `acceptsFirstMouse == true`. Overriding it on the `NSHostingView` is not enough, because
+///    the hit view is one of SwiftUI's internal subviews. The sidebar and the flyout can never
+///    become key, so *every* click is a first-mouse click — meaning SwiftUI's `.onTapGesture`
+///    never fires there at all, not merely on the first click.
+/// 2. SwiftUI's `.contextMenu` can activate the hosting application, which would break the
+///    sidebar's no-focus-theft guarantee. `NSMenu.popUp` runs its own event loop and does not.
+struct PanelRowInteraction: NSViewRepresentable {
+    let onClick: (() -> Void)?
     let items: () -> [NSMenuItem]
 
     func makeNSView(context: Context) -> NSView {
-        CatcherView(items: items)
+        CatcherView(onClick: onClick, items: items)
     }
 
     func updateNSView(_ view: NSView, context: Context) {
-        (view as? CatcherView)?.items = items
+        guard let view = view as? CatcherView else { return }
+        view.onClick = onClick
+        view.items = items
     }
 
     final class CatcherView: NSView {
+        var onClick: (() -> Void)?
         var items: () -> [NSMenuItem]
+        private var mouseDownLocation: NSPoint?
 
-        init(items: @escaping () -> [NSMenuItem]) {
+        /// Squared distance, in points, a press may travel and still count as a click.
+        private static let clickSlopSquared: CGFloat = 25
+
+        init(onClick: (() -> Void)?, items: @escaping () -> [NSMenuItem]) {
+            self.onClick = onClick
             self.items = items
             super.init(frame: .zero)
         }
@@ -43,11 +60,11 @@ struct ContextMenuCatcher: NSViewRepresentable {
         @available(*, unavailable)
         required init?(coder: NSCoder) { fatalError("not supported") }
 
-        /// Transparent to everything except a right click, so the SwiftUI row underneath keeps
-        /// receiving ordinary clicks and hover.
+        /// Claims mouse presses only. Hover, scrolling and drag-and-drop fall through to the
+        /// SwiftUI row underneath, which still owns the highlight and the reorder drop target.
         override func hitTest(_ point: NSPoint) -> NSView? {
             switch NSApp.currentEvent?.type {
-            case .rightMouseDown, .rightMouseUp:
+            case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp:
                 return super.hitTest(point)
             default:
                 return nil
@@ -55,6 +72,19 @@ struct ContextMenuCatcher: NSViewRepresentable {
         }
 
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        override func mouseDown(with event: NSEvent) {
+            mouseDownLocation = event.locationInWindow
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            defer { mouseDownLocation = nil }
+            guard let onClick, let start = mouseDownLocation else { return }
+            let dx = event.locationInWindow.x - start.x
+            let dy = event.locationInWindow.y - start.y
+            guard dx * dx + dy * dy <= Self.clickSlopSquared else { return }
+            onClick()
+        }
 
         override func rightMouseDown(with event: NSEvent) {
             let menu = NSMenu()
@@ -66,8 +96,11 @@ struct ContextMenuCatcher: NSViewRepresentable {
 }
 
 extension View {
-    /// Attaches an AppKit context menu that does not activate the application.
-    func nexusContextMenu(_ items: @escaping () -> [NSMenuItem]) -> some View {
-        overlay(ContextMenuCatcher(items: items))
+    /// Click and context-menu handling that works inside a panel that never becomes key.
+    func nexusRow(
+        onClick: (() -> Void)? = nil,
+        menu: @escaping () -> [NSMenuItem] = { [] }
+    ) -> some View {
+        overlay(PanelRowInteraction(onClick: onClick, items: menu))
     }
 }

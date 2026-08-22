@@ -46,7 +46,7 @@ public final class HotKeyService {
         }
         hotKeyRef = reference
         current = shortcut
-        Log.system.info("Global shortcut registered (key \(shortcut.keyCode, privacy: .public), modifiers \(shortcut.modifiers, privacy: .public))")
+        Log.system.notice("Global shortcut registered (key \(shortcut.keyCode, privacy: .public), modifiers \(shortcut.modifiers, privacy: .public))")
         return .success(())
     }
 

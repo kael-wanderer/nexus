@@ -131,7 +131,7 @@ struct WindowRow: View {
             }
             if hovering { model.requestPreview(for: window) }
         }
-        .onTapGesture { model.activate(window) }
+        .nexusRow(onClick: { model.activate(window) })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(displayTitle)
         .accessibilityValue(

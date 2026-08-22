@@ -33,6 +33,6 @@ public enum LoginItemService {
         } else {
             try SMAppService.mainApp.unregister()
         }
-        Log.system.info("Launch at login set to \(enabled, privacy: .public); state is now \(String(describing: state), privacy: .public)")
+        Log.system.notice("Launch at login set to \(enabled, privacy: .public); state is now \(String(describing: state), privacy: .public)")
     }
 }

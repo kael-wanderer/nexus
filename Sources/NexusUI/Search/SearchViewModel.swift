@@ -99,11 +99,12 @@ public final class SearchViewModel {
 
     private func apply(_ snapshot: SearchSnapshot) {
         results = snapshot.results
-        // File results merge in below the fast categories and must not move the selection.
-        if let selectedID, results.contains(where: { $0.id == selectedID }) {
-            // keep it
-        } else if selectionIsPinned, !results.isEmpty {
-            selectedID = results.first?.id
+        // DESIGN_MVP §4.1: a later snapshot must not move the selection *once the user has
+        // moved it*. Until then row 0 stays preselected on every snapshot — otherwise the first
+        // provider to answer strands the selection on its row 0, and the merge that follows
+        // leaves it pointing at whatever now sits three rows down.
+        if selectionIsPinned, let selectedID, results.contains(where: { $0.id == selectedID }) {
+            // The user chose this one and it survived the merge — leave it alone.
         } else {
             selectedID = results.first?.id
         }
@@ -144,9 +145,17 @@ public final class SearchViewModel {
         selectedID = results[next].id
     }
 
+    /// Hover highlight. Deliberately does **not** pin: the palette opens under the pointer, so
+    /// pinning here would hand Return to whatever row the mouse happened to be resting on.
     public func select(_ result: SearchResult) {
+        selectedID = result.id
+    }
+
+    /// Clicking is an explicit choice, so it pins before executing.
+    public func click(_ result: SearchResult) {
         selectionIsPinned = true
         selectedID = result.id
+        execute(secondary: false)
     }
 
     public func selectRow(_ index: Int) {

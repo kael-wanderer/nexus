@@ -1,8 +1,9 @@
 # Nexus — SwiftPM build + .app assembly + signing (D1)
 #
 # Signing (§111.3): TCC keys Accessibility / Screen Recording grants to the code signature.
-# An ad-hoc signature changes on every build, so every grant resets. Prefer a stable identity.
-# Override with:  make app SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)"
+# An ad-hoc signature changes on every build, so every grant resets. ANY stable identity keeps
+# grants sticky — a self-signed certificate works just as well as an Apple Development one.
+# Override with:  make app SIGNING_IDENTITY="Bugler Local Dev"
 
 CONFIG      ?= debug
 BUILD_DIR   := $(shell swift build -c $(CONFIG) --show-bin-path)
@@ -10,11 +11,16 @@ APP_NAME    := Nexus
 APP         := build/$(APP_NAME).app
 BUNDLE_ID   := com.congbui.nexus
 
-# Auto-detect a stable "Apple Development" certificate; fall back to ad-hoc.
-SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null \
-                   | grep -o '"Apple Development[^"]*"' | head -1 | tr -d '"')
-ifeq ($(strip $(SIGN_IDENTITY)),)
-SIGN_IDENTITY := -
+# Auto-detect, in order: an "Apple Development" certificate, then ANY valid codesigning
+# identity, then ad-hoc. Stability is what matters to TCC, not who issued the certificate.
+SIGNING_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null \
+                      | grep -o '"Apple Development[^"]*"' | head -1 | tr -d '"')
+ifeq ($(strip $(SIGNING_IDENTITY)),)
+SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null \
+                      | grep -oE '"[^"]+"' | head -1 | tr -d '"')
+endif
+ifeq ($(strip $(SIGNING_IDENTITY)),)
+SIGNING_IDENTITY := -
 endif
 
 .PHONY: all build release test lint app run stop clean signing-info
@@ -39,11 +45,12 @@ lint:
 	echo "OK: zero warnings"
 
 signing-info:
-	@echo "SIGN_IDENTITY = $(SIGN_IDENTITY)"
-	@if [ "$(SIGN_IDENTITY)" = "-" ]; then \
+	@echo "SIGNING_IDENTITY = $(SIGNING_IDENTITY)"
+	@if [ "$(SIGNING_IDENTITY)" = "-" ]; then \
 	  echo "WARNING: ad-hoc signing. macOS TCC grants (Accessibility, Screen Recording) will"; \
-	  echo "         reset on every rebuild. Add a free Apple Development certificate in Xcode"; \
-	  echo "         (Settings > Accounts > Manage Certificates) to make grants stick."; \
+	  echo "         reset on every rebuild. Create ANY stable codesigning certificate —"; \
+	  echo "         Keychain Access > Certificate Assistant > Create a Certificate"; \
+	  echo "         (type: Code Signing), or a free Apple Development certificate in Xcode."; \
 	fi
 
 app: build signing-info
@@ -54,7 +61,7 @@ app: build signing-info
 	@if [ -d "$(BUILD_DIR)/Nexus_NexusUI.bundle" ]; then cp -R "$(BUILD_DIR)/Nexus_NexusUI.bundle" $(APP)/Contents/Resources/; fi
 	@if [ -d "$(BUILD_DIR)/Nexus_NexusCore.bundle" ]; then cp -R "$(BUILD_DIR)/Nexus_NexusCore.bundle" $(APP)/Contents/Resources/; fi
 	@printf 'APPL????' > $(APP)/Contents/PkgInfo
-	codesign --force --deep --sign "$(SIGN_IDENTITY)" --identifier $(BUNDLE_ID) $(APP)
+	codesign --force --sign "$(SIGNING_IDENTITY)" --identifier $(BUNDLE_ID) $(APP)
 	@codesign -dv $(APP) 2>&1 | head -5
 	@echo "Built $(APP)"
 

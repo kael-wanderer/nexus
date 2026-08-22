@@ -99,11 +99,11 @@ public final class SearchPanelController {
         verificationTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(200))
             guard !Task.isCancelled, let self, let panel = self.panel, self.isVisible else { return }
-            Log.search.info(
+            Log.search.notice(
                 "Palette state: strategy \(self.strategy.rawValue, privacy: .public), key \(panel.isKeyWindow, privacy: .public), app active \(NSApp.isActive, privacy: .public), frontmost \(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none", privacy: .public)"
             )
             guard self.strategy == .nonActivating, !panel.isKeyWindow else { return }
-            Log.search.info("Non-activating palette did not become key; switching to activate-and-restore")
+            Log.search.notice("Non-activating palette did not become key; switching to activate-and-restore")
             self.strategy = .activateAndRestore
             NSApp.activate()
             panel.makeKeyAndOrderFront(nil)

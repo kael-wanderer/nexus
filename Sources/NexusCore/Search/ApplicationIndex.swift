@@ -84,7 +84,7 @@ public final class ApplicationIndex {
                 self.usedFallback = false
             }
             self.snapshot.write(Self.applications(from: urls))
-            Log.search.info("Application index: \(self.snapshot.read().count, privacy: .public) applications")
+            Log.search.notice("Application index: \(self.snapshot.read().count, privacy: .public) applications")
         }
     }
 

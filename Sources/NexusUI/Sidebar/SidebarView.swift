@@ -136,7 +136,6 @@ struct SidebarItemView: View {
                 isHovered = hovering
             }
         }
-        .onTapGesture { model.activateOrLaunch(item) }
         .draggable(item.id) {
             Image(nsImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize))
         }
@@ -145,7 +144,7 @@ struct SidebarItemView: View {
             model.movePinned(dragged, before: item.id)
             return true
         }
-        .nexusContextMenu { contextMenuItems() }
+        .nexusRow(onClick: { model.activateOrLaunch(item) }, menu: { contextMenuItems() })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
         .accessibilityValue(accessibilityValue)
@@ -196,6 +195,16 @@ struct SidebarItemView: View {
         items.append(.separator())
         if item.isPinned {
             items.append(ClosureMenuItem(title: String(localized: "Unpin")) { model.unpin(item.id) })
+            items.append(
+                ClosureMenuItem(title: String(localized: "Move Up"), isEnabled: model.canMovePinned(item.id, by: -1)) {
+                    model.movePinned(item.id, by: -1)
+                }
+            )
+            items.append(
+                ClosureMenuItem(title: String(localized: "Move Down"), isEnabled: model.canMovePinned(item.id, by: 1)) {
+                    model.movePinned(item.id, by: 1)
+                }
+            )
             items.append(
                 ClosureMenuItem(title: String(localized: "Move to End")) {
                     model.movePinnedToEnd(item.id)
@@ -256,7 +265,7 @@ struct SidebarGlyphRow: View {
                 isHovered = hovering
             }
         }
-        .onTapGesture(perform: action)
+        .nexusRow(onClick: action)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityHint(hint)

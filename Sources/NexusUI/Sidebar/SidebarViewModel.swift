@@ -191,6 +191,24 @@ public final class SidebarViewModel {
         configuration.update { $0.pinnedApplications = order }
     }
 
+    /// Reorder by one slot. Drag inside a non-activating panel is unreliable, so the context
+    /// menu is the path that is guaranteed to work.
+    public func canMovePinned(_ identifier: String, by delta: Int) -> Bool {
+        let order = configuration.configuration.pinnedApplications
+        guard let index = order.firstIndex(of: identifier) else { return false }
+        return order.indices.contains(index + delta)
+    }
+
+    public func movePinned(_ identifier: String, by delta: Int) {
+        var order = configuration.configuration.pinnedApplications
+        guard let index = order.firstIndex(of: identifier),
+              order.indices.contains(index + delta)
+        else { return }
+        order.remove(at: index)
+        order.insert(identifier, at: index + delta)
+        configuration.update { $0.pinnedApplications = order }
+    }
+
     public func movePinnedToEnd(_ identifier: String) {
         var order = configuration.configuration.pinnedApplications
         guard let from = order.firstIndex(of: identifier) else { return }

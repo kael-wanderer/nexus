@@ -53,7 +53,7 @@ public final class WindowMonitor {
     /// moment it is granted.
     public func start() {
         guard AX.isTrusted else {
-            Log.windows.info("Accessibility not granted; window observers not installed")
+            Log.windows.notice("Accessibility not granted; window observers not installed")
             return
         }
         guard !isRunning else { return }
@@ -78,7 +78,7 @@ public final class WindowMonitor {
                 }
             }
         }
-        Log.windows.info("Window observers installed for \(self.registrations.count, privacy: .public) applications")
+        Log.windows.notice("Window observers installed for \(self.registrations.count, privacy: .public) applications")
     }
 
     public func stop() {

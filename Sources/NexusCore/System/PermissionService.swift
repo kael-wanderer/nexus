@@ -34,7 +34,7 @@ public final class PermissionService: PermissionChecking, Sendable {
 
     public func openSettings(for permission: Permission) {
         guard let url = URL(string: Self.settingsURL(for: permission)) else { return }
-        Log.permissions.info("Opening System Settings for \(permission.rawValue, privacy: .public)")
+        Log.permissions.notice("Opening System Settings for \(permission.rawValue, privacy: .public)")
         NSWorkspace.shared.open(url)
     }
 

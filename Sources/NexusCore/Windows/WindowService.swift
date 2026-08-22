@@ -43,7 +43,7 @@ public actor WindowService: WindowServing {
                 elements.removeAll()
                 snapshot.removeAll()
                 unresponsive.removeAll()
-                Log.windows.info("Accessibility was revoked while running; window features degraded")
+                Log.windows.notice("Accessibility was revoked while running; window features degraded")
             }
             events?.publish(.permissionChanged(.accessibility, trusted ? .granted : .denied))
         }
@@ -143,10 +143,12 @@ public actor WindowService: WindowServing {
     public func activate(_ window: WindowIdentity) throws {
         guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
         guard let element = elements[window.owner]?[window.number] else {
+            Log.windows.error("Activate failed: window \(window.number, privacy: .public) of \(window.owner.bundleIdentifier, privacy: .public) is no longer known")
             throw NexusError.targetDisappeared
         }
         AX.set(element, kAXMinimizedAttribute, false as CFBoolean)
-        AX.perform(element, kAXRaiseAction)
+        let raised = AX.perform(element, kAXRaiseAction)
+        Log.windows.notice("Raise \(raised ? "succeeded" : "failed", privacy: .public) for window \(window.number, privacy: .public) of \(window.owner.bundleIdentifier, privacy: .public)")
         let identity = window.owner
         Task { @MainActor in
             NSRunningApplication

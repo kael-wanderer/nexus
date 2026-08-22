@@ -233,7 +233,7 @@ final class Composition {
                     self.windowMonitor.start()
                 case .denied, .notDetermined:
                     self.windowMonitor.stop()
-                    Log.permissions.info("Accessibility not granted; window features degraded")
+                    Log.permissions.notice("Accessibility not granted; window features degraded")
                 }
             }
         }
