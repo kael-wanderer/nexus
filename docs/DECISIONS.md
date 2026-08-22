@@ -195,3 +195,32 @@ D13's single poll stays single.
 One key-path binding helper means every control goes through the same debounced, clamped,
 event-publishing path, so "applies live" and "persists" are properties of the plumbing rather
 than of each control.
+
+**D35. Measured performance, recorded rather than estimated (§68: measure before optimising).**
+Cold start 702–753 ms warm and 1299 ms on the first launch after a build, from process exec to
+the sidebar being on screen — read from the kernel's process start time, so dyld and runtime
+setup are included. Idle CPU 0.00 s over 45 s. Under churn (60 application launches and quits
+over 150 s) CPU totalled 0.90 s and resident memory moved from 60.1 MB to 60.5 MB. The
+< 50 ms application-and-window search budget is asserted by a test over the real 454-application
+index. The first launch after a build exceeds the 1 s cold-start budget because nothing is in
+the page cache; every subsequent launch is comfortably inside it. No optimisation was done,
+because nothing measured badly.
+
+**D36. The sidebar gets VoiceOver navigation, not arrow-key navigation.**
+`ROADMAP.md` Milestone 7 asks for "full keyboard navigation of the sidebar", but the sidebar
+panel can never become key (D3) — that is the guarantee the whole product rests on. VoiceOver
+drives it through the accessibility element tree, which needs no key status, and every row
+carries a label, a value ("running, 3 windows") and a hint. Keyboard-driven work goes through
+the search palette, which is the keyboard surface, exactly as `DESIGN_MVP.md` §2.1 anticipated.
+
+**D37. Accessibility revocation is detected on the next AX call, not by polling.**
+`WindowService` re-checks `AXIsProcessTrusted()` on every entry point and publishes
+`.permissionChanged(.accessibility, .denied)` on the transition, clearing its caches. The flyout
+then reloads, which empties the stale window list and shows the explain-and-grant screen. No
+timer was added: the only moment a stale window list can mislead the user is when they ask for
+one.
+
+**D38. The 30-minute Instruments session in the Milestone 7 acceptance criteria was run as a
+150-second scripted churn instead.** Six rounds of launching and quitting five applications with
+`ps` sampling in between, which is what can be automated without a human driving Instruments.
+Memory was flat. A real Instruments leak session stays on the MANUAL VERIFICATION list.

@@ -14,7 +14,7 @@ public final class ApplicationIndexSnapshot: Sendable {
         return applications
     }
 
-    func write(_ applications: [NexusApplication]) {
+    public func write(_ applications: [NexusApplication]) {
         lock.lock()
         self.applications = applications
         lock.unlock()

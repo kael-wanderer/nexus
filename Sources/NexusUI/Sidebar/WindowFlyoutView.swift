@@ -10,6 +10,8 @@ public struct WindowFlyoutView: View {
     public static let headerHeight: CGFloat = 26
     public static let previewHeight: CGFloat = 96
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     public init(model: WindowFlyoutViewModel, permissions: any PermissionChecking) {
         self.model = model
         self.permissions = permissions
@@ -56,7 +58,7 @@ public struct WindowFlyoutView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.separator, lineWidth: 0.5)
+                .strokeBorder(.separator, lineWidth: contrast == .increased ? 1 : 0.5)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Windows of \(model.applicationName)"))

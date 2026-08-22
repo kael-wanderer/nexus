@@ -17,4 +17,16 @@ public enum Log {
 
     /// Latency budgets (§68) are measured with signposts, not log lines.
     public static let signposter = OSSignposter(subsystem: subsystem, category: "Performance")
+
+    /// Seconds since this process was exec'd, read from the kernel so the number includes dyld
+    /// and runtime setup — the honest "cold start" the user experiences.
+    public static func secondsSinceProcessStart() -> Double? {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, ProcessInfo.processInfo.processIdentifier]
+        guard sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0 else { return nil }
+        let started = Double(info.kp_proc.p_starttime.tv_sec)
+            + Double(info.kp_proc.p_starttime.tv_usec) / 1_000_000
+        return Date().timeIntervalSince1970 - started
+    }
 }

@@ -4,6 +4,7 @@ import SwiftUI
 
 public struct SearchPaletteView: View {
     @Bindable var model: SearchViewModel
+    @Environment(\.colorSchemeContrast) private var contrast
 
     public static let width: CGFloat = 640
     public static let fieldHeight: CGFloat = 52
@@ -28,7 +29,7 @@ public struct SearchPaletteView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.separator, lineWidth: 0.5)
+                .strokeBorder(.separator, lineWidth: contrast == .increased ? 1 : 0.5)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Nexus search"))

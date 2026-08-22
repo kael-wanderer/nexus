@@ -21,10 +21,34 @@ public actor WindowService: WindowServing {
     private var unresponsive: Set<ApplicationIdentity> = []
     /// Last good enumeration, so search can read window titles without an AX round trip.
     private var snapshot: [ApplicationIdentity: [NexusWindow]] = [:]
+    /// Revocation is only observable when a call is made — macOS publishes no TCC notification
+    /// and Nexus does not poll (D13). The transition is detected here and announced once.
+    private var wasTrusted = AX.isTrusted
+    private let events: EventBus?
 
-    public init() {}
+    public init(events: EventBus? = nil) {
+        self.events = events
+    }
 
     public var isTrusted: Bool { AX.isTrusted }
+
+    /// Returns whether Accessibility is currently granted, publishing a `.permissionChanged`
+    /// the first time it flips either way.
+    @discardableResult
+    private func checkTrust() -> Bool {
+        let trusted = AX.isTrusted
+        if trusted != wasTrusted {
+            wasTrusted = trusted
+            if !trusted {
+                elements.removeAll()
+                snapshot.removeAll()
+                unresponsive.removeAll()
+                Log.windows.info("Accessibility was revoked while running; window features degraded")
+            }
+            events?.publish(.permissionChanged(.accessibility, trusted ? .granted : .denied))
+        }
+        return trusted
+    }
 
     /// The whole window layer as last enumerated. Used by the search Window provider, which must
     /// stay in-memory fast (< 50 ms) and must never trigger AX traffic from a keystroke.
@@ -39,7 +63,7 @@ public actor WindowService: WindowServing {
     }
 
     public func windows(for application: ApplicationIdentity) throws -> [NexusWindow] {
-        guard AX.isTrusted else { throw NexusError.permissionDenied(.accessibility) }
+        guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
         guard let pid = application.processIdentifier ?? Self.processIdentifier(for: application) else {
             throw NexusError.targetDisappeared
         }
@@ -55,6 +79,9 @@ public actor WindowService: WindowServing {
             unresponsive.insert(application)
             Log.windows.debug("\(application.bundleIdentifier, privacy: .public) did not answer in time; skipping")
             return snapshot[application] ?? []
+        } catch NexusError.permissionDenied {
+            checkTrust()
+            throw NexusError.permissionDenied(.accessibility)
         } catch NexusError.targetDisappeared {
             forget(application)
             return []
@@ -103,7 +130,7 @@ public actor WindowService: WindowServing {
     }
 
     public func allWindows() throws -> [NexusWindow] {
-        guard AX.isTrusted else { throw NexusError.permissionDenied(.accessibility) }
+        guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
         var all: [NexusWindow] = []
         for application in Self.regularApplications() {
             all.append(contentsOf: (try? windows(for: application)) ?? [])
@@ -114,7 +141,7 @@ public actor WindowService: WindowServing {
     /// Raise before activating, or the application comes forward showing its previous window
     /// (DESIGN_MVP §3.2).
     public func activate(_ window: WindowIdentity) throws {
-        guard AX.isTrusted else { throw NexusError.permissionDenied(.accessibility) }
+        guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
         guard let element = elements[window.owner]?[window.number] else {
             throw NexusError.targetDisappeared
         }

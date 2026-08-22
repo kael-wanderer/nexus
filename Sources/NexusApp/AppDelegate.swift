@@ -22,8 +22,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         composition.start()
         observeConfiguration(composition)
 
-        Log.app.info("Nexus launched")
         Log.signposter.endInterval("cold start", state)
+        if let elapsed = Log.secondsSinceProcessStart() {
+            Log.app.info("Nexus launched in \(elapsed * 1000, format: .fixed(precision: 0), privacy: .public) ms")
+        } else {
+            Log.app.info("Nexus launched")
+        }
 
         // Development hook: opens the search palette without a key press, so the activation
         // strategy (review Note 1) can be measured from a script.

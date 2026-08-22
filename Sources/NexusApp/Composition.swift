@@ -36,7 +36,7 @@ final class Composition {
         permissions = PermissionService(events: events)
         applications = ApplicationService()
         applicationMonitor = ApplicationMonitor(service: applications, events: events)
-        windows = WindowService()
+        windows = WindowService(events: events)
         windowMonitor = WindowMonitor(service: windows, events: events)
         previews = WindowPreviewService()
         applicationIndex = ApplicationIndex(events: events)

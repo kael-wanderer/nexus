@@ -46,12 +46,17 @@ public final class WindowFlyoutViewModel {
                 guard let self else { return }
                 switch event {
                 case .windowsChanged(let identity) where identity == self.target:
+                    // A window that changed is a preview that is now wrong.
+                    self.previews.removeAll()
                     await self.reload()
                 case .applicationTerminated(let identity) where identity == self.target:
                     self.hide()
                 case .permissionChanged(.accessibility, let status):
                     self.accessibility = status
-                    if status == .granted { await self.reload() }
+                    self.previews.removeAll()
+                    // reload() clears the list when the permission is gone, so a revocation
+                    // never leaves stale windows on screen behind the grant prompt.
+                    await self.reload()
                 default:
                     continue
                 }
