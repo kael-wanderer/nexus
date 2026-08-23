@@ -85,6 +85,10 @@ this project follows [Semantic Versioning](https://semver.org).
   title). A left or right bar stays compact unless hover has expanded it, because a 56 pt scrubber
   cannot be dragged (D82).
 
+### Changed
+- The Definition of Done (§33) walkthrough is recorded in `docs/verification.md`, including the
+  30-minute leak soak and the one item that still needs hardware: multi-monitor reconnect.
+
 ### Fixed
 - VoiceOver can now press what it reads (D88): every row adds an accessibility action beside its
   traits, because a panel that cannot become key has no SwiftUI `Button` to inherit one from.

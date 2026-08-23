@@ -178,7 +178,9 @@ declining both leaves a fully usable launcher.
 **Permissions:** none new; revocation of any permission must degrade, not crash.
 
 **Acceptance criteria**
-- Definition of Done (§33) walkthrough passes end to end on a clean machine.
+- Definition of Done (§33) walkthrough passes end to end on a clean machine. **Walked 2026-08-23:
+  everything passes except multi-monitor, which needs a second display; see
+  `docs/verification.md`.**
 - Instruments: no leaks, no unbounded growth over a 30-minute session with heavy app churn.
 - VoiceOver can drive the sidebar and the search palette without the mouse.
 - Revoking Accessibility while running degrades to Milestone 3 behaviour with a clear notice.

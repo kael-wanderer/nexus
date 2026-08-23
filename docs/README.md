@@ -7,6 +7,7 @@
 | [`../ROADMAP.md`](../ROADMAP.md) | What is built and what is next, by milestone. Schedule, not design. |
 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) | The shape of the codebase: targets, layers, what may depend on what. |
 | [`../FEATURES.md`](../FEATURES.md) | The feature list with its permission for each, as a table. |
+| [`verification.md`](verification.md) | What has been checked against a running, installed Nexus, and what has not — including the Definition of Done walkthrough. |
 
 ## Where a new document goes
 
