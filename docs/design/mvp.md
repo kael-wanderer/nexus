@@ -9,7 +9,7 @@ module map and cross-cutting rules.
 
 Agent application: `LSUIElement = true`, `NSApplication.activationPolicy = .accessory`.
 No Dock tile, no menu bar of its own. The only always-visible surfaces are the sidebar panel
-and a menu-bar status item (open Settings, show or hide the bar, quit).
+and a menu-bar status item (search, show or hide the bar, open Settings, restore the Dock, quit).
 
 `.accessory` (not `.prohibited`) because the search palette must be able to become key, and a
 `.prohibited` app cannot activate.
@@ -374,6 +374,12 @@ step for the user and says so plainly.
 
 ## 6. Settings schema v1
 
+> Version 1, as designed for the MVP, kept here for the shape of it. The stored schema is at
+> **version 5** now: `pinnedApplications` became `pinnedEntries` — applications, groups (M13) and
+> folders (M21) — `perDisplay` was deleted unused, and each milestone since has added its own keys.
+> `Sources/NexusCore/Configuration/NexusConfiguration.swift` is the current one, and the migrations
+> that get from here to there are in `ConfigurationStore.swift`.
+
 ```swift
 struct NexusConfiguration: Codable, Sendable, Equatable {
     static let currentVersion = 1
@@ -514,9 +520,11 @@ Settings.
 **Search palette** always opens on the display containing `NSEvent.mouseLocation`, regardless
 of the sidebar's display. That is where the user is looking.
 
-**Per-display configuration** is structural only in the MVP: `appearance.perDisplay` exists,
-holds at most one entry, and has no UI. Milestone 7 verifies the reconnect behaviour; the
-independent-instance-per-display vision (§14) is deliberately unbuilt but unblocked.
+**Per-display configuration** was structural only — `appearance.perDisplay`, no UI, no reader —
+and has since been deleted. Milestone 20 answered the real question a second monitor asks with
+`DisplayPreference.everyDisplay`: a bar per screen, all on the same model, same edge everywhere
+(`design/multi-display.md`). A per-display *edge* is still unbuilt, and now unstubbed too: the seam
+to reopen is `DisplayPreference`, not a dictionary nobody read (D102's neighbour in `git log`).
 
 ---
 

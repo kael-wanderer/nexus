@@ -37,6 +37,13 @@ section, so the separator the bar already puts between sections falls between th
 six kinds of thing, and the zone maths counts one separator per fixed section rather than one for
 the tail as a whole (D77).
 
+## Thickness: the icons decide, not the number
+
+`appearance.width` is the **vertical** bar's measurement. A horizontal bar's thickness is computed
+from the icon size instead — the icon, its padding, and the running dot drawn under it — and the
+configured width only wins when it is larger than that. Using `width` on its side is what put a
+64 pt icon in a 64 pt bar and cut its feet off, dots first (D102).
+
 ## Budgets: the screen decides, not a number
 
 The bar grows until it runs out of edge, and only then scrolls. What "runs out" means is measured,

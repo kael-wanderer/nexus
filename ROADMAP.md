@@ -467,7 +467,8 @@ Spec: `docs/design/multi-display.md`.
 
 ## Milestone 21 — Folder stacks  ← post-MVP
 
-**Shipped** 2026-08-23.
+**Shipped** 2026-08-23, verified on the running app — the drop needed an AppKit target before it
+worked at all (D39's lesson again).
 
 **Scope**
 - `DockEntry` gains `.folder(path)`: a folder is a slot in the dock like an application or a group.
@@ -494,7 +495,8 @@ Spec: `docs/design/folder-stacks.md`.
 
 ## Milestone 22 — Minimized windows  ← post-MVP
 
-**Shipped** 2026-08-23 (live pass pending: the machine's Accessibility and Screen Recording grants were being changed).
+**Shipped** 2026-08-23, verified on the running app — the section was empty until D100, because a
+minimized window stops calling itself a standard window.
 
 **Scope**
 - A fourth part of the fixed tail, before Trash: the windows that have been minimized, newest
@@ -517,7 +519,8 @@ Spec: `docs/design/minimized-windows.md`.
 
 ## Milestone 23 — Keyboard control of the bar  ← post-MVP
 
-**Shipped** 2026-08-23 (live pass pending, with M21 and M22).
+**Shipped** 2026-08-23, verified on the running app — and it took two fixes to work outside the
+tests: `⌃F3` is owned by macOS, and keys have to be handled by the panel (D101).
 
 **Scope**
 - `⌃⌥Space` puts the keyboard on the bar (`⌃F3`, macOS's own Dock shortcut, is eaten by the
@@ -538,3 +541,25 @@ Spec: `docs/design/minimized-windows.md`.
 - With the setting off, `⌃⌥Space` does nothing.
 
 Spec: `docs/design/keyboard-navigation.md`.
+
+## After Milestone 23
+
+Not a milestone, but shipped alongside the polish round that followed it:
+
+- **Packaging.** `make dmg` and `make zip` build a signed release copy for another Mac, versioned
+  from the bundle's own `Info.plist`. Not notarised: that needs a paid Developer ID.
+- **Settings, re-cut.** Eight panes — Dock is where the bar is, the new Bar pane is what it shows,
+  Appearance is how it looks — in a window sized for the longest one, and an About pane with the
+  version, the author and a Copy Version Details button.
+- **Editing a group in its popover**: the title renames, a badge on each member removes it.
+- **A horizontal bar sizes its own thickness** to the icons it holds (D102).
+
+## What is not built, and why
+
+- **Per-display edge and width.** Deleted rather than left half-built: multi-display shipped with
+  one edge everywhere, which is what was asked for (see `git log` for `DisplayOverride`).
+- **Typing directly into the bar.** Impossible as designed — the panel can never take focus while
+  it is a bar (D3). The box in the bar opens the palette beside itself instead (D90).
+- **Notarisation.** Needs a paid Developer ID.
+- **Drill-down inside a folder stack, and pagination inside a group.** Both would add a navigation
+  stack to a panel that cannot take focus, to save one click to Finder.

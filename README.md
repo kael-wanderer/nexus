@@ -6,7 +6,8 @@ A native macOS vertical dock and a unified search palette in one agent applicati
 in the menu bar, never takes focus away from what you are typing in, and never changes a single
 system setting on your behalf.
 
-> Status: MVP (Milestones 1–7 complete). Local builds only — see [Installation](#installation).
+> Status: Milestones 1–23 shipped — the MVP and sixteen milestones past it. Local builds only —
+> see [Installation](#installation).
 
 ---
 
@@ -21,7 +22,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 
 | | |
 |---|---|
-| **Sidebar on any edge** | Left, right, top or bottom, configurable width, icon size, spacing, corner radius and opacity. Auto-hide with an edge-hover reveal, or always visible. |
+| **Sidebar on any edge** | Left, right, top or bottom, configurable width, icon size, spacing, corner radius and opacity. A horizontal bar sizes its own thickness to the icons it holds. Auto-hide with an edge-hover reveal, or always visible. |
 | **Applications** | Pin, unpin, reorder by dragging one icon onto another, launch, activate, quit and force quit. Running indicator and per-app window count. |
 | **Windows** | An application's windows are in its context menu, frontmost ticked. Hovering an icon opens a flyout with live titles and optional thumbnails; **Show All Windows** opens the same flyout from the menu. *(Accessibility)* |
 | **Trash** | Always in the bar, before Search, with the macOS Trash icon showing full or empty. Click opens it; the context menu empties it, after asking. |
@@ -29,14 +30,15 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Media player** | Optional: artwork, track name, ⏮ ⏯ ⏭ and a draggable timeline, all in the bar — nothing to hover, nothing to open. *(Timeline for Music, Spotify and VLC.)* |
 | **Now playing** | Optional: the track and transport controls in the bar, for any player — Music and Spotify publish theirs, and everything else is named by its window. *(Accessibility for the latter)* |
 | **Always in reach** | Trash and Search sit in a zone that never scrolls. The applications between them fill the edge — as many rows as the screen holds — and scroll only once it is full. |
-| **Groups** | Drag one icon onto another and hold to make a folder. Auto-named from the applications' own category, renameable, 9 or 16 per group. |
+| **Groups** | Drag one icon onto another and hold to make a folder. Auto-named from the applications' own category — or after its members, when they declare none — renameable from the popover's title, 9 or 16 per group. Hovering a member shows a badge that takes it out. |
 | **Keyboard control** | `⌃⌥Space` puts the keyboard on the bar — arrows walk it, Return opens, Escape gives it straight back. The bar takes focus only while you ask it to. |
 | **Minimized windows** | The windows you minimise get rows of their own before the Trash — newest first, at most three — and a click puts one back. *(Accessibility)* |
 | **Folder stacks** | Drag a folder from Finder onto the bar. Clicking it shows what is inside on a grid — folders first, a file opens in its own application, a subfolder opens in Finder. |
+| **Multiple displays** | One bar on the main display, one that follows the pointer, or one on every monitor — each on every Space of its own screen. Flyouts and popovers open beside the bar the pointer is on. |
 | **Reserved space** | Optional: windows that overlap the bar are moved off it, full-screen windows left alone. *(Accessibility)* |
 | **Search** | A command palette on a global shortcut, centred like Spotlight — or opened from a search box in the bar, beside it. Applications, windows, files and actions, ranked by match quality, provider weight and frecency, with one scope filter — `⌃1`…`⌃6` or `⇥` — for applications, files, folders, or System Settings panes and actions. |
 | **Dock replacement** | Optional: the macOS Dock hides while Nexus runs and comes back when it quits. Your Dock settings are saved first and restored exactly. |
-| **Settings** | General, Dock, Appearance, Behavior, Search, Permissions. Everything applies live. |
+| **Settings** | Eight panes — General, Dock (where the bar is), Bar (what it shows), Appearance (how it looks), Behavior, Search, Permissions, About. Everything applies live. |
 | **Onboarding** | Six skippable steps. Skipping all of them still leaves a working launcher. |
 | **Accessible** | VoiceOver labels on every element, Reduce Motion and Increase Contrast honoured. |
 
@@ -154,6 +156,8 @@ make lint            # rebuild from scratch and fail on any warning
 make app             # assemble and sign build/Nexus.app
 make run             # stop any running instance, rebuild, relaunch
 make install         # copy the signed bundle to /Applications and run it from there
+make dmg             # build/Nexus-<version>.dmg for another Mac
+make zip             # the same build, zipped
 make signing-info    # show which identity will be used
 make clean
 ```
@@ -221,10 +225,17 @@ documents in [`docs/design/`](docs/design), one per feature, and the decision lo
 
 ## Roadmap
 
-Milestones 1–7 in [`ROADMAP.md`](ROADMAP.md) are complete. Everything beyond the MVP —
-workspaces, widgets, plugins, automation, AI — is described in the foundation document and
-deliberately **not** built. The architecture leaves three seams open for it: `SearchProvider`,
-`NexusActionDescriptor`, and configuration versioning.
+Milestones 1–23 in [`ROADMAP.md`](ROADMAP.md) are shipped: the MVP (1–7), then Dock replacement,
+dock parity, hover previews, the start menu, reserved space, groups, bar zones, now playing, the
+media player, install and launch at login, search scope, multiple displays, folder stacks, minimized
+windows and keyboard control.
+
+What is deliberately **not** built is everything the foundation document files under later —
+workspaces, widgets, plugins, automation, AI. The architecture leaves three seams open for it:
+`SearchProvider`, `NexusActionDescriptor`, and configuration versioning.
+
+What has been checked against a running copy, and what has not, is in
+[`docs/verification.md`](docs/verification.md).
 
 ## Contributing
 

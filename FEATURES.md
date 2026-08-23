@@ -3,7 +3,8 @@
 Every feature from Foundation §28, mapped to its milestone and required permission.
 Permission column: **None** means the feature works with everything denied.
 
-Legend — M1…M7 = milestone (see `ROADMAP.md`).
+Legend — M1…M23 = milestone (see `ROADMAP.md`). Rows past 25 are features the MVP did not
+have; the Foundation numbering stops there.
 
 ---
 
@@ -42,6 +43,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 29 | Folder stacks | M21 | None of Nexus's own; reading Desktop/Documents/Downloads goes through the system's file-access prompt | Drop a folder from Finder onto the bar; clicking opens its contents on a grid beside the bar, folders first, capped at 60. A folder macOS will not let Nexus read says so rather than showing an empty grid (D96) |
 | 30 | Minimized windows | M22 | Accessibility (same grant as the window list) | Three rows in the tail before Trash, newest first; click restores. Older ones stay in the application's hover flyout. `behavior.showMinimizedWindows` (D97) |
 | 31 | Keyboard control of the bar | M23 | None | `⌃⌥Space` focuses the bar, arrows walk it, Return opens, Escape leaves; the panel is key only while that mode is on, and gives the keyboard back to the application that had it (D99). `⌃F3`, macOS's own Dock shortcut, is owned by the system and never fires (D101) |
+| 32 | Packaging | after M23 | None | `make dmg` / `make zip` build a signed release copy for another Mac, versioned from the bundle's own `Info.plist`. Not notarised, so the first launch elsewhere is right-click → Open |
 
 ### Basic actions shipped in the MVP (§13)
 

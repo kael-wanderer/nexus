@@ -4,7 +4,9 @@
 
 ```sh
 swift build && swift test
-make run
+make run          # rebuild, sign, relaunch — the development loop
+make install      # run it from /Applications, which is where login items have to point (D86)
+make dmg          # a signed copy for another Mac; `make zip` for the lighter version
 ```
 
 macOS 14+ and a Swift 6 toolchain. No `.xcodeproj`, no package dependencies. If you add a
