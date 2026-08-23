@@ -142,13 +142,17 @@ public struct SidebarView: View {
         }
     }
 
-    /// Trash and Search. Always present — neither depends on any application being there.
+    /// The fixed tail: now playing when there is something playing, then Trash and Search — neither
+    /// of which depends on any application being there.
     private var utilitySection: some View {
         let spacing = model.appearance.iconSpacing
         let layout = isVertical
             ? AnyLayout(VStackLayout(spacing: spacing))
             : AnyLayout(HStackLayout(spacing: spacing))
         return layout {
+            if model.showsNowPlayingRow {
+                NowPlayingRow(model: model, expanded: model.isExpanded)
+            }
             trashRow
             if model.openSearch != nil { searchRow }
         }

@@ -587,3 +587,25 @@ has to survive being asked about an extent that is not a real screen. It was fir
 its input and trapped converting an infinite extent to `Int` — the model passes a large finite
 extent before the first reframe, and the function caps its own answer.
 
+**D75. What is playing comes from public sources, or not at all.**
+`MediaRemote.framework` is what Control Center uses and would answer for every player at once. It
+is private, and since macOS 15.4 it refuses callers without an Apple-internal entitlement: building
+on it means shipping a feature that breaks on somebody's next software update. So Nexus asks three
+public questions instead and shows exactly what they answer:
+
+- **The track** comes from the distributed notifications Music and Spotify already post on every
+  change (`com.apple.Music.playerInfo`, `com.spotify.client.PlaybackStateChanged`). Push, no
+  permission, and both use the same keys, which is why one parser covers them.
+- **The controls** are media keys — the system-defined events a keyboard's transport keys send.
+  They reach whichever application owns playback, including a browser tab, and need no permission
+  beyond the Accessibility grant Nexus already holds.
+- **Whether anything is playing at all** is CoreAudio's per-process answer,
+  `kAudioProcessPropertyIsRunningOutput`. The device-level version of that question was tried first
+  and is useless: a browser holds the output device open for hours in silence, so the row never went
+  away. Per process it is exact, and it names the process — which is what gives a browser tab an
+  icon instead of a blank square.
+
+What none of them give is a title for a player that publishes none, so the row shows controls and
+the word "Playing" rather than scraping a window title and calling it a track. Artwork is the same
+story: neither notification carries an image, so the row draws the player's own icon.
+

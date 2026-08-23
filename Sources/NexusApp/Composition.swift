@@ -21,6 +21,8 @@ final class Composition {
     let sidebarModel: SidebarViewModel
     let flyoutModel: WindowFlyoutViewModel
     let groupModel: GroupPopoverViewModel
+    let nowPlayingModel: NowPlayingPopoverViewModel
+    let nowPlaying: NowPlayingService
     let searchModel: SearchViewModel
     let panels: PanelController
     let reservedSpace: ReservedSpaceController
@@ -77,10 +79,13 @@ final class Composition {
             index: applicationIndex.snapshot
         )
         groupModel = GroupPopoverViewModel()
+        nowPlayingModel = NowPlayingPopoverViewModel()
+        nowPlaying = NowPlayingService()
         panels = PanelController(
             model: sidebarModel,
             flyoutModel: flyoutModel,
             groupModel: groupModel,
+            nowPlayingModel: nowPlayingModel,
             permissions: permissions,
             configuration: configuration,
             events: events
@@ -144,6 +149,16 @@ final class Composition {
         groupModel.launch = { [weak self] item in self?.sidebarModel.activateOrLaunch(item) }
         groupModel.remove = { [weak self] item in self?.sidebarModel.removeFromGroup(item.id) }
 
+        // Now playing (M15): the metadata is pushed by the players that publish it, the controls
+        // are media keys, and the flyout follows the track.
+        sidebarModel.mediaCommand = { [weak self] key in self?.nowPlaying.send(key) }
+        nowPlayingModel.artwork = { [weak self] size in
+            self?.sidebarModel.nowPlayingArtwork(size: size) ?? NSImage()
+        }
+        nowPlayingModel.toggle = { [weak self] in self?.nowPlaying.toggle() }
+        nowPlayingModel.next = { [weak self] in self?.nowPlaying.next() }
+        nowPlayingModel.previous = { [weak self] in self?.nowPlaying.previous() }
+
         sidebarModel.openSearch = { [weak self] in self?.searchPanel.show() }
         sidebarModel.openStartMenu = { [weak self] in self?.showStartMenu() }
         applicationIndex.onIndexed = { [weak self] in self?.startMenuModel.indexChanged() }
@@ -156,6 +171,7 @@ final class Composition {
         flyoutModel.start()
         panels.start()
         reservedSpace.start()
+        startNowPlaying()
         searchPanel.start()
         startMenu.start()
         applicationMonitor.start()
@@ -172,6 +188,26 @@ final class Composition {
         if !configuration.configuration.onboarding.hasCompleted {
             runOnboarding()
         }
+    }
+
+    /// Mirrors the service's state into the sidebar. `@Observable` does not notify across types, so
+    /// the bridge is an explicit callback rather than a timer that notices (§65).
+    private func startNowPlaying() {
+        nowPlaying.onChange = { [weak self] playing, isActive in
+            guard let self else { return }
+            sidebarModel.nowPlayingChanged(
+                playing,
+                isActive: isActive,
+                players: nowPlaying.audioPlayers
+            )
+            panels.nowPlayingChanged()
+        }
+        nowPlaying.start()
+        sidebarModel.nowPlayingChanged(
+            nowPlaying.current,
+            isActive: nowPlaying.isActive,
+            players: nowPlaying.audioPlayers
+        )
     }
 
     // MARK: - Settings and onboarding
@@ -363,6 +399,7 @@ final class Composition {
         startMenu.stop()
         searchPanel.stop()
         applicationIndex.stop()
+        nowPlaying.stop()
         reservedSpace.stop()
         windowMonitor.stop()
         applicationMonitor.stop()

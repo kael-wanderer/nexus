@@ -46,6 +46,12 @@ this project follows [Semantic Versioning](https://semver.org).
   scrolls inside itself. `appearance.pinnedLimit` and `appearance.runningLimit` are optional
   ceilings, 0 meaning "fit the screen" (D73, D74). Configuration version 3.
 
+- Now playing (M15, off by default): a row in the bar's tail while something is playing, with
+  transport controls that reach any player — including a browser tab — and the track for Music and
+  Spotify, which publish it. Hovering opens a flyout with artwork and the three controls.
+  `general.showNowPlaying`. No new permission, and no `MediaRemote`: it is private and
+  entitlement-gated since macOS 15.4 (D75).
+
 ### Fixed
 - With enough applications running, Trash and Search scrolled off the end of the bar: everything
   was in one scroll view, clamped to the screen. They now live in a zone that cannot scroll (D73).

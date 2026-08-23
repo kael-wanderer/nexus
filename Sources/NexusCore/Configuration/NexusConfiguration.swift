@@ -95,6 +95,9 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
     public var globalShortcutEnabled = true
     /// An addition, not a replacement for the palette — off until asked for (M11).
     public var showStartMenu = false
+    /// The now-playing row in the bar's tail (M15). Off by default, and its row gives its slot back
+    /// to the applications when it is off (D74).
+    public var showNowPlaying = false
     public init() {}
 
     /// Tolerant like `NexusConfiguration`'s: a synthesised decoder treats a missing key as an
@@ -106,6 +109,7 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
         showInMenuBar = try container.decodeIfPresent(Bool.self, forKey: .showInMenuBar) ?? true
         globalShortcutEnabled = try container.decodeIfPresent(Bool.self, forKey: .globalShortcutEnabled) ?? true
         showStartMenu = try container.decodeIfPresent(Bool.self, forKey: .showStartMenu) ?? false
+        showNowPlaying = try container.decodeIfPresent(Bool.self, forKey: .showNowPlaying) ?? false
     }
 }
 

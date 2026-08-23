@@ -274,3 +274,92 @@ struct SidebarZoneTests {
         #expect(model.pinnedItems.count == 12)
     }
 }
+
+@MainActor
+@Suite("Now playing row")
+struct NowPlayingRowTests {
+    private func makeModel(showNowPlaying: Bool) -> SidebarViewModel {
+        var initial = NexusConfiguration()
+        initial.general.showNowPlaying = showNowPlaying
+        let configuration = ConfigurationController(
+            store: InMemoryConfigurationStore(initial),
+            events: EventBus(),
+            saveDelay: .zero
+        )
+        let model = SidebarViewModel(
+            applications: FakeApplicationService([]),
+            configuration: configuration,
+            events: EventBus()
+        )
+        model.availableExtent = 1_000
+        model.openSearch = {}
+        model.mediaCommand = { _ in }
+        return model
+    }
+
+    private var track: NowPlaying {
+        NowPlaying(title: "Tunnel Vision", artist: "Aurora B.Polaris", playerBundleIdentifier: "com.spotify.client", isPlaying: true)
+    }
+
+    @Test("Nothing playing means no row, not an empty one")
+    func absentWhenIdle() {
+        let model = makeModel(showNowPlaying: true)
+        #expect(model.showsNowPlayingRow == false)
+        #expect(model.tailRowCount == 2)
+
+        model.nowPlayingChanged(track, isActive: true)
+        #expect(model.showsNowPlayingRow)
+        #expect(model.tailRowCount == 3)
+    }
+
+    @Test("With the setting off the row never appears, and its slot goes to the applications")
+    func settingGates() {
+        let model = makeModel(showNowPlaying: false)
+        model.nowPlayingChanged(track, isActive: true)
+
+        #expect(model.showsNowPlayingRow == false)
+        #expect(model.tailRowCount == 2)
+    }
+
+    /// Audio playing with no cooperating player: controls, and no invented title.
+    @Test("A player that publishes nothing still gets a row with controls")
+    func controlsWithoutMetadata() {
+        let model = makeModel(showNowPlaying: true)
+        model.nowPlayingChanged(NowPlaying(), isActive: true)
+
+        #expect(model.showsNowPlayingRow)
+        #expect(model.nowPlaying.hasMetadata == false)
+    }
+
+    @Test("The row asks the panel to reframe only when it appears or disappears")
+    func reframesOnAppearance() {
+        let model = makeModel(showNowPlaying: true)
+        var layouts = 0
+        model.layoutDidChange = { layouts += 1 }
+
+        model.nowPlayingChanged(track, isActive: true)
+        #expect(layouts == 1)
+
+        // A different track is the same row: no reframe.
+        model.nowPlayingChanged(
+            NowPlaying(title: "Weightless", playerBundleIdentifier: "com.spotify.client", isPlaying: true),
+            isActive: true
+        )
+        #expect(layouts == 1)
+
+        model.nowPlayingChanged(NowPlaying(), isActive: false)
+        #expect(layouts == 2)
+    }
+
+    @Test("Transport commands go through the injected command, not straight to the system")
+    func commandsAreInjected() {
+        let model = makeModel(showNowPlaying: true)
+        var sent: [MediaKey] = []
+        model.mediaCommand = { sent.append($0) }
+
+        model.togglePlayback()
+        model.nextTrack()
+        model.previousTrack()
+        #expect(sent == [.play, .next, .previous])
+    }
+}

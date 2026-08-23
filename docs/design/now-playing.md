@@ -59,6 +59,31 @@ replacement, and the bar should not grow a row nobody asked for.
 - The flyout never takes focus (`design/mvp.md` §2.1).
 - A missing Automation grant degrades to controls-only rather than to an error (D5).
 
+## What shipped
+
+The row, the flyout and the two honest states as specified. What changed is how "something else is
+playing" is answered.
+
+The spec assumed the device-level question — *is the output device in use* — and it is useless in
+practice: a browser or a conferencing application holds the device open for hours without making a
+sound, so the answer is permanently yes and the row never goes away. It was tried, it stuck on
+screen, and it was replaced.
+
+CoreAudio answers **per process** since macOS 14.4: `kAudioProcessPropertyIsRunningOutput` on each
+object in `kAudioHardwarePropertyProcessObjectList`. That is exact, and it also names the process —
+so a browser tab gets the browser's icon rather than a blank square, which the spec had given up
+on. Each process object gets its own listener, because the process *list* does not change when a
+process that already exists starts playing. On a system too old for the API the answer is empty and
+the row falls back to the players that publish notifications.
+
+Verified live: with VLC playing, the row appears in the tail with VLC's icon and the label
+"Playing", and hovering it opens the flyout with the three controls and no invented title. A probe
+confirmed VLC was the process actually outputting audio, so the row was right rather than stuck.
+
+Not verified live, and worth trying by hand: the title path (it needs Music or Spotify actually
+playing) and the controls reaching a player — sending a media key would have paused somebody's
+video. Both are covered by tests at the unit level.
+
 ## Tests
 
 - A notification with a track name renders title and artist; one with a stopped state hides the row.

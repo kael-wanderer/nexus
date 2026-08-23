@@ -82,6 +82,14 @@ public final class SidebarViewModel {
     /// Hover-expanded (names visible). Never true when `behavior.hoverExpand` is off.
     public var isExpanded = false
 
+    /// What is playing, for the tail's now-playing row (M15). Empty until the service says
+    /// otherwise, and the row is absent while it is.
+    public private(set) var nowPlaying = NowPlaying()
+    public private(set) var nowPlayingIsActive = false
+    /// The application making the sound when no player published a track — a browser, say. It gives
+    /// the row an icon instead of a blank square (D75).
+    public private(set) var nowPlayingFallbackPlayer: String?
+
     /// Drives which Trash icon the utility row draws.
     public private(set) var trashIsEmpty = TrashService.isEmpty
 
@@ -151,6 +159,11 @@ public final class SidebarViewModel {
     @ObservationIgnored public var activateWindow: ((WindowIdentity) -> Void)?
     /// Opens a group's popover. Injected at Milestone 13.
     @ObservationIgnored public var showGroup: ((SidebarGroup) -> Void)?
+    /// Transport controls and the now-playing flyout. Injected at Milestone 15; without them the
+    /// row is absent whatever the setting says.
+    @ObservationIgnored public var mediaCommand: ((MediaKey) -> Void)?
+    @ObservationIgnored public var showNowPlaying: ((NowPlaying) -> Void)?
+    @ObservationIgnored public var hideNowPlaying: (() -> Void)?
     /// Called after every row rebuild, so an open group popover can follow its group — or close,
     /// if the group has just been dissolved.
     @ObservationIgnored public var rowsDidChange: (() -> Void)?
@@ -212,8 +225,14 @@ public final class SidebarViewModel {
 
     public var showsStartMenuRow: Bool { general.showStartMenu && openStartMenu != nil }
 
-    /// Rows in the fixed tail: Trash, and Search once it is injected.
-    public var tailRowCount: Int { openSearch == nil ? 1 : 2 }
+    /// Rows in the fixed tail: the now-playing row when there is something to show, Trash, and
+    /// Search once it is injected. A row that is not there gives its slot back to the applications
+    /// (D74).
+    public var tailRowCount: Int { (showsNowPlayingRow ? 1 : 0) + (openSearch == nil ? 1 : 2) }
+
+    public var showsNowPlayingRow: Bool {
+        general.showNowPlaying && mediaCommand != nil && nowPlayingIsActive
+    }
 
     /// How the bar divides itself up (M14): a fixed head, a scrolling middle whose two sections
     /// have a row budget each, and a fixed tail that never scrolls away.
@@ -705,6 +724,44 @@ public final class SidebarViewModel {
         let moved = entries.remove(at: from)
         entries.append(moved)
         setEntries(entries)
+    }
+
+    // MARK: - Now playing
+
+    /// The service pushed a new state. A row appearing or disappearing changes the bar's length,
+    /// so the panel is told to reframe.
+    public func nowPlayingChanged(_ playing: NowPlaying, isActive: Bool, players: [String] = []) {
+        let wasShowing = showsNowPlayingRow
+        nowPlaying = playing
+        nowPlayingIsActive = isActive
+        nowPlayingFallbackPlayer = players.first
+        if showsNowPlayingRow != wasShowing { layoutDidChange?() }
+        if !showsNowPlayingRow { hideNowPlaying?() }
+    }
+
+    public func togglePlayback() { mediaCommand?(.play) }
+    public func nextTrack() { mediaCommand?(.next) }
+    public func previousTrack() { mediaCommand?(.previous) }
+
+    public func nowPlayingHoverChanged(_ hovering: Bool) {
+        guard hovering else {
+            scheduleFlyoutHide?()
+            return
+        }
+        showNowPlaying?(nowPlaying)
+    }
+
+    /// Artwork, or the player's own icon. Neither Music nor Spotify puts artwork in the
+    /// notification, so in practice this is the icon — the one image macOS will hand over for
+    /// free (D75).
+    public func nowPlayingArtwork(size: CGFloat) -> NSImage {
+        let identifier = nowPlaying.playerBundleIdentifier ?? nowPlayingFallbackPlayer
+        if let identifier,
+           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) {
+            return IconCache.shared.icon(for: url, size: size)
+        }
+        let symbol = NSImage(systemSymbolName: "music.note", accessibilityDescription: nil)
+        return symbol ?? NSImage()
     }
 
     // MARK: - Hover previews

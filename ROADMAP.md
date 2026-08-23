@@ -332,6 +332,8 @@ Spec: `docs/design/bar-zones.md`.
 
 ## Milestone 15 — Now playing  ← post-MVP
 
+**Shipped** 2026-08-23.
+
 **Scope**
 - A row in the fixed tail: artwork, title and artist for Music and Spotify (distributed
   notifications), transport controls for anything that owns media playback (media keys).

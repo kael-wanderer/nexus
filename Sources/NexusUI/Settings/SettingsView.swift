@@ -84,6 +84,15 @@ struct GeneralPane: View {
                     .foregroundStyle(.secondary)
             }
             Section {
+                Toggle(
+                    String(localized: "Show what is playing"),
+                    isOn: binding(\.general.showNowPlaying)
+                )
+                Text("A row in the bar with transport controls, and the track for players that publish it. It appears only while something is playing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Button(String(localized: "Run Setup Again…"), action: runOnboarding)
             }
         }
