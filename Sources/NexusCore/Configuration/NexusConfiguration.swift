@@ -61,15 +61,6 @@ public enum DisplayPreference: Codable, Sendable, Equatable {
     public var isEveryDisplay: Bool { self == .everyDisplay }
 }
 
-public struct DisplayOverride: Codable, Sendable, Equatable {
-    public var position: SidebarPosition?
-    public var width: Double?
-    public init(position: SidebarPosition? = nil, width: Double? = nil) {
-        self.position = position
-        self.width = width
-    }
-}
-
 public struct KeyboardShortcut: Codable, Sendable, Equatable, Hashable {
     /// Carbon virtual key code; identical to `NSEvent.keyCode`.
     public var keyCode: UInt32
@@ -143,7 +134,6 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
     public var cornerRadius: Double = 16     // 0...32
     public var opacity: Double = 1.0         // 0.3...1.0
     public var display: DisplayPreference = .main
-    public var perDisplay: [String: DisplayOverride] = [:]
     public var startMenuCorner: StartMenuCorner = .bottomLeading
     /// How many rows each section of the bar shows before it scrolls inside itself (M14). Counted
     /// in rows, so a group counts once — which is what makes groups worth having.
@@ -177,7 +167,6 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
         cornerRadius = try container.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 16
         opacity = try container.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
         display = try container.decodeIfPresent(DisplayPreference.self, forKey: .display) ?? .main
-        perDisplay = try container.decodeIfPresent([String: DisplayOverride].self, forKey: .perDisplay) ?? [:]
         startMenuCorner = try container.decodeIfPresent(StartMenuCorner.self, forKey: .startMenuCorner) ?? .bottomLeading
         pinnedLimit = try container.decodeIfPresent(Int.self, forKey: .pinnedLimit) ?? 0
         runningLimit = try container.decodeIfPresent(Int.self, forKey: .runningLimit) ?? 0

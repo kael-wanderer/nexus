@@ -15,6 +15,12 @@ cannot (§63).
 
 - `make lint` passes. **Zero warnings** is the gate, not a preference.
 - `swift test` passes.
+
+  If it fails in ways that make no sense — a value read from a struct you did not touch, tests that
+  pass one run and fail the next — and you have just added or removed a *stored property* on a type
+  in `NexusCore`, the incremental build is stale: the dependent modules were not recompiled and are
+  reading the old field offsets. `rm -rf .build && swift test` settles it. Verified the hard way
+  while deleting one unused property.
 - New non-trivial logic comes with a test. Pure logic — ranking, matching, layout, configuration
   — is where the tests live; no test touches the real Accessibility API or launches applications.
 
