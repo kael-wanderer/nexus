@@ -332,6 +332,18 @@ struct BehaviorPane: View {
                 Toggle(String(localized: "Show favourites"), isOn: configuration.binding(\.behavior.showFavorites))
             }
             Section {
+                Picker(
+                    String(localized: "Applications per group"),
+                    selection: configuration.binding(\.behavior.groupCapacity)
+                ) {
+                    Text("9 (3 × 3)").tag(9)
+                    Text("16 (4 × 4)").tag(16)
+                }
+                Text("Drag one icon onto another and hold to put them in a group.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Picker(String(localized: "Clicking an icon"), selection: configuration.binding(\.behavior.clickBehavior)) {
                     Text("Activates or launches the app").tag(ClickBehavior.activateOrLaunch)
                     Text("Shows its windows").tag(ClickBehavior.showWindowList)

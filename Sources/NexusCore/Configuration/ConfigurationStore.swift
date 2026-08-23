@@ -42,9 +42,9 @@ public final class ConfigurationStore: ConfigurationStoring {
         self.migrations = migrations.sorted { $0.fromVersion < $1.fromVersion }
     }
 
-    /// No breaking schema change has occurred yet, so this list is empty. `NexusConfiguration`
-    /// decodes every field with a default, so purely additive changes need no migration.
-    public static let standardMigrations: [any ConfigurationMigration] = []
+    /// Purely additive changes need no migration — every field decodes with a default. Only a
+    /// change in the *shape* of stored data lands here.
+    public static let standardMigrations: [any ConfigurationMigration] = [PinnedEntriesMigration()]
 
     public var outcomeOfLastLoad: ConfigurationLoadOutcome {
         lock.lock()
@@ -123,6 +123,24 @@ public final class ConfigurationStore: ConfigurationStoring {
         lock.lock()
         lastOutcome = outcome
         lock.unlock()
+    }
+}
+
+/// Version 1 → 2 (M13): the dock stops being a list of bundle identifiers and becomes a list of
+/// entries, because a group is not an application.
+///
+/// The old `pinnedApplications` key is left in place rather than removed. Nothing reads it, and
+/// `NexusConfiguration.encode` keeps writing it, so downgrading to a build that only knows v1
+/// finds its dock instead of an empty bar.
+public struct PinnedEntriesMigration: ConfigurationMigration {
+    public let fromVersion = 1
+
+    public init() {}
+
+    public func migrate(_ json: inout [String: Any]) throws {
+        guard json["pinnedEntries"] == nil else { return }
+        let pinned = json["pinnedApplications"] as? [String] ?? []
+        json["pinnedEntries"] = pinned.map { ["application": $0] }
     }
 }
 

@@ -161,7 +161,7 @@ struct SearchSelectionTests {
 struct PinnedReorderTests {
     private func model(_ pinned: [String]) -> (SidebarViewModel, ConfigurationController) {
         var initial = NexusConfiguration()
-        initial.pinnedApplications = pinned
+        initial.setPinnedApplications(pinned)
         let configuration = ConfigurationController(
             store: InMemoryConfigurationStore(initial),
             events: EventBus(),

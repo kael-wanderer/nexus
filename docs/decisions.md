@@ -526,3 +526,26 @@ after four attempts inside two seconds: the alternative is a fight that neither 
 Everything is compared in Accessibility coordinates, which grow downwards from the primary
 display's top-left, unlike Cocoa's. `ScreenGeometry.flipped` is the only place that knows.
 
+**D71. Grouping is asked for by resting on a row, not by dropping on it.**
+The dock previews a reorder as the pointer moves (D59), which means the rows have already shifted
+by the time a drag is over a row: "drop on Safari" and "drop between Safari and Terminal" are one
+gesture, and only timing separates them. So a drag that rests on a row for 600 ms changes meaning
+— the preview reverts, the dragged row leaves the bar, the target grows a ring, and letting go
+merges the two. Dragging straight past a row reorders exactly as before. This is what iOS does,
+and the dwell is what makes it discoverable without a modifier key nobody would find.
+
+The name comes from `LSApplicationCategoryType`, which applications already declare and
+LaunchServices already hands over with the icon: the category most members share, mapped to a word,
+falling back to "Group". Renaming lives in the row's context menu behind an alert rather than in
+the popover's header, because the popover can never become key and a text field nobody can type
+into is worse than a menu item.
+
+**D72. The dock repairs itself rather than trusting what it stored.**
+`[DockEntry].repaired(capacity:)` runs on decode and after every edit: an over-full group keeps its
+first members, an application listed twice keeps its first slot, a group of one becomes that
+application, an empty group disappears. Capacity is a setting, so yesterday's nine-member group is
+today's over-full one when it changes — enforcing it in one place means a hand-edited `defaults`
+payload, a capacity change and a drag all end up in the same state. The stored v1 key
+`pinnedApplications` is still written beside the entries so a downgrade finds its dock; nothing
+reads it.
+

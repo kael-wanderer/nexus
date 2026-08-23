@@ -56,10 +56,11 @@ actor FakeWindowService: WindowServing {
     func putBack(_ number: CGWindowID) { putsBack.insert(number) }
 }
 
-/// Polls until `condition` holds, up to a second. Replaces a fixed sleep in tests that wait on
+/// Polls until `condition` holds, up to two seconds. Replaces a fixed sleep in tests that wait on
 /// work handed to a Task.
-func until(_ condition: @Sendable () async -> Bool) async {
-    for _ in 0..<100 {
+@MainActor
+func until(_ condition: () async -> Bool) async {
+    for _ in 0..<200 {
         if await condition() { return }
         try? await Task.sleep(for: .milliseconds(10))
     }

@@ -292,6 +292,8 @@ Spec: `docs/design/reserved-space.md`.
 
 ## Milestone 13 — Application groups  ← post-MVP
 
+**Shipped** 2026-08-23.
+
 **Scope**
 - Drop one application onto another to make a folder; a popover grid opens it; the name is
   auto-generated from `LSApplicationCategoryType` and editable; capacity 9 or 16.

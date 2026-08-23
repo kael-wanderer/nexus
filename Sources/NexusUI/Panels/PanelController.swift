@@ -8,6 +8,7 @@ import SwiftUI
 public final class PanelController {
     private let model: SidebarViewModel
     private let flyoutModel: WindowFlyoutViewModel
+    private let groupModel: GroupPopoverViewModel
     private let permissions: any PermissionChecking
     private let configuration: ConfigurationController
     private let events: EventBus
@@ -17,6 +18,9 @@ public final class PanelController {
     private var flyoutPanel: NonActivatingPanel?
     private var flyoutHosting: NSView?
     private var flyoutHideTask: Task<Void, Never>?
+    private var groupPanel: NonActivatingPanel?
+    private var groupHosting: NSView?
+    private var groupHideTask: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var screenObserver: (any NSObjectProtocol)?
@@ -33,12 +37,14 @@ public final class PanelController {
     public init(
         model: SidebarViewModel,
         flyoutModel: WindowFlyoutViewModel,
+        groupModel: GroupPopoverViewModel,
         permissions: any PermissionChecking,
         configuration: ConfigurationController,
         events: EventBus
     ) {
         self.model = model
         self.flyoutModel = flyoutModel
+        self.groupModel = groupModel
         self.permissions = permissions
         self.configuration = configuration
         self.events = events
@@ -66,6 +72,15 @@ public final class PanelController {
         )
         flyoutHosting = flyoutHostingView
         flyoutPanel = NonActivatingPanel(contentView: flyoutHostingView)
+
+        model.showGroup = { [weak self] group in self?.showGroup(group) }
+        groupModel.onDismiss = { [weak self] in self?.hideGroup() }
+        let groupHostingView = FirstMouseHostingView(
+            rootView: GroupPopoverView(model: groupModel)
+                .onHover { [weak self] hovering in self?.groupHoverChanged(hovering) }
+        )
+        groupHosting = groupHostingView
+        groupPanel = NonActivatingPanel(contentView: groupHostingView)
 
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -99,15 +114,88 @@ public final class PanelController {
         flyoutHideTask?.cancel()
         eventTask?.cancel()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        groupHideTask?.cancel()
         sidebarPanel?.orderOut(nil)
         edgePanel?.orderOut(nil)
         flyoutPanel?.orderOut(nil)
+        groupPanel?.orderOut(nil)
+    }
+
+    // MARK: - Group popover
+
+    private func showGroup(_ group: SidebarGroup) {
+        groupHideTask?.cancel()
+        hideFlyout()
+        groupModel.show(group)
+        layoutGroup()
+        groupPanel?.orderFrontRegardless()
+    }
+
+    private func hideGroup() {
+        groupHideTask?.cancel()
+        groupHideTask = nil
+        groupPanel?.orderOut(nil)
+    }
+
+    private func groupHoverChanged(_ hovering: Bool) {
+        guard !hovering else {
+            groupHideTask?.cancel()
+            groupHideTask = nil
+            return
+        }
+        scheduleGroupHide()
+    }
+
+    /// The same grace period the flyout gets: long enough to travel from the row to the popover.
+    private func scheduleGroupHide() {
+        guard groupModel.group != nil else { return }
+        groupHideTask?.cancel()
+        groupHideTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            self?.groupModel.hide()
+        }
+    }
+
+    /// The popover follows its group: an edit that renames it, empties it or dissolves it has to
+    /// be reflected before the next frame, or the panel shows a dock that no longer exists.
+    public func groupsChanged() {
+        groupModel.update(from: model.pinned)
+        guard groupModel.group != nil else { return }
+        layoutGroup()
+    }
+
+    private func layoutGroup() {
+        guard let panel = groupPanel,
+              let hosting = groupHosting,
+              let sidebar = sidebarPanel,
+              let screen = targetScreen,
+              let group = groupModel.group
+        else { return }
+
+        hosting.layoutSubtreeIfNeeded()
+        let margin = SidebarLayout.screenMargin * 2
+        let fitting = hosting.fittingSize
+        let size = CGSize(
+            width: min(fitting.width, screen.visibleFrame.width - margin),
+            height: min(fitting.height, screen.visibleFrame.height - margin)
+        )
+        panel.setFrame(
+            SidebarLayout.flyoutFrame(
+                size: size,
+                beside: sidebar.frame,
+                anchor: anchorOffset(forRow: group.id),
+                in: screen.visibleFrame,
+                position: model.appearance.position
+            ),
+            display: true
+        )
     }
 
     // MARK: - Window flyout
 
     private func showFlyout(for identity: ApplicationIdentity) {
-        guard let item = (model.pinned + model.running).first(where: { $0.identity == identity })
+        guard let item = (model.pinnedItems + model.running).first(where: { $0.identity == identity })
         else { return }
         flyoutHideTask?.cancel()
         flyoutModel.isVertical = model.appearance.position.isVertical
@@ -168,7 +256,7 @@ public final class PanelController {
             SidebarLayout.flyoutFrame(
                 size: size,
                 beside: sidebar.frame,
-                anchor: anchorOffset(for: identity),
+                anchor: anchorOffset(forRow: identity.bundleIdentifier),
                 in: screen.visibleFrame,
                 position: model.appearance.position
             ),
@@ -176,9 +264,13 @@ public final class PanelController {
         )
     }
 
-    private func anchorOffset(for identity: ApplicationIdentity) -> CGFloat {
+    /// Distance to the centre of the row that *draws* `id` — which for an application inside a
+    /// group is the group's row, not one of its own.
+    private func anchorOffset(forRow id: String) -> CGFloat {
         let counts = model.sectionRowCounts
-        if let row = model.pinned.firstIndex(where: { $0.identity == identity }) {
+        if let row = model.pinned.firstIndex(where: { row in
+            row.id == id || row.group?.items.contains { $0.id == id } == true
+        }) {
             return SidebarLayout.rowCentre(
                 sectionRowCounts: counts,
                 section: model.pinnedSectionIndex,
@@ -186,7 +278,7 @@ public final class PanelController {
                 appearance: model.appearance
             )
         }
-        if let row = model.running.firstIndex(where: { $0.identity == identity }) {
+        if let row = model.running.firstIndex(where: { $0.id == id }) {
             return SidebarLayout.rowCentre(
                 sectionRowCounts: counts,
                 section: model.runningSectionIndex,
@@ -235,6 +327,7 @@ public final class PanelController {
         setFrame(frame, on: panel, animated: animated)
         updateEdgePanel()
         onBarFrameChange?()
+        if groupModel.group != nil { layoutGroup() }
     }
 
     /// What Reserved Space needs to know: where the bar is, and on which screen. `nil` whenever

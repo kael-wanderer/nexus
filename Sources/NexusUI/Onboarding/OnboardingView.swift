@@ -90,7 +90,7 @@ public final class OnboardingViewModel {
         let ordered = candidates
             .map(\.identity.bundleIdentifier)
             .filter { selectedForPinning.contains($0) }
-        configuration.update { $0.pinnedApplications = ordered }
+        configuration.update { $0.setPinnedApplications(ordered) }
     }
 
     public func finish() {

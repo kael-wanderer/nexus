@@ -32,6 +32,14 @@ this project follows [Semantic Versioning](https://semver.org).
   only if they do not. Full-screen windows are exempt, and an application that puts its window
   straight back wins (D70). `behavior.reserveSpace`.
 
+- Application groups (M13): drag one icon onto another and hold to put both in a folder, named
+  after the category its members declare. A group draws as a 2×2 tile of member icons, opens as a
+  popover beside the bar, and can be renamed, reordered, ungrouped or removed. Capacity 9 or 16
+  (`behavior.groupCapacity`). Dragging a member out of the popover takes it out of the group.
+- Configuration version 2: the dock is a list of entries — applications and groups — rather than a
+  list of bundle identifiers. A v1 dock migrates to the same dock in the same order, and the v1
+  key is still written so a downgrade keeps working (D72).
+
 ### Fixed
 - The start menu drew a tile with no caption for any bundle shipping an empty `CFBundleName`; an
   empty name now falls through to the file name like a missing one.

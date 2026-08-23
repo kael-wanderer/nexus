@@ -20,6 +20,7 @@ final class Composition {
     let hotKeys = HotKeyService()
     let sidebarModel: SidebarViewModel
     let flyoutModel: WindowFlyoutViewModel
+    let groupModel: GroupPopoverViewModel
     let searchModel: SearchViewModel
     let panels: PanelController
     let reservedSpace: ReservedSpaceController
@@ -75,9 +76,11 @@ final class Composition {
             configuration: configuration,
             index: applicationIndex.snapshot
         )
+        groupModel = GroupPopoverViewModel()
         panels = PanelController(
             model: sidebarModel,
             flyoutModel: flyoutModel,
+            groupModel: groupModel,
             permissions: permissions,
             configuration: configuration,
             events: events
@@ -132,6 +135,14 @@ final class Composition {
             self?.windowMonitor.setObservesGeometry(observes)
         }
         panels.onBarFrameChange = { [weak self] in self?.reservedSpace.barFrameChanged() }
+
+        // A group's popover launches through the same path a bar row does, and dragging a member
+        // out of it takes it out of the group (M13).
+        // The popover follows its group through every edit, and closes when the group stops
+        // existing (M13).
+        sidebarModel.rowsDidChange = { [weak self] in self?.panels.groupsChanged() }
+        groupModel.launch = { [weak self] item in self?.sidebarModel.activateOrLaunch(item) }
+        groupModel.remove = { [weak self] item in self?.sidebarModel.removeFromGroup(item.id) }
 
         sidebarModel.openSearch = { [weak self] in self?.searchPanel.show() }
         sidebarModel.openStartMenu = { [weak self] in self?.showStartMenu() }

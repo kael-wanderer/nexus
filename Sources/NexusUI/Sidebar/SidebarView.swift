@@ -55,7 +55,7 @@ public struct SidebarView: View {
                 placeholder
             }
             if !model.pinned.isEmpty {
-                section(model.pinned)
+                pinnedSection
             }
             if model.behavior.showRunningApplications, !model.running.isEmpty {
                 if !model.pinned.isEmpty { separator }
@@ -66,6 +66,28 @@ public struct SidebarView: View {
         }
         .padding(SidebarLayout.outerPadding)
         .frame(maxWidth: .infinity)
+    }
+
+    /// The pinned section draws groups as well as applications (M13).
+    private var pinnedSection: some View {
+        let spacing = model.appearance.iconSpacing
+        let layout = isVertical
+            ? AnyLayout(VStackLayout(spacing: spacing))
+            : AnyLayout(HStackLayout(spacing: spacing))
+        return layout {
+            ForEach(model.pinned) { row in
+                switch row {
+                case .application(let item):
+                    SidebarItemView(model: model, item: item, expanded: model.isExpanded)
+                case .group(let group):
+                    SidebarGroupView(model: model, group: group, expanded: model.isExpanded)
+                }
+            }
+        }
+        .animation(
+            Design.animation(Design.reveal, reduceMotion: reduceMotion),
+            value: model.pinned.map(\.id)
+        )
     }
 
     private func section(_ items: [SidebarItem]) -> some View {
@@ -234,6 +256,13 @@ struct SidebarItemView: View {
             RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
                 .fill(backgroundStyle)
         }
+        .overlay {
+            // The drag has been resting here long enough to mean "put these together" (M13).
+            if model.groupCandidate == item.id {
+                RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
+                    .strokeBorder(.tint, lineWidth: 2)
+            }
+        }
         .contentShape(Rectangle())
         .opacity(model.draggingIdentifier == item.id ? 0.35 : 1)
         .onHover { hovering in
@@ -333,6 +362,13 @@ struct SidebarItemView: View {
             )
         } else {
             items.append(ClosureMenuItem(title: String(localized: "Pin")) { model.pin(item.id) })
+        }
+        if model.isInGroup(item.id) {
+            items.append(
+                ClosureMenuItem(title: String(localized: "Remove from Group")) {
+                    model.removeFromGroup(item.id)
+                }
+            )
         }
         items.append(
             ClosureMenuItem(title: String(localized: "Show in Finder")) { model.revealInFinder(item) }

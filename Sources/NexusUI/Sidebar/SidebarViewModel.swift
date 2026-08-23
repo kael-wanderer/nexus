@@ -24,12 +24,54 @@ public struct SidebarItem: Identifiable, Equatable, Sendable {
     }
 }
 
+/// One drawn row of the pinned section: an application, or a group of them (M13).
+public enum SidebarRow: Identifiable, Equatable, Sendable {
+    case application(SidebarItem)
+    case group(SidebarGroup)
+
+    public var id: String {
+        switch self {
+        case .application(let item): item.id
+        case .group(let group): group.id
+        }
+    }
+
+    public var item: SidebarItem? {
+        guard case .application(let item) = self else { return nil }
+        return item
+    }
+
+    public var group: SidebarGroup? {
+        guard case .group(let group) = self else { return nil }
+        return group
+    }
+}
+
+/// A group with its members resolved, ready to draw.
+public struct SidebarGroup: Identifiable, Equatable, Sendable {
+    public let group: ApplicationGroup
+    public var items: [SidebarItem]
+
+    public var id: String { DockEntry.group(group).id }
+    public var name: String { group.name }
+    /// One dot for the whole group: any member running lights it. No window-count badge — a
+    /// number summing several applications answers a question nobody asked.
+    public var isRunning: Bool { items.contains(where: \.isRunning) }
+    public var isActive: Bool { items.contains(where: \.isActive) }
+}
+
 /// Views own no system logic (§62): the view binds to this, this talks to service protocols.
 @MainActor
 @Observable
 public final class SidebarViewModel {
-    public private(set) var pinned: [SidebarItem] = []
+    public private(set) var pinned: [SidebarRow] = []
     public private(set) var running: [SidebarItem] = []
+
+    /// Applications only, in dock order — what the flyout anchor and the window features work
+    /// with. A group's members are included.
+    public var pinnedItems: [SidebarItem] {
+        pinned.flatMap { row in row.group?.items ?? row.item.map { [$0] } ?? [] }
+    }
 
     /// Read straight through to the single source of truth. `ConfigurationController` is
     /// `@Observable`, so SwiftUI still re-renders when these change.
@@ -45,10 +87,19 @@ public final class SidebarViewModel {
 
     /// The row currently being dragged, so it can be drawn as a gap (D59).
     public private(set) var draggingIdentifier: String?
+    /// The row the drag has been resting on long enough to mean "put these together" rather than
+    /// "move me here" — highlighted while it holds, and what a drop acts on (M13).
+    public private(set) var groupCandidate: String?
     /// Where the rows would land if the drag were dropped now — one list per section. Never
     /// written to the configuration until the drop lands.
-    private var previewPinned: [String]?
+    private var previewPinned: [DockEntry]?
     private var previewRunning: [String]?
+    @ObservationIgnored private var dwellTask: Task<Void, Never>?
+    @ObservationIgnored private var dwellTarget: String?
+
+    /// How long a drag must rest on a row before it means grouping. Long enough that dragging
+    /// past a row never groups by accident, short enough to feel like a decision.
+    static let groupDwell = Duration.milliseconds(600)
 
     /// Whether the counts are the exact Accessibility ones. A badge that cannot be trusted is
     /// worse than no badge, so without Accessibility none is drawn (D61).
@@ -94,6 +145,11 @@ public final class SidebarViewModel {
     @ObservationIgnored public var loadWindows: ((ApplicationIdentity) -> Void)?
     /// Raises one window. Injected at Milestone 9; without it the menu shows no window section.
     @ObservationIgnored public var activateWindow: ((WindowIdentity) -> Void)?
+    /// Opens a group's popover. Injected at Milestone 13.
+    @ObservationIgnored public var showGroup: ((SidebarGroup) -> Void)?
+    /// Called after every row rebuild, so an open group popover can follow its group — or close,
+    /// if the group has just been dissolved.
+    @ObservationIgnored public var rowsDidChange: (() -> Void)?
 
     public init(
         applications: any ApplicationServing,
@@ -161,7 +217,7 @@ public final class SidebarViewModel {
     }
 
     public func refresh() async {
-        let identifiers = pinnedIdentifiers
+        let identifiers = pinnedEntries.flatMap(\.applications)
         let runningApplications = await applications.runningApplications()
 
         var resolved: [String: SidebarItem] = [:]
@@ -182,12 +238,14 @@ public final class SidebarViewModel {
         rebuildRows()
     }
 
-    /// The identifiers the pinned section shows: the stored order, or the drag preview while one
-    /// is in flight. A running application being dragged into the section appears here before it
-    /// is pinned, which is what lets the rows move under the drag (D59).
-    private var pinnedIdentifiers: [String] {
-        previewPinned ?? configuration.configuration.pinnedApplications
+    /// The dock the pinned section shows: the stored one, or the drag preview while one is in
+    /// flight. A running application being dragged into the section appears here before it is
+    /// pinned, which is what lets the rows move under the drag (D59).
+    private var pinnedEntries: [DockEntry] {
+        previewPinned ?? configuration.configuration.pinnedEntries
     }
+
+    private var groupCapacity: Int { behavior.groupCapacity }
 
     /// The running section's order: the applications the user has dragged, in the order they put
     /// them, then everything else alphabetically. An application nobody has moved keeps its
@@ -195,7 +253,7 @@ public final class SidebarViewModel {
     private var runningIdentifiers: [String] {
         if let previewRunning { return previewRunning }
         let stored = configuration.configuration.runningApplicationOrder
-        let pinnedSet = Set(configuration.configuration.pinnedApplications)
+        let pinnedSet = Set(configuration.configuration.pinnedApplications)  // groups included
         let known = Set(alphabeticalRunning)
         let moved = stored.filter { known.contains($0) && !pinnedSet.contains($0) }
         let rest = alphabeticalRunning.filter { !moved.contains($0) && !pinnedSet.contains($0) }
@@ -205,21 +263,40 @@ public final class SidebarViewModel {
     /// Composes the two row lists from the resolved items. Synchronous on purpose: a drag has to
     /// reorder the rows in the same run loop turn as the pointer moves.
     private func rebuildRows() {
-        let identifiers = pinnedIdentifiers
-        let pinnedSet = Set(identifiers)
-        var resolvedPinned: [SidebarItem] = []
-        for identifier in identifiers {
-            guard var item = items[identifier] else { continue }
-            item.isPinned = true
-            resolvedPinned.append(item)
+        let entries = pinnedEntries
+        let pinnedSet = Set(entries.flatMap(\.applications))
+        var resolvedPinned: [SidebarRow] = []
+        for entry in entries {
+            switch entry {
+            case .application(let identifier):
+                // The row being dragged onto another one is drawn nowhere: it is about to become
+                // part of that row rather than a slot of its own.
+                guard identifier != groupCandidateSource, var item = items[identifier] else { continue }
+                item.isPinned = true
+                resolvedPinned.append(.application(item))
+            case .group(let group):
+                let members = group.applications
+                    .filter { $0 != groupCandidateSource }
+                    .compactMap { identifier -> SidebarItem? in
+                        guard var item = items[identifier] else { return nil }
+                        item.isPinned = true
+                        return item
+                    }
+                // A group whose applications have all been uninstalled disappears without taking
+                // the dock with it.
+                guard !members.isEmpty else { continue }
+                resolvedPinned.append(.group(SidebarGroup(group: group, items: members)))
+            }
         }
         let resolvedRunning = runningIdentifiers
-            .filter { !pinnedSet.contains($0) }
+            .filter { !pinnedSet.contains($0) && $0 != groupCandidateSource }
             .compactMap { items[$0] }
 
-        let layoutChanged = resolvedPinned.count != pinned.count || resolvedRunning.count != running.count
+        let layoutChanged = resolvedPinned.count != pinned.count
+            || resolvedRunning.count != running.count
         pinned = resolvedPinned
         running = resolvedRunning
+        rowsDidChange?()
         if layoutChanged {
             Log.sidebar.notice(
                 "Sidebar rows: \(resolvedPinned.count, privacy: .public) pinned, \(resolvedRunning.count, privacy: .public) running (showRunningApplications=\(self.behavior.showRunningApplications, privacy: .public))"
@@ -255,27 +332,177 @@ public final class SidebarViewModel {
 
     public func pin(_ identifier: String) {
         guard !configuration.configuration.pinnedApplications.contains(identifier) else { return }
-        configuration.update { $0.pinnedApplications.append(identifier) }
+        setEntries(configuration.configuration.pinnedEntries + [.application(identifier)])
         Log.sidebar.notice("Pinned \(identifier, privacy: .public)")
     }
 
+    /// Removes an application from the dock, whether it sits in a slot of its own or in a group.
     public func unpin(_ identifier: String) {
-        configuration.update { $0.pinnedApplications.removeAll { $0 == identifier } }
+        var entries = configuration.configuration.pinnedEntries
+        for index in entries.indices {
+            guard case .group(var group) = entries[index],
+                  group.applications.contains(identifier)
+            else { continue }
+            group.applications.removeAll { $0 == identifier }
+            entries[index] = .group(group)
+        }
+        entries.removeAll { $0 == .application(identifier) }
+        setEntries(entries)
         Log.sidebar.notice("Unpinned \(identifier, privacy: .public)")
     }
 
-    /// Moves `identifier` so it sits immediately before `target`. Both must already be pinned;
-    /// anything else (a Finder drag arriving as a string, say) is ignored.
+    /// Moves the slot holding `identifier` so it sits immediately before `target`'s slot. Both
+    /// must already be in the dock; anything else (a Finder drag arriving as a string, say) is
+    /// ignored.
     public func movePinned(_ identifier: String, before target: String) {
-        var order = configuration.configuration.pinnedApplications
+        var entries = configuration.configuration.pinnedEntries
         guard identifier != target,
-              let from = order.firstIndex(of: identifier),
-              order.contains(target)
+              let from = entries.firstIndex(where: { $0.id == identifier }),
+              entries.contains(where: { $0.id == target })
         else { return }
-        order.remove(at: from)
-        guard let insertion = order.firstIndex(of: target) else { return }
-        order.insert(identifier, at: insertion)
-        configuration.update { $0.pinnedApplications = order }
+        let moved = entries.remove(at: from)
+        guard let insertion = entries.firstIndex(where: { $0.id == target }) else { return }
+        entries.insert(moved, at: insertion)
+        setEntries(entries)
+    }
+
+    /// Writes the dock, repaired: over-full groups trimmed, duplicates dropped, a group of one
+    /// dissolved back into an application.
+    private func setEntries(_ entries: [DockEntry]) {
+        let repaired = entries.repaired(capacity: groupCapacity)
+        configuration.update { $0.pinnedEntries = repaired }
+        // Synchronously, like a drag: the rows must not wait for the configuration event to come
+        // back round, or the bar shows the dock as it was for a frame.
+        rebuildRows()
+    }
+
+    // MARK: - Groups
+
+    /// Puts `identifier` together with whatever `target` is: two applications become a new group
+    /// named after what they have in common, and an application dropped on a group joins it.
+    /// Refused — visibly, by the drop never being offered — when the group is full (M13).
+    @discardableResult
+    public func group(_ identifier: String, with target: String) -> Bool {
+        guard identifier != target, items[identifier] != nil else { return false }
+        var entries = configuration.configuration.pinnedEntries
+        guard let targetIndex = entries.firstIndex(where: { $0.id == target }) else { return false }
+
+        switch entries[targetIndex] {
+        case .application(let existing):
+            guard existing != identifier else { return false }
+            let members = [existing, identifier]
+            entries[targetIndex] = .group(
+                ApplicationGroup(name: suggestedName(for: members), applications: members)
+            )
+        case .group(var group):
+            guard group.applications.count < groupCapacity,
+                  !group.applications.contains(identifier)
+            else { return false }
+            group.applications.append(identifier)
+            entries[targetIndex] = .group(group)
+        }
+        // Wherever the dragged application was — its own slot, or another group — it is not there
+        // any more.
+        entries = Self.removing(identifier, from: entries, keeping: targetIndex)
+        setEntries(entries)
+        Log.sidebar.notice("Grouped \(identifier, privacy: .public) into \(target, privacy: .public)")
+        return true
+    }
+
+    /// Whether a row will accept being grouped with what is being dragged: an application onto
+    /// another application, or onto a group with room left.
+    public func canGroup(_ identifier: String, with target: String) -> Bool {
+        guard identifier != target,
+              !identifier.hasPrefix(DockEntry.identifierPrefix),
+              items[identifier] != nil,
+              let entry = configuration.configuration.pinnedEntries.first(where: { $0.id == target })
+        else { return false }
+        switch entry {
+        case .application(let existing):
+            return existing != identifier
+        case .group(let group):
+            return group.applications.count < groupCapacity
+                && !group.applications.contains(identifier)
+        }
+    }
+
+    /// Takes an application out of its group and gives it a slot of its own, right after it.
+    /// The group dissolves if that leaves one member behind.
+    public func removeFromGroup(_ identifier: String) {
+        var entries = configuration.configuration.pinnedEntries
+        guard let index = entries.firstIndex(where: { $0.group?.applications.contains(identifier) == true }),
+              case .group(var group) = entries[index]
+        else { return }
+        group.applications.removeAll { $0 == identifier }
+        entries[index] = .group(group)
+        entries.insert(.application(identifier), at: index + 1)
+        setEntries(entries)
+    }
+
+    /// Dissolves a group, leaving its applications pinned in its place and in its order.
+    public func ungroup(_ id: String) {
+        var entries = configuration.configuration.pinnedEntries
+        guard let index = entries.firstIndex(where: { $0.id == id }),
+              case .group(let group) = entries[index]
+        else { return }
+        entries.replaceSubrange(index...index, with: group.applications.map { .application($0) })
+        setEntries(entries)
+    }
+
+    /// Removes a group and everything in it from the dock.
+    public func unpinGroup(_ id: String) {
+        setEntries(configuration.configuration.pinnedEntries.filter { $0.id != id })
+    }
+
+    public func renameGroup(_ id: String, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        var entries = configuration.configuration.pinnedEntries
+        guard let index = entries.firstIndex(where: { $0.id == id }),
+              case .group(var group) = entries[index]
+        else { return }
+        group.name = trimmed.isEmpty ? ApplicationCategory.fallbackName : trimmed
+        entries[index] = .group(group)
+        setEntries(entries)
+    }
+
+    public func isInGroup(_ identifier: String) -> Bool {
+        configuration.configuration.pinnedEntries
+            .contains { $0.group?.applications.contains(identifier) == true }
+    }
+
+    public func openGroup(_ group: SidebarGroup) {
+        showGroup?(group)
+    }
+
+    /// The name a new group gets: whatever category most of its members declare (M13).
+    private func suggestedName(for members: [String]) -> String {
+        ApplicationCategory.groupName(
+            for: members.map { identifier in
+                items[identifier].flatMap { ApplicationCategory.category(of: $0.bundleURL) }
+            }
+        )
+    }
+
+    /// Drops `identifier` from every slot except the one at `keeping`, which is where it has just
+    /// been put.
+    private static func removing(
+        _ identifier: String,
+        from entries: [DockEntry],
+        keeping index: Int
+    ) -> [DockEntry] {
+        var result = entries
+        for position in result.indices where position != index {
+            switch result[position] {
+            case .application(let existing) where existing == identifier:
+                result[position] = .application("")     // repaired() drops it
+            case .group(var group) where group.applications.contains(identifier):
+                group.applications.removeAll { $0 == identifier }
+                result[position] = .group(group)
+            default:
+                continue
+            }
+        }
+        return result
     }
 
     // MARK: - Dragging
@@ -283,24 +510,50 @@ public final class SidebarViewModel {
     /// A row started moving — pinned or running. A running application is previewed inside the
     /// pinned section as soon as the drag reaches it, and dropping is what pins it there.
     public func beginDrag(_ identifier: String) {
-        guard items[identifier] != nil else { return }
+        guard items[identifier] != nil || identifier.hasPrefix(DockEntry.identifierPrefix) else { return }
         draggingIdentifier = identifier
-        previewPinned = pinnedIdentifiers
+        // A member dragged out of a group leaves it for the duration of the drag: the preview then
+        // treats it like any other row, and dropping it anywhere but back on the group is what
+        // takes it out for good.
+        previewPinned = Self.leavingGroups(identifier, in: pinnedEntries)
         previewRunning = runningIdentifiers
+    }
+
+    private static func leavingGroups(_ identifier: String, in entries: [DockEntry]) -> [DockEntry] {
+        entries.map { entry in
+            guard case .group(var group) = entry,
+                  group.applications.contains(identifier)
+            else { return entry }
+            group.applications.removeAll { $0 == identifier }
+            return .group(group)
+        }
+    }
+
+    /// The application that is about to be swallowed by a group, so the rows stop drawing it in a
+    /// slot of its own while the drag rests on its target.
+    private var groupCandidateSource: String? {
+        groupCandidate == nil ? nil : draggingIdentifier
     }
 
     /// The drag is over `target`: show what dropping here would do. The row lands in whichever
     /// section `target` belongs to, so dragging across the separator pins or unpins it.
     public func dragMoved(over target: String) {
-        guard let dragged = draggingIdentifier,
-              dragged != target,
-              var pinnedOrder = previewPinned,
-              var runningOrder = previewRunning
-        else { return }
+        guard let dragged = draggingIdentifier, dragged != target else { return }
+
+        // Resting on one row is how grouping is asked for; the dwell timer starts over whenever
+        // the drag reaches a different row.
+        if dwellTarget != target {
+            dwellTarget = target
+            clearGroupCandidate()
+            startDwell(dragged: dragged, target: target)
+        }
+        guard groupCandidate == nil else { return }
+
+        guard var pinnedOrder = previewPinned, var runningOrder = previewRunning else { return }
 
         let intoPinned: Bool
         let insertion: Int
-        if let index = pinnedOrder.firstIndex(of: target) {
+        if let index = pinnedOrder.firstIndex(where: { $0.id == target }) {
             intoPinned = true
             insertion = index
         } else if let index = runningOrder.firstIndex(of: target) {
@@ -310,13 +563,13 @@ public final class SidebarViewModel {
             return
         }
 
-        pinnedOrder.removeAll { $0 == dragged }
+        let moved = pinnedOrder.first { $0.id == dragged } ?? .application(dragged)
+        pinnedOrder.removeAll { $0.id == dragged }
         runningOrder.removeAll { $0 == dragged }
-        let clamped = min(insertion, intoPinned ? pinnedOrder.count : runningOrder.count)
         if intoPinned {
-            pinnedOrder.insert(dragged, at: clamped)
+            pinnedOrder.insert(moved, at: min(insertion, pinnedOrder.count))
         } else {
-            runningOrder.insert(dragged, at: clamped)
+            runningOrder.insert(dragged, at: min(insertion, runningOrder.count))
         }
 
         guard pinnedOrder != previewPinned || runningOrder != previewRunning else { return }
@@ -325,25 +578,64 @@ public final class SidebarViewModel {
         rebuildRows()
     }
 
+    private func startDwell(dragged: String, target: String) {
+        dwellTask?.cancel()
+        guard canGroup(dragged, with: target) else {
+            dwellTask = nil
+            return
+        }
+        dwellTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.groupDwell)
+            guard !Task.isCancelled, let self, self.dwellTarget == target else { return }
+            self.groupCandidate = target
+            // The dragged row leaves the bar while it hovers: the rows stop sliding around and the
+            // target grows a ring instead, which is what says "these are about to be one row".
+            self.previewPinned = self.configuration.configuration.pinnedEntries
+            self.previewRunning = self.runningIdentifiers
+            self.rebuildRows()
+        }
+    }
+
+    private func clearGroupCandidate() {
+        dwellTask?.cancel()
+        dwellTask = nil
+        guard groupCandidate != nil else { return }
+        groupCandidate = nil
+        rebuildRows()
+    }
+
     /// The drag ended. A cancelled drag — dropped outside, or on nothing — must leave the stored
     /// order exactly as it was.
     public func endDrag(commit: Bool) {
         let pinnedOrder = previewPinned
         let runningOrder = previewRunning
+        let dragged = draggingIdentifier
+        let candidate = groupCandidate
+        dwellTask?.cancel()
+        dwellTask = nil
+        dwellTarget = nil
         draggingIdentifier = nil
+        groupCandidate = nil
         previewPinned = nil
         previewRunning = nil
+
+        // Resting on a row and letting go means "put these together", not "move me here".
+        if commit, let dragged, let candidate {
+            group(dragged, with: candidate)
+            rebuildRows()
+            return
+        }
         guard commit, let pinnedOrder, let runningOrder else {
             rebuildRows()
             return
         }
         let stored = configuration.configuration
-        guard pinnedOrder != stored.pinnedApplications || runningOrder != runningIdentifiers else {
+        guard pinnedOrder != stored.pinnedEntries || runningOrder != runningIdentifiers else {
             rebuildRows()
             return
         }
         configuration.update {
-            $0.pinnedApplications = pinnedOrder
+            $0.pinnedEntries = pinnedOrder.repaired(capacity: self.groupCapacity)
             $0.runningApplicationOrder = runningOrder
         }
         rebuildRows()
@@ -356,35 +648,39 @@ public final class SidebarViewModel {
             dragMoved(over: target)
             return
         }
-        let order = configuration.configuration.pinnedApplications
-        guard identifier != target, order.contains(target), !order.contains(identifier) else { return }
+        let entries = configuration.configuration.pinnedEntries
+        guard identifier != target,
+              entries.contains(where: { $0.id == target }),
+              !entries.contains(where: { $0.applications.contains(identifier) })
+        else { return }
         pin(identifier)
         movePinned(identifier, before: target)
     }
 
-    /// Reorder by one slot; the same operation the context menu offers.
-    public func canMovePinned(_ identifier: String, by delta: Int) -> Bool {
-        let order = configuration.configuration.pinnedApplications
-        guard let index = order.firstIndex(of: identifier) else { return false }
-        return order.indices.contains(index + delta)
+    /// Reorder by one slot; the same operation the context menu offers. `id` is a row — an
+    /// application or a group.
+    public func canMovePinned(_ id: String, by delta: Int) -> Bool {
+        let entries = configuration.configuration.pinnedEntries
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return false }
+        return entries.indices.contains(index + delta)
     }
 
-    public func movePinned(_ identifier: String, by delta: Int) {
-        var order = configuration.configuration.pinnedApplications
-        guard let index = order.firstIndex(of: identifier),
-              order.indices.contains(index + delta)
+    public func movePinned(_ id: String, by delta: Int) {
+        var entries = configuration.configuration.pinnedEntries
+        guard let index = entries.firstIndex(where: { $0.id == id }),
+              entries.indices.contains(index + delta)
         else { return }
-        order.remove(at: index)
-        order.insert(identifier, at: index + delta)
-        configuration.update { $0.pinnedApplications = order }
+        let moved = entries.remove(at: index)
+        entries.insert(moved, at: index + delta)
+        setEntries(entries)
     }
 
-    public func movePinnedToEnd(_ identifier: String) {
-        var order = configuration.configuration.pinnedApplications
-        guard let from = order.firstIndex(of: identifier) else { return }
-        order.remove(at: from)
-        order.append(identifier)
-        configuration.update { $0.pinnedApplications = order }
+    public func movePinnedToEnd(_ id: String) {
+        var entries = configuration.configuration.pinnedEntries
+        guard let from = entries.firstIndex(where: { $0.id == id }) else { return }
+        let moved = entries.remove(at: from)
+        entries.append(moved)
+        setEntries(entries)
     }
 
     // MARK: - Hover previews

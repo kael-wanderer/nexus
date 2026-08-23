@@ -11,7 +11,7 @@ private func makeModel(
 ) -> (SidebarViewModel, FakeApplicationService, ConfigurationController) {
     let service = FakeApplicationService(applications)
     var initial = NexusConfiguration()
-    initial.pinnedApplications = pinned
+    initial.setPinnedApplications(pinned)
     let controller = ConfigurationController(
         store: InMemoryConfigurationStore(initial),
         events: EventBus(),
@@ -42,8 +42,8 @@ struct SidebarViewModelTests {
 
         #expect(model.pinned.map(\.id) == ["com.apple.Terminal", "com.apple.Safari"])
         #expect(model.running.map(\.id) == ["com.apple.Music"])
-        #expect(model.pinned[1].isRunning)
-        #expect(model.pinned[0].isRunning == false)
+        #expect(model.pinnedItems[1].isRunning)
+        #expect(model.pinnedItems[0].isRunning == false)
     }
 
     @Test("A pinned application whose bundle has vanished is dropped, not rendered broken")
@@ -64,8 +64,8 @@ struct SidebarViewModelTests {
         )
         await model.refresh()
 
-        model.activateOrLaunch(model.pinned[0])
-        model.activateOrLaunch(model.pinned[1])
+        model.activateOrLaunch(model.pinnedItems[0])
+        model.activateOrLaunch(model.pinnedItems[1])
         try await Task.sleep(for: .milliseconds(50))
 
         #expect(await service.activated == ["com.apple.Safari"])
@@ -298,7 +298,7 @@ struct SidebarViewModelTests {
         var shown: [String] = []
         model.showWindows = { shown.append($0.bundleIdentifier) }
 
-        model.rowHoverChanged(model.pinned[0], hovering: true)
+        model.rowHoverChanged(model.pinnedItems[0], hovering: true)
         #expect(shown.isEmpty)              // not immediately
 
         try? await Task.sleep(for: .milliseconds(400))
@@ -318,8 +318,8 @@ struct SidebarViewModelTests {
         var shown: [String] = []
         model.showWindows = { shown.append($0.bundleIdentifier) }
 
-        model.rowHoverChanged(model.pinned[0], hovering: true)
-        model.rowHoverChanged(model.pinned[0], hovering: false)
+        model.rowHoverChanged(model.pinnedItems[0], hovering: true)
+        model.rowHoverChanged(model.pinnedItems[0], hovering: false)
 
         try? await Task.sleep(for: .milliseconds(500))
         #expect(shown.isEmpty)
@@ -340,8 +340,8 @@ struct SidebarViewModelTests {
         var shown: [String] = []
         model.showWindows = { shown.append($0.bundleIdentifier) }
 
-        model.openFlyout(for: model.pinned[0].identity)
-        model.rowHoverChanged(model.pinned[1], hovering: true)
+        model.openFlyout(for: model.pinnedItems[0].identity)
+        model.rowHoverChanged(model.pinnedItems[1], hovering: true)
         #expect(shown == ["a", "b"])        // no second wait
     }
 
@@ -360,7 +360,7 @@ struct SidebarViewModelTests {
         var shown: [String] = []
         model.showWindows = { shown.append($0.bundleIdentifier) }
 
-        model.rowHoverChanged(model.pinned[0], hovering: true)
+        model.rowHoverChanged(model.pinnedItems[0], hovering: true)
         try? await Task.sleep(for: .milliseconds(400))
         #expect(shown.isEmpty)
     }
@@ -374,7 +374,7 @@ struct SidebarViewModelTests {
         var shown: [String] = []
         model.showWindows = { shown.append($0.bundleIdentifier) }
 
-        model.rowHoverChanged(model.pinned[0], hovering: true)
+        model.rowHoverChanged(model.pinnedItems[0], hovering: true)
         try? await Task.sleep(for: .milliseconds(400))
         #expect(shown.isEmpty)
     }

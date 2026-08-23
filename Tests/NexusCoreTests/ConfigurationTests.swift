@@ -30,7 +30,7 @@ struct ConfigurationTests {
         var configuration = NexusConfiguration()
         configuration.appearance.position = .right
         configuration.appearance.width = 88
-        configuration.pinnedApplications = ["com.apple.Safari", "com.apple.Terminal"]
+        configuration.setPinnedApplications(["com.apple.Safari", "com.apple.Terminal"])
         configuration.search.shortcut = .commandSpace
         configuration.frecency["app:com.apple.Safari"] = FrecencyEntry(count: 3, lastUsed: Date(timeIntervalSince1970: 1_000))
         configuration.onboarding.hasCompleted = true

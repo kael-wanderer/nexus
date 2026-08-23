@@ -104,7 +104,7 @@ struct RevocationTests {
     func sidebarUnaffected() async throws {
         let bus = EventBus()
         var initial = NexusConfiguration()
-        initial.pinnedApplications = ["com.a", "com.b"]
+        initial.setPinnedApplications(["com.a", "com.b"])
         let configuration = ConfigurationController(
             store: InMemoryConfigurationStore(initial),
             events: bus,

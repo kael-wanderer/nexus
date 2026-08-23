@@ -11,7 +11,7 @@ private func makeSidebar(
     showRunning: Bool = true
 ) -> (SidebarViewModel, ConfigurationController) {
     var initial = NexusConfiguration()
-    initial.pinnedApplications = pinned
+    initial.setPinnedApplications(pinned)
     initial.behavior.showRunningApplications = showRunning
     initial.onboarding.hasCompleted = true
     let configuration = ConfigurationController(

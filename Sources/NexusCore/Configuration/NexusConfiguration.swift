@@ -166,6 +166,8 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     /// Keep other applications' windows off the bar (M12). Off by default: it moves windows
     /// belonging to other applications, which is not something to do to somebody unasked.
     public var reserveSpace = false
+    /// How many applications fit in one group: 9 as a 3×3 grid, 16 as 4×4 (M13).
+    public var groupCapacity = 9
     public var clickBehavior: ClickBehavior = .activateOrLaunch
     public var reduceMotionOverride: Bool?
     public init() {}
@@ -184,13 +186,17 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         showWindowCount = try container.decodeIfPresent(Bool.self, forKey: .showWindowCount) ?? true
         showFavorites = try container.decodeIfPresent(Bool.self, forKey: .showFavorites) ?? true
         reserveSpace = try container.decodeIfPresent(Bool.self, forKey: .reserveSpace) ?? false
+        groupCapacity = try container.decodeIfPresent(Int.self, forKey: .groupCapacity) ?? 9
         clickBehavior = try container.decodeIfPresent(ClickBehavior.self, forKey: .clickBehavior) ?? .activateOrLaunch
         reduceMotionOverride = try container.decodeIfPresent(Bool.self, forKey: .reduceMotionOverride)
     }
 
+    public static let groupCapacities = [9, 16]
+
     public mutating func clamp() {
         autoHideDelay = autoHideDelay.clamped(to: 0.1...5)
         hoverPreviewDelay = hoverPreviewDelay.clamped(to: Self.hoverPreviewDelayRange)
+        if !Self.groupCapacities.contains(groupCapacity) { groupCapacity = 9 }
     }
 }
 
@@ -259,14 +265,16 @@ public struct OnboardingState: Codable, Sendable, Equatable {
 }
 
 public struct NexusConfiguration: Codable, Sendable, Equatable {
-    public static let currentVersion = 1
+    /// 2 since Milestone 13: the pinned list holds groups as well as applications.
+    public static let currentVersion = 2
 
     public var version: Int = currentVersion
     public var general = GeneralConfiguration()
     public var appearance = AppearanceConfiguration()
     public var behavior = BehaviorConfiguration()
     public var search = SearchConfiguration()
-    public var pinnedApplications: [String] = []
+    /// The dock: applications and groups, in the order they are drawn.
+    public var pinnedEntries: [DockEntry] = []
     /// User-chosen order for the running-but-unpinned section. Only the applications the user has
     /// actually moved appear here; everything else stays alphabetical, after them.
     public var runningApplicationOrder: [String] = []
@@ -275,6 +283,39 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
     public var dock = DockConfiguration()
 
     public init() {}
+
+    /// Every pinned application, groups flattened, in dock order. Read-only: writing it would
+    /// have to decide what happens to the groups, and every caller that means "replace the dock
+    /// with these applications" says so with `setPinnedApplications`.
+    public var pinnedApplications: [String] {
+        pinnedEntries.flatMap(\.applications)
+    }
+
+    public mutating func setPinnedApplications(_ identifiers: [String]) {
+        pinnedEntries = identifiers.map { .application($0) }
+    }
+
+    public func group(withID id: UUID) -> ApplicationGroup? {
+        pinnedEntries.compactMap(\.group).first { $0.id == id }
+    }
+
+    /// Spelled out because `encode(to:)` below is custom, which suppresses the synthesised keys.
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case general
+        case appearance
+        case behavior
+        case search
+        case pinnedEntries
+        case runningApplicationOrder
+        case frecency
+        case onboarding
+        case dock
+    }
+
+    private enum LegacyCodingKeys: String, CodingKey {
+        case pinnedApplications
+    }
 
     /// Decoding is tolerant: every field has a default, so a partial payload written by an older
     /// build still loads. Ranges are clamped afterwards.
@@ -285,12 +326,39 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
         appearance = try container.decodeIfPresent(AppearanceConfiguration.self, forKey: .appearance) ?? .init()
         behavior = try container.decodeIfPresent(BehaviorConfiguration.self, forKey: .behavior) ?? .init()
         search = try container.decodeIfPresent(SearchConfiguration.self, forKey: .search) ?? .init()
-        pinnedApplications = try container.decodeIfPresent([String].self, forKey: .pinnedApplications) ?? []
+        pinnedEntries = try container.decodeIfPresent([DockEntry].self, forKey: .pinnedEntries) ?? []
+        // A v1 payload that reached here without its migration — a hand-written one, say — still
+        // finds its dock rather than losing it.
+        if pinnedEntries.isEmpty,
+           let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+               .decodeIfPresent([String].self, forKey: .pinnedApplications) {
+            pinnedEntries = legacy.map { .application($0) }
+        }
         runningApplicationOrder = try container.decodeIfPresent([String].self, forKey: .runningApplicationOrder) ?? []
         frecency = try container.decodeIfPresent([String: FrecencyEntry].self, forKey: .frecency) ?? [:]
         onboarding = try container.decodeIfPresent(OnboardingState.self, forKey: .onboarding) ?? .init()
         dock = try container.decodeIfPresent(DockConfiguration.self, forKey: .dock) ?? .init()
         appearance.clamp()
         behavior.clamp()
+        pinnedEntries = pinnedEntries.repaired(capacity: behavior.groupCapacity)
+    }
+
+    /// Writes the v1 `pinnedApplications` key alongside the entries. Nothing reads it; it is there
+    /// so downgrading to a build that only knows v1 finds its dock instead of an empty bar.
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
+        try container.encode(general, forKey: .general)
+        try container.encode(appearance, forKey: .appearance)
+        try container.encode(behavior, forKey: .behavior)
+        try container.encode(search, forKey: .search)
+        try container.encode(pinnedEntries, forKey: .pinnedEntries)
+        try container.encode(runningApplicationOrder, forKey: .runningApplicationOrder)
+        try container.encode(frecency, forKey: .frecency)
+        try container.encode(onboarding, forKey: .onboarding)
+        try container.encode(dock, forKey: .dock)
+
+        var legacy = encoder.container(keyedBy: LegacyCodingKeys.self)
+        try legacy.encode(pinnedApplications, forKey: .pinnedApplications)
     }
 }
