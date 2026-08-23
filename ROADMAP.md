@@ -372,26 +372,6 @@ nothing else.
 
 Spec: `docs/design/media-player-row.md`.
 
-## Milestone 17 — Search scope, and opening at the bar  ← post-MVP
-
-**Scope**
-- The palette can open anchored to the Search row instead of mid-screen (`search.opensAtBar`).
-- A scope filter — Everything, Applications, Files & folders, Files, Folders, Settings — chosen with
-  `⌘1`…`⌘6` or `⇥`, shown as a chip in the field, cleared by the first Escape.
-- Files versus folders is a Spotlight predicate on the existing query, not a second search.
-
-**Permissions:** none new.
-
-**Acceptance criteria**
-- A scope narrows results without changing ranking, and never makes a search slower.
-- Escape clears a scope before it closes the palette.
-- Opening at the bar works on all four edges, clamped on screen.
-
-**Not in scope:** a text field in the bar itself. The sidebar panel can never become key, so a field
-drawn there could not be typed into (`design/mvp.md` §2.1).
-
-Spec: `docs/design/search-scope.md`.
-
 ## Milestone 17 — The wide media player  ← post-MVP
 
 **Shipped** 2026-08-23.
@@ -414,3 +394,22 @@ Spec: `docs/design/search-scope.md`.
 
 Spec: `docs/design/media-player-row.md` §The wide player.
 
+## Milestone 18 — Search scope, and opening at the bar  ← post-MVP
+
+**Scope**
+- The palette can open anchored to the Search row instead of mid-screen (`search.opensAtBar`).
+- A scope filter — Everything, Applications, Files & folders, Files, Folders, Settings — chosen with
+  `⌘1`…`⌘6` or `⇥`, shown as a chip in the field, cleared by the first Escape.
+- Files versus folders is a Spotlight predicate on the existing query, not a second search.
+
+**Permissions:** none new.
+
+**Acceptance criteria**
+- A scope narrows results without changing ranking, and never makes a search slower.
+- Escape clears a scope before it closes the palette.
+- Opening at the bar works on all four edges, clamped on screen.
+
+**Not in scope:** a text field in the bar itself. The sidebar panel can never become key, so a field
+drawn there could not be typed into (`design/mvp.md` §2.1).
+
+Spec: `docs/design/search-scope.md`.

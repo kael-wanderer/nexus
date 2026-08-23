@@ -1,6 +1,6 @@
 # Search: where it opens, and what it searches
 
-Milestone 17. Two changes to the palette: it can open at the bar rather than in the middle of the
+Milestone 18. Two changes to the palette: it can open at the bar rather than in the middle of the
 screen, and it can be told what kind of thing to look for.
 
 ## Opening at the bar
