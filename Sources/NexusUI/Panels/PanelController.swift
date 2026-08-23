@@ -53,6 +53,7 @@ public final class PanelController {
         edgePanel = edge
 
         model.showWindows = { [weak self] identity in self?.showFlyout(for: identity) }
+        model.scheduleFlyoutHide = { [weak self] in self?.scheduleFlyoutHide() }
         flyoutModel.onDismiss = { [weak self] in self?.hideFlyout() }
         flyoutModel.onContentChange = { [weak self] in self?.layoutFlyout() }
         let flyoutHostingView = FirstMouseHostingView(
@@ -105,6 +106,7 @@ public final class PanelController {
         guard let item = (model.pinned + model.running).first(where: { $0.identity == identity })
         else { return }
         flyoutHideTask?.cancel()
+        flyoutModel.isVertical = model.appearance.position.isVertical
         flyoutModel.show(identity, name: item.name)
         layoutFlyout()
         flyoutPanel?.orderFrontRegardless()
@@ -114,14 +116,22 @@ public final class PanelController {
         flyoutHideTask?.cancel()
         flyoutHideTask = nil
         flyoutPanel?.orderOut(nil)
+        model.flyoutClosed()
     }
 
     private func flyoutHoverChanged(_ hovering: Bool) {
-        if hovering {
+        guard !hovering else {
             flyoutHideTask?.cancel()
             flyoutHideTask = nil
             return
         }
+        scheduleFlyoutHide()
+    }
+
+    /// The pointer left the flyout or the row that opened it. The grace period is what lets it
+    /// travel from one to the other without the flyout vanishing on the way.
+    private func scheduleFlyoutHide() {
+        guard flyoutModel.target != nil else { return }
         flyoutHideTask?.cancel()
         flyoutHideTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(400))
@@ -141,9 +151,14 @@ public final class PanelController {
         else { return }
 
         hosting.layoutSubtreeIfNeeded()
+        let margin = SidebarLayout.screenMargin * 2
+        let fitting = hosting.fittingSize
         let size = CGSize(
-            width: WindowFlyoutView.width,
-            height: max(hosting.fittingSize.height, WindowFlyoutView.rowHeight)
+            width: min(fitting.width, screen.visibleFrame.width - margin),
+            height: min(
+                max(fitting.height, WindowFlyoutView.rowHeight),
+                screen.visibleFrame.height - margin
+            )
         )
         panel.setFrame(
             SidebarLayout.flyoutFrame(

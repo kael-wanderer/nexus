@@ -223,9 +223,8 @@ struct SidebarItemView: View {
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering
             }
-            // Warm the window titles the context menu needs; NSMenu is built synchronously and
-            // must never wait on Accessibility (D60).
-            if hovering, item.isRunning { model.prefetchWindows(item.identity) }
+            // Warms the window titles the context menu needs (D60) and drives the hover flyout.
+            model.rowHoverChanged(item, hovering: hovering)
         }
         // The drag is AppKit's, not SwiftUI's: this panel can never become key, so
         // PanelRowInteraction claims every mouse-down and SwiftUI's own drag gestures never fire.
@@ -293,7 +292,7 @@ struct SidebarItemView: View {
         if item.isRunning, model.showWindows != nil {
             items.append(
                 ClosureMenuItem(title: String(localized: "Show All Windows")) {
-                    model.showWindows?(item.identity)
+                    model.openFlyout(for: item.identity)
                 }
             )
         }

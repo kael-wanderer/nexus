@@ -14,6 +14,9 @@ public final class WindowFlyoutViewModel {
     /// Set once the user dismisses the previews offer; never shown again (§3.5).
     public private(set) var previewsOfferDismissed = false
     public private(set) var previews: [CGWindowID: NSImage] = [:]
+    /// Which way the flyout lays its windows out — set from the sidebar's edge before it opens.
+    /// Beside a vertical bar they stack; above or below a horizontal one they sit side by side.
+    public var isVertical = true
 
     @ObservationIgnored private let service: any WindowServing
     @ObservationIgnored private let previewService: any WindowPreviewing
@@ -108,11 +111,23 @@ public final class WindowFlyoutViewModel {
         let changed = loaded.map(\.id) != windows.map(\.id)
         windows = loaded
         if changed { onContentChange?() }
+        // The flyout opens on hover now, so every thumbnail is wanted at once — waiting for the
+        // pointer to reach each row would show an empty frame for as long as it takes to get there.
+        requestPreviews()
     }
 
     public func activate(_ window: NexusWindow) {
         Task { [service] in try? await service.activate(window.identity) }
         hide()
+    }
+
+    /// Captures every window's thumbnail, if Screen Recording allows it. Cheap to call twice: the
+    /// preview service caches, and an already-loaded window is skipped.
+    public func requestPreviews() {
+        guard permissions.status(of: .screenRecording) == .granted else { return }
+        for window in windows where previews[window.identity.number] == nil {
+            requestPreview(for: window)
+        }
     }
 
     public func requestAccessibility() {
@@ -138,6 +153,9 @@ public final class WindowFlyoutViewModel {
                 cgImage: image.image,
                 size: NSSize(width: image.image.width, height: image.image.height)
             )
+            // A thumbnail makes the flyout taller (or wider). Without a re-measure the panel keeps
+            // its old frame and the image is drawn outside it — captured, stored, invisible.
+            onContentChange?()
         }
     }
 }

@@ -270,6 +270,30 @@ struct BehaviorPane: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                Toggle(
+                    String(localized: "Show windows on hover"),
+                    isOn: configuration.binding(\.behavior.hoverPreview)
+                )
+                if configuration.configuration.behavior.hoverPreview {
+                    LabeledContent(String(localized: "Hover delay")) {
+                        HStack {
+                            Slider(
+                                value: configuration.binding(\.behavior.hoverPreviewDelay),
+                                in: BehaviorConfiguration.hoverPreviewDelayRange,
+                                step: 0.1
+                            )
+                            Text(
+                                Measurement(
+                                    value: configuration.configuration.behavior.hoverPreviewDelay,
+                                    unit: UnitDuration.seconds
+                                ).formatted(.measurement(width: .narrow))
+                            )
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
             Section {
                 Toggle(String(localized: "Show running applications"), isOn: configuration.binding(\.behavior.showRunningApplications))

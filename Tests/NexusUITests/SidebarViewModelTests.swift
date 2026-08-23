@@ -286,6 +286,99 @@ struct SidebarViewModelTests {
         #expect(model.windows(for: ApplicationIdentity(bundleIdentifier: "b")).isEmpty)
     }
 
+    @Test("Resting on a row opens its window flyout after the delay")
+    func hoverOpensFlyout() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("a", name: "A", running: true)],
+            pinned: ["a"]
+        )
+        configuration.update { $0.behavior.hoverPreviewDelay = 0.2 }
+        await model.refresh()
+
+        var shown: [String] = []
+        model.showWindows = { shown.append($0.bundleIdentifier) }
+
+        model.rowHoverChanged(model.pinned[0], hovering: true)
+        #expect(shown.isEmpty)              // not immediately
+
+        try? await Task.sleep(for: .milliseconds(400))
+        #expect(shown == ["a"])
+        #expect(model.flyoutTarget?.bundleIdentifier == "a")
+    }
+
+    @Test("Sweeping past a row opens nothing")
+    func hoverCancelled() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("a", name: "A", running: true)],
+            pinned: ["a"]
+        )
+        configuration.update { $0.behavior.hoverPreviewDelay = 0.3 }
+        await model.refresh()
+
+        var shown: [String] = []
+        model.showWindows = { shown.append($0.bundleIdentifier) }
+
+        model.rowHoverChanged(model.pinned[0], hovering: true)
+        model.rowHoverChanged(model.pinned[0], hovering: false)
+
+        try? await Task.sleep(for: .milliseconds(500))
+        #expect(shown.isEmpty)
+    }
+
+    @Test("With a flyout already open, moving to another row switches immediately")
+    func hoverSwitchesInstantly() async {
+        let (model, _, configuration) = makeModel(
+            [
+                makeApplication("a", name: "A", running: true),
+                makeApplication("b", name: "B", running: true),
+            ],
+            pinned: ["a", "b"]
+        )
+        configuration.update { $0.behavior.hoverPreviewDelay = 1.5 }
+        await model.refresh()
+
+        var shown: [String] = []
+        model.showWindows = { shown.append($0.bundleIdentifier) }
+
+        model.openFlyout(for: model.pinned[0].identity)
+        model.rowHoverChanged(model.pinned[1], hovering: true)
+        #expect(shown == ["a", "b"])        // no second wait
+    }
+
+    @Test("Hover previews switched off open nothing, ever")
+    func hoverPreviewDisabled() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("a", name: "A", running: true)],
+            pinned: ["a"]
+        )
+        configuration.update {
+            $0.behavior.hoverPreview = false
+            $0.behavior.hoverPreviewDelay = 0.2
+        }
+        await model.refresh()
+
+        var shown: [String] = []
+        model.showWindows = { shown.append($0.bundleIdentifier) }
+
+        model.rowHoverChanged(model.pinned[0], hovering: true)
+        try? await Task.sleep(for: .milliseconds(400))
+        #expect(shown.isEmpty)
+    }
+
+    @Test("A stopped application has no windows to hover")
+    func hoverIgnoresStoppedApplications() async {
+        let (model, _, configuration) = makeModel([makeApplication("a", name: "A")], pinned: ["a"])
+        configuration.update { $0.behavior.hoverPreviewDelay = 0.2 }
+        await model.refresh()
+
+        var shown: [String] = []
+        model.showWindows = { shown.append($0.bundleIdentifier) }
+
+        model.rowHoverChanged(model.pinned[0], hovering: true)
+        try? await Task.sleep(for: .milliseconds(400))
+        #expect(shown.isEmpty)
+    }
+
     @Test("Hover expand is suppressed when the behaviour is disabled")
     func hoverExpandDisabled() async {
         let (model, _, configuration) = makeModel()

@@ -58,8 +58,8 @@ public final class SidebarViewModel {
     public private(set) var windowsByApplication: [String: [NexusWindow]] = [:]
 
 
-    /// Window flyout target, set at Milestone 4.
-    public var flyoutTarget: ApplicationIdentity?
+    /// The application whose window flyout is open, if any.
+    public private(set) var flyoutTarget: ApplicationIdentity?
 
     @ObservationIgnored private let applications: any ApplicationServing
     @ObservationIgnored private let configuration: ConfigurationController
@@ -70,6 +70,7 @@ public final class SidebarViewModel {
     /// display order. The two row lists are composed from these.
     @ObservationIgnored private var items: [String: SidebarItem] = [:]
     @ObservationIgnored private var alphabeticalRunning: [String] = []
+    @ObservationIgnored private var hoverPreviewTask: Task<Void, Never>?
 
     /// Called whenever the number of rows or the appearance changes, so the panel can reframe.
     @ObservationIgnored public var layoutDidChange: (() -> Void)?
@@ -77,6 +78,9 @@ public final class SidebarViewModel {
     @ObservationIgnored public var openSearch: (() -> Void)?
     /// Injected at Milestone 4; shows the window flyout for an application.
     @ObservationIgnored public var showWindows: ((ApplicationIdentity) -> Void)?
+    /// Starts the flyout's grace period — the pointer left a row, but it may be on its way to the
+    /// flyout itself.
+    @ObservationIgnored public var scheduleFlyoutHide: (() -> Void)?
     /// Pointer entered or left the sidebar; drives the auto-hide grace timer.
     @ObservationIgnored public var onHoverChange: ((Bool) -> Void)?
     /// Recomputes window counts. Called when the pointer enters the sidebar, because macOS
@@ -124,6 +128,8 @@ public final class SidebarViewModel {
     public func stop() {
         eventTask?.cancel()
         eventTask = nil
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
     }
 
     // MARK: - Rows
@@ -222,7 +228,7 @@ public final class SidebarViewModel {
 
     public func activateOrLaunch(_ item: SidebarItem) {
         if behavior.clickBehavior == .showWindowList, item.isRunning, showWindows != nil {
-            showWindows?(item.identity)
+            openFlyout(for: item.identity)
             return
         }
         Task { [applications] in
@@ -366,6 +372,47 @@ public final class SidebarViewModel {
         order.remove(at: from)
         order.append(identifier)
         configuration.update { $0.pinnedApplications = order }
+    }
+
+    // MARK: - Hover previews
+
+    /// Pointer entered or left one row. Opens that application's window flyout after
+    /// `hoverPreviewDelay`, so sweeping the length of the bar opens nothing (M10).
+    public func rowHoverChanged(_ item: SidebarItem, hovering: Bool) {
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
+
+        guard hovering else {
+            scheduleFlyoutHide?()
+            return
+        }
+        if item.isRunning { prefetchWindows(item.identity) }
+        guard behavior.hoverPreview, item.isRunning, showWindows != nil else { return }
+
+        // A flyout is already open: switching rows is instant. Paying the delay again per row is
+        // what makes a hover dock feel sticky.
+        guard flyoutTarget == nil else {
+            openFlyout(for: item.identity)
+            return
+        }
+        let delay = behavior.hoverPreviewDelay
+        hoverPreviewTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            self?.openFlyout(for: item.identity)
+        }
+    }
+
+    public func openFlyout(for identity: ApplicationIdentity) {
+        flyoutTarget = identity
+        showWindows?(identity)
+    }
+
+    /// The flyout went away — by dismissal, by a click, or because its application quit.
+    public func flyoutClosed() {
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
+        flyoutTarget = nil
     }
 
     // MARK: - Windows

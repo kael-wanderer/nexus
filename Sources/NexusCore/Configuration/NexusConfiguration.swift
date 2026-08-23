@@ -119,12 +119,24 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     public var autoHide = false
     public var autoHideDelay: Double = 0.4
     public var hoverExpand = true
+    /// Hovering an application opens its window flyout (M10).
+    public var hoverPreview = true
+    /// How long the pointer must rest on a row first. Long enough that sweeping the bar opens
+    /// nothing, short enough that resting on a row feels immediate.
+    public var hoverPreviewDelay: Double = 0.5
     public var showRunningApplications = true
     public var showWindowCount = true
     public var showFavorites = true
     public var clickBehavior: ClickBehavior = .activateOrLaunch
     public var reduceMotionOverride: Bool?
     public init() {}
+
+    public static let hoverPreviewDelayRange: ClosedRange<Double> = 0.2...1.5
+
+    public mutating func clamp() {
+        autoHideDelay = autoHideDelay.clamped(to: 0.1...5)
+        hoverPreviewDelay = hoverPreviewDelay.clamped(to: Self.hoverPreviewDelayRange)
+    }
 }
 
 public struct SearchConfiguration: Codable, Sendable, Equatable {
@@ -213,5 +225,6 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
         onboarding = try container.decodeIfPresent(OnboardingState.self, forKey: .onboarding) ?? .init()
         dock = try container.decodeIfPresent(DockConfiguration.self, forKey: .dock) ?? .init()
         appearance.clamp()
+        behavior.clamp()
     }
 }

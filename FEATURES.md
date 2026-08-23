@@ -23,7 +23,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 10 | Window grouping | M4 | **Accessibility** | Flyout listing an app's windows |
 | 11 | Activate windows | M4 | **Accessibility** | `AXRaise` + `NSRunningApplication.activate()` |
 | 12 | Window count | M3 | None | `CGWindowListCopyWindowInfo` — count only, no titles |
-| 13 | Basic window preview | M4 | **Screen Recording** *(optional)* | ScreenCaptureKit; degrades to title-only |
+| 13 | Basic window preview | M4, M10 | **Screen Recording** *(optional)* | ScreenCaptureKit; degrades to title-only. Opens on hover after a delay (D64), thumbnails side by side on a horizontal bar |
 | 14 | Global keyboard shortcut | M5 | None | `RegisterEventHotKey`; Option+Space default |
 | 15 | Search UI | M5 | None | Command-palette `NSPanel` |
 | 16 | Application search | M5 | None | In-memory index of `/Applications`, `~/Applications`, system apps |

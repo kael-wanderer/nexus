@@ -9,6 +9,10 @@ public struct WindowFlyoutView: View {
     public static let rowHeight: CGFloat = 30
     public static let headerHeight: CGFloat = 26
     public static let previewHeight: CGFloat = 96
+    /// One card beside a horizontal bar: a thumbnail with its title underneath.
+    public static let cardWidth: CGFloat = 200
+    /// Past this many windows the cards scroll instead of running off the screen.
+    public static let maximumCards = 5
 
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -44,16 +48,18 @@ public struct WindowFlyoutView: View {
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 10)
                         .frame(height: Self.rowHeight)
-                } else {
+                } else if model.isVertical {
                     ForEach(model.windows) { window in
                         WindowRow(model: model, window: window)
                     }
+                } else {
+                    cards
                 }
                 if model.showsPreviewsOffer { previewsOffer }
             }
         }
         .padding(8)
-        .frame(width: Self.width, alignment: .leading)
+        .frame(width: model.isVertical ? Self.width : nil, alignment: .leading)
         .background(VisualEffectBackground(material: .popover))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
@@ -62,6 +68,24 @@ public struct WindowFlyoutView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Windows of \(model.applicationName)"))
+    }
+
+    /// Side-by-side thumbnails, the shape the Dock uses above or below a horizontal bar.
+    private var cards: some View {
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(model.windows) { window in
+                    WindowCard(model: model, window: window)
+                }
+            }
+        }
+        .scrollIndicators(.never)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(
+            maxWidth: CGFloat(min(model.windows.count, Self.maximumCards))
+                * (Self.cardWidth + 8),
+            alignment: .leading
+        )
     }
 
     private var header: some View {
@@ -120,6 +144,71 @@ struct WindowRow: View {
                     .accessibilityHidden(true)
             }
         }
+        .background {
+            RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
+                .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
+                isHovered = hovering
+            }
+            if hovering { model.requestPreview(for: window) }
+        }
+        .nexusRow(onClick: { model.activate(window) })
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(displayTitle)
+        .accessibilityValue(
+            window.isMinimized ? String(localized: "minimized") : String(localized: "open")
+        )
+        .accessibilityHint(String(localized: "Brings this window to the front"))
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var displayTitle: String {
+        window.title.isEmpty ? String(localized: "Untitled window") : window.title
+    }
+}
+
+/// One window as a thumbnail with its title underneath — the horizontal counterpart of
+/// `WindowRow`, which stacks them beside a vertical bar.
+struct WindowCard: View {
+    @Bindable var model: WindowFlyoutViewModel
+    let window: NexusWindow
+
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Group {
+                if let preview = model.previews[window.identity.number] {
+                    Image(nsImage: preview)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else {
+                    // No Screen Recording, or the capture has not arrived yet. A neutral tile,
+                    // never an error-looking placeholder (§3.5).
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: window.isMinimized ? "minus.rectangle" : "macwindow")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+            }
+            .frame(width: WindowFlyoutView.cardWidth, height: WindowFlyoutView.previewHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .accessibilityHidden(true)
+
+            Text(displayTitle)
+                .font(.caption)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: WindowFlyoutView.cardWidth, alignment: .leading)
+        }
+        .padding(4)
         .background {
             RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
                 .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))

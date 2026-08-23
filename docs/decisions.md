@@ -464,3 +464,24 @@ else keeps its alphabetical place behind them, so the section does not shuffle i
 application launches. A drag lands in whichever section the row under the pointer belongs to,
 which makes dragging across the separator pin or unpin — the same gesture the Dock uses.
 
+## 2026-08-23 — Milestone 10, hover previews
+
+**D64. Hover opens the flyout after a delay; switching rows while one is open is instant.**
+Without the delay, sweeping the length of the bar opens and closes a dozen flyouts. Paying it
+again for every row once one is already open is what makes hover docks feel sticky, so the timer
+applies to opening, not to switching. The timer is cancelled the moment the pointer leaves the
+row, and the flyout's existing 400 ms grace period is what lets the pointer travel from the row
+to the flyout without it vanishing on the way.
+
+**D65. A thumbnail arriving has to re-measure the flyout.**
+Previews are captured after the flyout is already on screen, and the panel's frame is computed
+from the hosting view's fitting size at the moment it opens. Storing an image therefore grew the
+content inside a panel that kept its old frame: the thumbnails were captured, cached and drawn
+entirely outside the visible bounds. `requestPreview` now calls `onContentChange` on arrival.
+Found live — the logs said `Preview for window 3246: image` while the flyout showed titles only.
+
+**D66. The preview service's failure paths log at `.notice`, not `.debug`.**
+Same lesson as D48, in the one place it had survived: `os.Logger.debug` is memory-only, so "no
+capturable window" and "preview unavailable" were invisible in exactly the situation they exist
+for. The "window not found in `SCShareableContent`" branch had no logging at all.
+

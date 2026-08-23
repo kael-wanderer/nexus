@@ -54,6 +54,11 @@ public actor WindowPreviewService: WindowPreviewing {
                 onScreenWindowsOnly: true
             )
             guard let target = content.windows.first(where: { $0.windowID == window.number }) else {
+                // Not an error: a window that is off-screen, on another Space, or carries a
+                // synthetic id because AX gave it none, has nothing to capture.
+                Log.windows.notice(
+                    "No capturable window \(window.number, privacy: .public) for \(window.owner.bundleIdentifier, privacy: .public)"
+                )
                 return nil
             }
             let filter = SCContentFilter(desktopIndependentWindow: target)
@@ -74,8 +79,8 @@ public actor WindowPreviewService: WindowPreviewing {
             return SendableImage(image)
         } catch {
             // A denial or a window that vanished mid-capture is a normal state change (§3.5),
-            // never an alert.
-            Log.windows.debug("Preview unavailable: \(String(describing: error), privacy: .public)")
+            // never an alert — but it is a state change, so it is `.notice`, not `.debug` (D48).
+            Log.windows.notice("Preview unavailable: \(String(describing: error), privacy: .public)")
             return nil
         }
     }

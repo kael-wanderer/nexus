@@ -18,7 +18,13 @@ this project follows [Semantic Versioning](https://semver.org).
 - An application's windows are now in its context menu, frontmost ticked, one click from the
   sidebar; the thumbnail flyout is renamed Show All Windows (D60).
 
+- Hovering an application opens its window flyout after `behavior.hoverPreviewDelay` (default
+  500 ms); moving to another row while one is open switches instantly. Beside a horizontal bar the
+  thumbnails sit side by side. Off switch: `behavior.hoverPreview`.
+
 ### Fixed
+- Window thumbnails were captured and cached but never seen: the flyout panel keeps the frame it
+  had when it opened, so an image arriving afterwards was drawn outside it (D65).
 - Window-count badges disagreed with the window list: they counted a browser's find bar and
   missed a Finder window. Counts now come from the same Accessibility list the menu shows, and
   the badge is hidden entirely while Accessibility is missing (D61).
