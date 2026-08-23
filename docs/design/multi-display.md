@@ -29,6 +29,10 @@ One `NonActivatingPanel` per screen, each hosting its own `SidebarView` over the
 `SidebarViewModel` — so there is one set of pinned applications, one media row, one Trash state, and
 no second set of observers watching the same system.
 
+Every bar inherits the panel `collectionBehavior` from `design/mvp.md` §2.1, so each one is on
+**every Space of its own display** — which is what the single-bar version could not do: a second
+monitor's desktops, in Mission Control or out, had nothing on them at all.
+
 Consequences worth knowing:
 
 - **The row budget is shared, and sized to the smallest screen.** Zones (M14) are model state; a

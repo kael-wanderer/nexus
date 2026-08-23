@@ -43,6 +43,7 @@ final class SidebarPanel: NSPanel {
 | `level` | `.floating` | Above ordinary windows, below the menu bar and system alerts |
 | `collectionBehavior` | `[.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]` | Present on every Space, over fullscreen apps, and absent from Command-Tab / Exposé |
 | `hidesOnDeactivate` | `false` | Nexus is never "active"; the panel must stay |
+| `canHide` | `false` | `NSApp.hide(nil)` hides every window an application owns. A bar is not a document window, and an application flagged hidden also publishes no windows to the accessibility tree (D93) |
 | `isOpaque` / `backgroundColor` | `false` / `.clear` | Rounded corners and translucency drawn by SwiftUI over `NSVisualEffectView` |
 | `isMovableByWindowBackground` | `false` | Position is a setting, not a drag |
 | `animationBehavior` | `.none` | Auto-hide animation is ours |

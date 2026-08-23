@@ -147,6 +147,8 @@ player, and is it playing".
   request to whoever macOS thinks owns playback, and for VLC that is frequently nobody. Transport now
   goes through the player's own scripting dictionary where there is one, with the key as the fallback
   for browser tabs. The play/pause icon follows the player's reported state rather than assuming it
+  — and for a browser that state comes from the window title, not from the audio, which keeps
+  running while the video is paused (D92, `now-playing.md` §Whether it is playing)
   is playing.
 
 Verified live: clicking play in the bar takes VLC from `playing: false` to `true`; clicking again

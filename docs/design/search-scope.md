@@ -76,4 +76,6 @@ and nothing has asked for one yet.
 - Folders-only and files-only are complements over the same query.
 - `⌃3` selects a scope and re-runs the query without a keystroke of input.
 - Escape with a scope set clears the scope; Escape again closes the palette.
-- Opening at the bar puts the palette beside the Search row on all four edges, clamped on screen.
+- The box opens the palette beside itself on all four edges, clamped on screen; the global shortcut
+  centres it whatever the setting says.
+- The box costs the tail three slots and the icon one, and a narrow vertical bar keeps the icon.
