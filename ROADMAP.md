@@ -270,7 +270,25 @@ Trash (D57).
 
 Spec: `docs/design/start-menu.md`.
 
-## Milestone 12 — Application groups  ← post-MVP
+## Milestone 12 — Reserved space  ← post-MVP
+
+**Scope**
+- While the bar is visible and not auto-hiding, ordinary windows are kept off it: pushed if they
+  fit on what is left of the screen, shrunk only if they do not.
+- Full-screen windows are exempt. Applications that put a window back twice are left alone.
+- `behavior.reserveSpace`, default off — it moves other applications' windows.
+
+**Permissions:** Accessibility, already requested for the window list; the toggle offers the prompt
+when it is missing.
+
+**Acceptance criteria**
+- A window dropped over the bar is off it within a frame or two, on all four edges.
+- `autoHide` on, or the setting off, registers no observers and moves nothing.
+- No feedback loop with an application that repositions itself.
+
+Spec: `docs/design/reserved-space.md`.
+
+## Milestone 13 — Application groups  ← post-MVP
 
 **Scope**
 - Drop one application onto another to make a folder; a popover grid opens it; the name is

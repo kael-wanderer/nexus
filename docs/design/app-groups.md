@@ -1,6 +1,6 @@
 # Application groups
 
-Milestone 12. Drag one application onto another to put both in a folder, the way iOS and Launchpad
+Milestone 13. Drag one application onto another to put both in a folder, the way iOS and Launchpad
 do — for the applications that deserve a place in the bar but not a slot each.
 
 This is the one of the three that changes the stored schema, which is why it goes last.

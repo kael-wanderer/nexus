@@ -9,6 +9,7 @@ One file per feature.
 | [`dock-parity.md`](dock-parity.md) | The gaps found by using it: Trash icon states without Full Disk Access, live drag reordering, an application's windows in its context menu. |
 | [`window-previews.md`](window-previews.md) | Hovering an application to see its windows — the half of Milestone 4 that never shipped. |
 | [`start-menu.md`](start-menu.md) | A browsable grid of everything installed, for when you cannot name what you want. |
+| [`reserved-space.md`](reserved-space.md) | Keeping other applications' windows off the bar, when macOS offers no way to reserve the space. |
 | [`app-groups.md`](app-groups.md) | Folders in the dock, and the configuration migration they bring with them. |
 
 New feature? New file here, named after the feature. Keep it to what is specific — the focus,

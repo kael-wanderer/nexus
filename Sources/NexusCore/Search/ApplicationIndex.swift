@@ -147,8 +147,14 @@ public final class ApplicationIndex {
                   Self.isLaunchable(url, bundle),
                   seen.insert(identifier).inserted
             else { continue }
-            let name = (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
-                ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            // An empty CFBundleName is as useless as a missing one — some bundles ship "" and the
+            // tile then draws an icon with no caption under it.
+            let name = [
+                bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String,
+                bundle.object(forInfoDictionaryKey: "CFBundleName") as? String,
+            ]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
                 ?? url.deletingPathExtension().lastPathComponent
             applications.append(
                 NexusApplication(
