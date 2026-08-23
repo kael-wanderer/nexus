@@ -185,6 +185,8 @@ declining both leaves a fully usable launcher.
 
 ## Milestone 8 — Dock replacement  ← post-MVP
 
+**Shipped** 2026-08-23 (`8eafdfe`).
+
 **Scope**
 - `SidebarPosition` gains `.top` and `.bottom`; `SidebarLayout` transposed for horizontal edges.
 - Dock Replacement Mode: `com.apple.dock` auto-hide with a 1000 s delay, Dock parked on the
@@ -205,6 +207,8 @@ declining both leaves a fully usable launcher.
 Spec: `docs/design/dock-replacement.md`.
 
 ## Milestone 9 — Dock parity  ← post-MVP
+
+**Shipped** 2026-08-23 (`1ec8433`, `319975c`, `b0f86d7`).
 
 **Scope**
 - Trash row uses the macOS Trash icons and shows full vs empty, detected with `stat` link counts
@@ -227,6 +231,8 @@ Spec: `docs/design/dock-parity.md`.
 
 ## Milestone 10 — Window previews on hover  ← post-MVP
 
+**Shipped** 2026-08-23 (`9cba6bc`).
+
 **Scope**
 - Hovering an application opens its window flyout after a delay; leaving before it elapses opens
   nothing, and moving to another row while one is open switches immediately.
@@ -245,6 +251,8 @@ already handled by the flyout.
 Spec: `docs/design/window-previews.md`.
 
 ## Milestone 11 — Start menu  ← post-MVP
+
+**Shipped** 2026-08-23 (`f1b0522`).
 
 **Scope**
 - A browsable grid of every installed application, from the existing `ApplicationIndex`, with a

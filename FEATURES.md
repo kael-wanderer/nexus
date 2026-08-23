@@ -47,6 +47,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | Open System Settings | M5 | None | `x-apple.systempreferences:` URL |
 | Show Desktop | — | — | **Not in MVP** — no such bundle exists on macOS 14+; the alternatives need Accessibility or AppleScript (D28) |
 | Lock Screen | M5 | None | `SACLockScreenImmediate` (login framework) |
+| Start menu | M11 | None (Automation for the system actions) | Browsable grid from the application index, filter field, recents first, Sleep / Restart / Shut Down / Log Out. Off by default; corner configurable |
 | Trash | M9 | None | Always-present row before Search, drawn with the macOS Trash icons and showing full vs empty (counted with `stat`, no Full Disk Access — D58). Click opens it; the context menu opens or empties it, asking first |
 
 No shell execution, no AppleScript, no `osascript` in the MVP. Those need Automation

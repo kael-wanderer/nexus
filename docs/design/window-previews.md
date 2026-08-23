@@ -46,6 +46,12 @@ twelve-window application scrolls rather than spanning the screen.
 `behavior.hoverPreview` (default **on**) and `behavior.hoverPreviewDelay` (0.2–1.5 s). Off means
 today's behaviour exactly: the flyout opens from the context menu's **Show All Windows** only.
 
+## What shipped
+
+`9cba6bc`, as specified. One thing the spec did not anticipate: a thumbnail arriving *after* the
+flyout is on screen has to trigger a re-measure, or it is drawn outside the panel's frame and
+never seen (D65).
+
 ## Rules it inherits
 
 - Accessibility gates titles, Screen Recording gates thumbnails; without either the flyout still

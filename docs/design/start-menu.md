@@ -25,14 +25,20 @@ A panel, not a sheet:
 └─────────────────────────────────┘
 ```
 
-- **Data**: `ApplicationIndex`, already built and cached — 450-odd applications with icons, the
-  same source the palette's application provider uses. No new scanning.
+- **Data**: `ApplicationIndex`, already built and cached — the same source the palette's
+  application provider uses. No new scanning. Building this made it obvious the index was listing
+  every bundle on the disk, agents and helpers included; it now filters to what a person can
+  actually launch, 454 down to 132 (D68).
 - **Ranking**: the existing frecency table puts recently used applications first; the rest is
   alphabetical.
 - **Filter field**: reuses `NativeSearchField` and the palette's key handling — arrows move the
-  selection, Return launches, Escape closes.
-- **System actions**: Sleep / Restart / Log Out / Lock via `NSAppleScript` to System Events,
+  selection (sideways one at a time, vertically a row at a time), Return launches, Escape closes.
+  Filtering, not cross-provider ranking: best match first, then alphabetical, so the grid stays
+  stable enough to aim at while you are still typing.
+- **System actions**: Sleep / Restart / Shut Down / Log Out via `NSAppleScript` to System Events,
   behind a confirmation for the destructive ones. Same permission story as Empty Trash (D57).
+  *Lock was dropped:* macOS exposes it only through a deprecated `CGSession` binary, and Shut Down
+  is the action people actually reach for in that row.
 
 ## The button
 
@@ -51,8 +57,20 @@ on launch, and when it resigns key.
 ## Settings
 
 `general.showStartMenu` (default **off** — this is an addition, not a replacement, and the bar
-should not grow a button nobody asked for), plus the corner picker and an optional global
-shortcut, validated by the same recorder the palette's shortcut uses.
+should not grow a button nobody asked for) plus `appearance.startMenuCorner`.
+
+*Not built:* a dedicated global shortcut. `HotKeyService` holds one binding, and a second one is
+its own small piece of work — the launcher row and the menu-bar item are the ways in for now.
+
+## What shipped
+
+`f1b0522`. Two implementation notes worth keeping:
+
+- The panel's height is **computed from the row count**, not measured: a `LazyVGrid` inside a
+  `ScrollView` has no intrinsic height, so `fittingSize` sees the field and the action row alone
+  and the panel opens as a sliver (D69).
+- The menu opens before the application index has finished its first build, so the index calls
+  back (`ApplicationIndex.onIndexed`) rather than the menu polling for it.
 
 ## Tests
 
