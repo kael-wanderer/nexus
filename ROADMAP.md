@@ -225,3 +225,57 @@ section is absent without it.
 
 Spec: `docs/design/dock-parity.md`.
 
+## Milestone 10 — Window previews on hover  ← post-MVP
+
+**Scope**
+- Hovering an application opens its window flyout after a delay; leaving before it elapses opens
+  nothing, and moving to another row while one is open switches immediately.
+- Thumbnails sit side by side above or below a horizontal bar, in a column beside a vertical one.
+- `behavior.hoverPreview` and `behavior.hoverPreviewDelay` in Settings; off restores today's
+  menu-only behaviour.
+
+**Permissions:** none new. Accessibility gates titles, Screen Recording gates thumbnails — both
+already handled by the flyout.
+
+**Acceptance criteria**
+- Sweeping the pointer across the whole bar opens no flyout.
+- The flyout never takes focus, at any position.
+- Screen Recording denied ⇒ titles only, no placeholder that implies an error.
+
+Spec: `docs/design/window-previews.md`.
+
+## Milestone 11 — Start menu  ← post-MVP
+
+**Scope**
+- A browsable grid of every installed application, from the existing `ApplicationIndex`, with a
+  filter field, frecency-first ordering and system actions (Sleep / Restart / Log Out / Lock).
+- A launcher button at the leading end of the bar and a configurable corner for the panel.
+- `general.showStartMenu`, default off, plus an optional global shortcut.
+
+**Permissions:** none new; the system actions use Automation, requested on first use like Empty
+Trash (D57).
+
+**Acceptance criteria**
+- Escape or launching restores the previously frontmost application.
+- With the setting off, the bar has no launcher row and the layout is byte-identical to today.
+- All four corners resolve correctly, including on a display with a negative origin.
+
+Spec: `docs/design/start-menu.md`.
+
+## Milestone 12 — Application groups  ← post-MVP
+
+**Scope**
+- Drop one application onto another to make a folder; a popover grid opens it; the name is
+  auto-generated from `LSApplicationCategoryType` and editable; capacity 9 or 16.
+- `pinnedApplications: [String]` becomes a list of entries that are either an application or a
+  group, taking the configuration from version 1 to version 2 — the first real migration.
+
+**Permissions:** none new.
+
+**Acceptance criteria**
+- A version 1 configuration loads into version 2 with the same dock in the same order.
+- A group of one dissolves; a full group refuses a drop visibly rather than silently.
+- A group whose applications have all been uninstalled disappears without taking the dock with it.
+
+Spec: `docs/design/app-groups.md`.
+
