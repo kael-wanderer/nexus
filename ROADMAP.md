@@ -202,7 +202,7 @@ declining both leaves a fully usable launcher.
 - Killing Nexus with `SIGKILL` and relaunching restores the Dock.
 - Skipping the onboarding step leaves the Dock untouched.
 
-Spec: `docs/DESIGN_M8_DOCK_REPLACEMENT.md`.
+Spec: `docs/design/dock-replacement.md`.
 
 ## Milestone 9 — Dock parity  ← post-MVP
 
@@ -223,5 +223,5 @@ section is absent without it.
 - Right-clicking a two-window application offers both windows and raises the one clicked.
 - The context menu never waits on Accessibility; a row with no cached windows shows no section.
 
-Spec: `docs/DESIGN_M9_DOCK_PARITY.md`.
+Spec: `docs/design/dock-parity.md`.
 

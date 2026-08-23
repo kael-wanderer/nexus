@@ -151,7 +151,7 @@ public struct PermissionRequestView: View {
 }
 
 /// A flat, custom-drawn action row. Standard `Button` chrome renders inactive inside a panel
-/// that can never become key, so panels use this instead (DESIGN_MVP §2.1).
+/// that can never become key, so panels use this instead (design/mvp.md §2.1).
 public struct FlatActionRow: View {
     public let title: String
     public let prominent: Bool

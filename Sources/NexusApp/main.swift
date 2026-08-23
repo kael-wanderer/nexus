@@ -1,7 +1,7 @@
 import AppKit
 import NexusCore
 
-// Single instance (§1 of DESIGN_MVP): if another Nexus is already running, hand over to it.
+// Single instance (§1 of design/mvp.md): if another Nexus is already running, hand over to it.
 // The one exception is a deliberate relaunch, where the outgoing instance is on its way out and
 // this process is its replacement.
 let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.congbui.nexus"

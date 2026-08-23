@@ -181,8 +181,9 @@ Package.swift
   while a permission screen is on screen, because macOS publishes no TCC notification.
 - **Swift 6 strict concurrency**, zero build warnings.
 
-Full detail: [`ARCHITECTURE.md`](ARCHITECTURE.md), [`docs/DESIGN_MVP.md`](docs/DESIGN_MVP.md),
-[`docs/DECISIONS.md`](docs/DECISIONS.md).
+Full detail: [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/`](docs/README.md) — the design
+documents in [`docs/design/`](docs/design), one per feature, and the decision log in
+[`docs/decisions.md`](docs/decisions.md).
 
 ## Roadmap
 

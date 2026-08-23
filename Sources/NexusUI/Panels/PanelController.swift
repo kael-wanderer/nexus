@@ -3,7 +3,7 @@ import NexusCore
 import SwiftUI
 
 /// The only code in Nexus that touches `NSWindow`. Panels are created once and reused, so the
-/// hotkey path never pays a window-creation cost (DESIGN_MVP §2.3).
+/// hotkey path never pays a window-creation cost (design/mvp.md §2.3).
 @MainActor
 public final class PanelController {
     private let model: SidebarViewModel

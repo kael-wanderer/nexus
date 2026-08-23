@@ -141,7 +141,7 @@ public actor WindowService: WindowServing {
     }
 
     /// Raise before activating, or the application comes forward showing its previous window
-    /// (DESIGN_MVP §3.2).
+    /// (design/mvp.md §3.2).
     public func activate(_ window: WindowIdentity) throws {
         guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
         guard let element = elements[window.owner]?[window.number] else {

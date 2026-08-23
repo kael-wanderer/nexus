@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Shared metrics and motion rules. System materials and semantic colors only, so dark mode,
-/// light mode and Increase Contrast come for free (§9 of DESIGN_MVP).
+/// light mode and Increase Contrast come for free (§9 of design/mvp.md).
 public enum Design {
     public static let itemCornerRadius: CGFloat = 10
     public static let sidebarInset: CGFloat = 6

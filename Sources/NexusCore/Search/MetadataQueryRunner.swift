@@ -40,7 +40,7 @@ public enum MetadataSearch: Sendable {
 
 /// One-shot Spotlight query. `NSMetadataQuery` needs a run loop, so it lives on the main actor;
 /// callers get back `Sendable` value types. The query is stopped on the first gather — no live
-/// monitoring, no background churn (DESIGN_MVP §4.2).
+/// monitoring, no background churn (design/mvp.md §4.2).
 @MainActor
 public final class MetadataQueryRunner {
     public static let shared = MetadataQueryRunner()

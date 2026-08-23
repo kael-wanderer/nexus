@@ -1,7 +1,7 @@
 # Nexus — Architecture
 
-Decisions and their reasons. Details of the MVP surface live in `docs/DESIGN_MVP.md`;
-one-off ambiguity calls live in `docs/DECISIONS.md`.
+Decisions and their reasons. Details of the MVP surface live in `docs/design/mvp.md`;
+one-off ambiguity calls live in `docs/decisions.md`.
 
 ---
 

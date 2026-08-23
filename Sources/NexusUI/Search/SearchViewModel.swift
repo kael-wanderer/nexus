@@ -99,7 +99,7 @@ public final class SearchViewModel {
 
     private func apply(_ snapshot: SearchSnapshot) {
         results = snapshot.results
-        // DESIGN_MVP §4.1: a later snapshot must not move the selection *once the user has
+        // design/mvp.md §4.1: a later snapshot must not move the selection *once the user has
         // moved it*. Until then row 0 stays preselected on every snapshot — otherwise the first
         // provider to answer strands the selection on its row 0, and the merge that follows
         // leaves it pointing at whatever now sits three rows down.

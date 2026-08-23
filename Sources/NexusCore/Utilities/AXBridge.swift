@@ -4,7 +4,7 @@ import Foundation
 
 /// `_AXUIElementGetWindow` maps an AX element to its `CGWindowID`. It is long-stable SPI rather
 /// than public API; `AX.windowID(of:)` treats its absence as "no window id", which costs the
-/// preview for that window and nothing else (DESIGN_MVP §3.1).
+/// preview for that window and nothing else (design/mvp.md §3.1).
 @_silgen_name("_AXUIElementGetWindow")
 private func _AXUIElementGetWindow(_ element: AXUIElement, _ identifier: UnsafeMutablePointer<CGWindowID>) -> AXError
 

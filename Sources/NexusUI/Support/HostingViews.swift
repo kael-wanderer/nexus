@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// A non-key panel normally swallows the first click into it. Accepting first mouse is what
-/// makes the sidebar act immediately without a click-to-focus step (DESIGN_MVP §2.1).
+/// makes the sidebar act immediately without a click-to-focus step (design/mvp.md §2.1).
 public final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 

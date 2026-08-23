@@ -21,7 +21,7 @@ TCC keys permission grants to signature + bundle identifier; changing either res
 
 **D3. Sidebar panel can never become key; the search palette activates the app deliberately.**
 The two panels have opposite focus requirements, so they get opposite designs rather than one
-shared abstraction. Details in `docs/DESIGN_MVP.md` §2.
+shared abstraction. Details in `docs/design/mvp.md` §2.
 
 **D4. Auto-hide reveal uses a 2 pt transparent edge-trigger panel with a tracking area.**
 Event-driven and permission-free. Rejected `NSEvent.addGlobalMonitorForEvents(.mouseMoved)`:
@@ -134,14 +134,14 @@ over 45 s idle after the fix.
 **D25. Only `AXStandardWindow` subroles appear in window lists.**
 Sheets, popovers, palettes and toolbars are AX windows too; listing them would make the flyout
 noise. Windows without an `_AXUIElementGetWindow` id still list and activate under a synthetic
-identifier — only their preview is lost (DESIGN_MVP §3.1).
+identifier — only their preview is lost (design/mvp.md §3.1).
 
 **D26. The search palette starts on the non-activating key path and self-measures.**
 Review Note 1. `SearchPanelController` opens with `makeKeyAndOrderFront` and no `NSApp.activate()`;
 200 ms later it logs `strategy / isKeyWindow / NSApp.isActive / frontmost` and switches to
 activate-and-restore for the rest of the session if the panel did not become key. Checking
 `isKeyWindow` synchronously does not work — activation has not settled yet, and an immediate
-check falls back every time. `DESIGN_MVP.md` §2.2 now documents both paths.
+check falls back every time. `design/mvp.md` §2.2 now documents both paths.
 **Measured 2026-08-22 on an unlocked session: `strategy nonActivating, key true, app active
 true, frontmost com.apple.TextEdit`. Review Note 1 is confirmed — the panel becomes key and
 accepts typing while the frontmost application stays TextEdit, so there is no restore step and
@@ -217,7 +217,7 @@ because nothing measured badly.
 panel can never become key (D3) — that is the guarantee the whole product rests on. VoiceOver
 drives it through the accessibility element tree, which needs no key status, and every row
 carries a label, a value ("running, 3 windows") and a hint. Keyboard-driven work goes through
-the search palette, which is the keyboard surface, exactly as `DESIGN_MVP.md` §2.1 anticipated.
+the search palette, which is the keyboard surface, exactly as `design/mvp.md` §2.1 anticipated.
 
 **D37. Accessibility revocation is detected on the next AX call, not by polling.**
 `WindowService` re-checks `AXIsProcessTrusted()` on every entry point and publishes
@@ -238,7 +238,7 @@ Memory was flat. A real Instruments leak session stays on the MANUAL VERIFICATIO
 **D39. Clicks inside a panel that can never become key are handled in AppKit, not by SwiftUI's
 `.onTapGesture`.** Root cause of "clicking the sidebar / palette does nothing". A click into a
 non-key window is discarded unless the **view that is actually hit** returns
-`acceptsFirstMouse == true`; overriding it on the `NSHostingView`, as `DESIGN_MVP.md` §2.1
+`acceptsFirstMouse == true`; overriding it on the `NSHostingView`, as `design/mvp.md` §2.1
 assumed, is not enough, because the hit view is one of SwiftUI's internal subviews. And because
 the sidebar can *never* become key, every click is a first-mouse click — so the taps did not
 merely fail once, they never worked at all. `PanelRowInteraction` (the former
@@ -254,7 +254,7 @@ unconditionally, so the first provider to answer set row 0 and the merge that fo
 selection stranded on a row that was no longer first. Live evidence: for the query `calcul`,
 `results[0]` was Calculator (0.90) while `selectedID` was `window:com.barebones.bbedit#2666`.
 Enter did execute — it raised a background BBEdit window, which looks exactly like nothing
-happening. The rule now matches `DESIGN_MVP.md` §4.1 as written: row 0 is preselected on every
+happening. The rule now matches `design/mvp.md` §4.1 as written: row 0 is preselected on every
 snapshot **until** the user arrows or clicks. Hover highlights without pinning, because the
 palette opens under the pointer and would otherwise hand Return to whatever row the mouse
 happened to be resting on.
@@ -291,7 +291,7 @@ unchanged per `ARCHITECTURE.md` §8: bundle identifiers and counts are `.public`
 **D44. Pinned reorder is available from the context menu.**
 `PanelRowInteraction` claims mouse-down, which is also where a SwiftUI `.draggable` would begin,
 so drag-reorder cannot be relied on in the sidebar. Working clicks matter more than working
-drags, and `DESIGN_MVP.md` §2.1 already listed a manual reorder as the sanctioned fallback.
+drags, and `design/mvp.md` §2.1 already listed a manual reorder as the sanctioned fallback.
 Move Up / Move Down / Move to End are now in the context menu, correctly disabled at the ends.
 `.draggable`/`.dropDestination` are left in place and cost nothing; dropping an application from
 Finder onto the sidebar to pin it is unaffected, because that drop target is the container, not
@@ -348,7 +348,7 @@ the user switched applications once. `ApplicationMonitor.start()` now seeds it f
 Caught live while verifying D46: on a two-display setup the sidebar jumped to the second
 monitor (x = 2568) because the onboarding window had opened there. `NSScreen.main` is
 documented as *"the screen containing the window with keyboard focus"*, so it follows Settings
-or onboarding onto whichever monitor they land on and drags the sidebar along. `DESIGN_MVP.md`
+or onboarding onto whichever monitor they land on and drags the sidebar along. `design/mvp.md`
 §8 defines `.main` as "the display with the menu bar", which is `NSScreen.screens.first`.
 Added `DisplayService.menuBarScreen` and routed `.main`, `.withMouse`'s fallback and the
 disconnected-`.specific` fallback through it. Verified: sidebar stays at x = 8 with onboarding

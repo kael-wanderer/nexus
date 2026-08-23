@@ -1,7 +1,7 @@
 import Foundation
 
 /// Progressive delivery, not one final answer: in-memory providers emit a first snapshot within
-/// a few milliseconds and the file provider merges in later (DESIGN_MVP §4.1).
+/// a few milliseconds and the file provider merges in later (design/mvp.md §4.1).
 public actor SearchEngine {
     private let providers: [any SearchProvider]
     private var enabled: Set<SearchProviderID>

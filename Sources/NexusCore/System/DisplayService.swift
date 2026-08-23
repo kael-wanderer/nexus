@@ -36,7 +36,7 @@ public enum DisplayService {
     /// `NSScreen.main` is the screen containing the **key window**, not the main display — so it
     /// follows Settings or onboarding onto a second monitor and drags the sidebar with it.
     /// `screens.first` is the display with the menu bar, which is what `.main` means here
-    /// (DESIGN_MVP §8).
+    /// (design/mvp.md §8).
     public static var menuBarScreen: NSScreen? {
         NSScreen.screens.first ?? NSScreen.main
     }

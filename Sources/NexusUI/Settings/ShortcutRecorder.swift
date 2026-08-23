@@ -3,7 +3,7 @@ import NexusCore
 import SwiftUI
 
 /// Records a new global shortcut. Escape cancels, Delete clears, and at least one non-shift
-/// modifier is required (DESIGN_MVP §5).
+/// modifier is required (design/mvp.md §5).
 public struct ShortcutRecorder: View {
     @Binding var shortcut: NexusCore.KeyboardShortcut
     /// Called with the candidate; returns an error message when registration failed, so the
@@ -98,7 +98,7 @@ public struct ShortcutRecorder: View {
 
 /// Command+Space registration *succeeds* but Spotlight still wins, because the system shortcut
 /// is handled first — the failure is undetectable from the return code. So choosing it always
-/// shows this (DESIGN_MVP §5).
+/// shows this (design/mvp.md §5).
 public struct SpotlightGuideView: View {
     @State private var state = SpotlightShortcut.state()
 
