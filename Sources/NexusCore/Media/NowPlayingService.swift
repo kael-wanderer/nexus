@@ -1,5 +1,6 @@
 import AppKit
 import CoreAudio
+import Darwin
 import Foundation
 
 /// What is playing, as far as macOS will say (M15).
@@ -539,17 +540,66 @@ final class AudioOutputMonitor: @unchecked Sendable {
         listeners.removeAll()
     }
 
-    /// Bundle identifiers of the processes currently sending audio out, Nexus itself excluded.
+    /// Bundle identifiers of the applications currently sending audio out, Nexus itself excluded.
     private func currentPlayers() -> [String] {
         let own = ProcessInfo.processInfo.processIdentifier
         var players: [String] = []
         for process in Self.processObjects() where Self.isRunningOutput(process) {
             guard let pid = Self.processIdentifier(of: process), pid != own else { continue }
-            guard let identifier = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
-            else { continue }
+            guard let identifier = Self.owningBundleIdentifier(of: pid) else { continue }
             if !players.contains(identifier) { players.append(identifier) }
         }
         return players
+    }
+
+    /// The application a sound belongs to, which is often not the process making it (D89).
+    ///
+    /// A browser plays media in a helper — Chrome's renderer, Safari's GPU process — and a helper
+    /// is not an `NSRunningApplication`, so it has no bundle identifier of its own and the player
+    /// used to be dropped on the floor: YouTube in Chrome produced no row at all. Two things do
+    /// know who owns it: the helper's executable lives *inside* the owning bundle, and its parent
+    /// process is usually the application itself.
+    static func owningBundleIdentifier(of pid: pid_t) -> String? {
+        if let direct = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier {
+            return direct
+        }
+        if let fromBundle = bundleIdentifier(containingExecutableOf: pid) { return fromBundle }
+        guard let parent = parentProcess(of: pid) else { return nil }
+        return NSRunningApplication(processIdentifier: parent)?.bundleIdentifier
+    }
+
+    /// The outermost `.app` on the process's executable path. Outermost, because a helper sits
+    /// inside the application that owns it — `Google Chrome.app/…/Google Chrome Helper.app` has to
+    /// answer "Chrome", not "Chrome Helper".
+    static func bundleIdentifier(containingExecutableOf pid: pid_t) -> String? {
+        guard let path = executablePath(of: pid) else { return nil }
+        var url = URL(fileURLWithPath: path)
+        var bundles: [URL] = []
+        while url.pathComponents.count > 1 {
+            if url.pathExtension == "app" { bundles.append(url) }
+            url = url.deletingLastPathComponent()
+        }
+        for bundle in bundles.reversed() {
+            if let identifier = Bundle(url: bundle)?.bundleIdentifier { return identifier }
+        }
+        return nil
+    }
+
+    static func executablePath(of pid: pid_t) -> String? {
+        var buffer = [CChar](repeating: 0, count: 4 * 1_024)
+        guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
+        return String(cString: buffer)
+    }
+
+    /// `nil` for a process whose parent is `launchd`, which owns nothing in particular.
+    static func parentProcess(of pid: pid_t) -> pid_t? {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var name: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        guard sysctl(&name, UInt32(name.count), &info, &size, nil, 0) == 0, size > 0
+        else { return nil }
+        let parent = info.kp_eproc.e_ppid
+        return parent > 1 ? parent : nil
     }
 
     static func processObjects() -> [AudioObjectID] {

@@ -109,3 +109,12 @@ and the keys reaching a player — sending one would have paused somebody's film
 - Media-key posting is exercised through an injected sender, so the test does not move the machine's
   actual playback.
 - The row lives in the tail: it is present with 30 applications running.
+
+## Who is playing, when the process is not the application (D89)
+
+`kAudioProcessPropertyIsRunningOutput` names a *process*, and for anything web-based that process is
+a helper: Chrome plays in a renderer, Safari in its GPU process, Electron applications in their own
+child. A helper has no bundle identifier — it is not an `NSRunningApplication` — so naming the
+player takes two more steps: the outermost `.app` on the helper's executable path, then its parent
+process. Either one gives the application the row should show, and the row's title still comes from
+that application's window.

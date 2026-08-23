@@ -782,3 +782,24 @@ first, and measured, before writing twelve lines instead of one.
 Two smaller things the same pass turned up: the panels had no `title`, so VoiceOver announced an
 unnamed window for the bar, the palette, the flyouts and the start menu; and a single-window
 application read as "running, 1 windows".
+
+**D89. The sound belongs to the application, not to the process making it.**
+
+YouTube in Chrome produced no media row at all, while Control Center showed it — the exact gap D75
+predicted we would live with, except this one was ours.
+
+The process CoreAudio names as sending audio out is not the browser. It is
+`Google Chrome.app/…/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper`, a
+renderer, and a helper is not an `NSRunningApplication`, so
+`NSRunningApplication(processIdentifier:)` returns nil and `currentPlayers()` skipped it. Safari and
+every Electron application have the same shape.
+
+Two things do know who owns the sound, and both are checked before giving up: the helper's
+executable lives inside the owning bundle, so the **outermost** `.app` on its path is the
+application (`Google Chrome.app`, not `Google Chrome Helper.app`); and its parent process is usually
+the application itself, which covers a helper stored outside the bundle. `launchd` as a parent means
+no owner rather than "launchd is playing".
+
+Once the player is named, everything downstream already worked: the row takes its title from the
+application's window, and `MediaTitle.clean` strips both `YouTube` and `Google Chrome` off the end.
+Verified with the row live: *"Đánh giá Nintendo Switch 2 sau hơn…"*, artist *Google Chrome*.

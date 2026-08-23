@@ -90,6 +90,10 @@ this project follows [Semantic Versioning](https://semver.org).
   30-minute leak soak and the one item that still needs hardware: multi-monitor reconnect.
 
 ### Fixed
+- A browser tab gets a media row again (D89): the process CoreAudio reports as playing is a helper
+  — Chrome's renderer, Safari's GPU process — which has no bundle identifier of its own, so the
+  player was dropped and YouTube in Chrome produced no row at all. The owning application is now
+  resolved from the helper's path and its parent process.
 - VoiceOver can now press what it reads (D88): every row adds an accessibility action beside its
   traits, because a panel that cannot become key has no SwiftUI `Button` to inherit one from.
   `AXPress` on the bar, the palette, the flyouts, the start menu and the group popover previously

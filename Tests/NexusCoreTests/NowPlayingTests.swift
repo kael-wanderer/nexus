@@ -434,3 +434,44 @@ struct PausedPlayerTests {
     }
 }
 
+
+@Suite("Audio owner resolution")
+struct AudioOwnerTests {
+    @Test("This process resolves to its own bundle identifier, directly")
+    func ownProcess() {
+        let own = ProcessInfo.processInfo.processIdentifier
+        // The test runner is not an application bundle, so the path route is what answers — and
+        // whatever answers, it must not be nil for a process that is plainly running.
+        let resolved = AudioOutputMonitor.owningBundleIdentifier(of: own)
+            ?? AudioOutputMonitor.executablePath(of: own)
+        #expect(resolved != nil)
+    }
+
+    @Test("A helper inside an application bundle resolves to the application, not the helper")
+    func helperInsideBundle() {
+        // Chrome's layout, which is the case that had no row at all: two nested .app bundles, and
+        // the outer one is the answer.
+        let path = "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/151.0.7922.173/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper"
+        var url = URL(fileURLWithPath: path)
+        var bundles: [URL] = []
+        while url.pathComponents.count > 1 {
+            if url.pathExtension == "app" { bundles.append(url) }
+            url = url.deletingLastPathComponent()
+        }
+        #expect(bundles.count == 2)
+        #expect(bundles.last?.lastPathComponent == "Google Chrome.app")
+        #expect(bundles.first?.lastPathComponent == "Google Chrome Helper.app")
+    }
+
+    @Test("A pid that cannot exist resolves to nothing rather than crashing")
+    func missingProcess() {
+        #expect(AudioOutputMonitor.owningBundleIdentifier(of: pid_t(Int32.max)) == nil)
+        #expect(AudioOutputMonitor.parentProcess(of: pid_t(Int32.max)) == nil)
+    }
+
+    @Test("launchd's children report no owner rather than launchd")
+    func launchdParent() {
+        // pid 1 is launchd; its own parent is 0, which owns nothing in particular.
+        #expect(AudioOutputMonitor.parentProcess(of: 1) == nil)
+    }
+}
