@@ -173,14 +173,13 @@ struct KeyboardNavigationTests {
 
     @Test("Keys map to commands on both axes, and everything else is left alone")
     func keyMapping() {
-        typealias Command = BarHostingView<SidebarView>.KeyCommand
-        func command(_ keyCode: UInt16) -> Command? {
+        func command(_ keyCode: UInt16) -> BarKeyCommand? {
             guard let event = NSEvent.keyEvent(
                 with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
                 windowNumber: 0, context: nil, characters: "", charactersIgnoringModifiers: "",
                 isARepeat: false, keyCode: keyCode
             ) else { return nil }
-            return BarHostingView<SidebarView>.command(for: event)
+            return BarKeyCommand(event)
         }
         #expect(command(123) == .previous)      // ←
         #expect(command(126) == .previous)      // ↑

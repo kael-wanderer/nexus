@@ -288,3 +288,21 @@ wrong is a machine that will not type, and no amount of purity is worth that.
 dock. A shortcut another application already owns fails to register, which is logged and otherwise
 ignored: the bar is a pointer target either way. `HotKeyService` grew a slot per shortcut to make
 room for it — Carbon identifies a hotkey by number, so the slot *is* that number.
+
+## D101. `⌃F3` is not ours to take, and keys belong to the window.
+
+Two things wrong with the first cut of keyboard control (D99), both found by pressing the keys on a
+real machine rather than by reading the code.
+
+**The shortcut.** `⌃F3` is what macOS uses to move focus to its own Dock, and the system consumes it
+before a Carbon hotkey ever sees it — whether or not the Dock is hidden. `RegisterEventHotKey`
+succeeds and the handler never fires, which is the worst shape a bug can have: the log says
+"registered" and nothing happens. The default is now `⌃⌥Space`, beside the palette's `⌥Space`, and a
+stored `⌃F3` is replaced on load rather than honoured, since nobody chose it — it was a default for
+one build.
+
+**The keys.** `keyDown` was overridden on the bar's `NSHostingView`, and it never ran: inside a
+hosting view the first responder is one of SwiftUI's own subviews, so the event is handled (or
+swallowed) below the override. The panel is the one object guaranteed to be in the chain, so
+`NonActivatingPanel` handles the keys and hands each one to `PanelController`, which returns whether
+it was used. Anything the bar does not use travels on untouched.

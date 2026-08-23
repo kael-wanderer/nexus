@@ -16,6 +16,18 @@ public final class NonActivatingPanel: NSPanel {
     public override var canBecomeKey: Bool { acceptsKeyboardFocus }
     public override var canBecomeMain: Bool { false }
 
+    /// Keyboard navigation, handled by the window rather than by the hosting view: inside an
+    /// `NSHostingView` the first responder is one of SwiftUI's own subviews, so a `keyDown`
+    /// override on the hosting view is never reached (D101).
+    public var onKey: ((BarKeyCommand) -> Bool)?
+
+    public override func keyDown(with event: NSEvent) {
+        guard let command = BarKeyCommand(event), onKey?(command) == true else {
+            super.keyDown(with: event)
+            return
+        }
+    }
+
     /// `title` is never drawn — the panel is borderless — but it is what VoiceOver announces when
     /// it lands on the window, so every panel names itself.
     public init(contentView: NSView, title: String = "Nexus") {

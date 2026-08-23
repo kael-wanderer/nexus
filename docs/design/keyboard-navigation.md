@@ -1,12 +1,14 @@
 # Keyboard control of the bar
 
-**Milestone 23.** `⌃F3` puts the keyboard on the bar; arrows walk it, Return opens what is focused,
-Escape gives the keyboard back.
+**Milestone 23.** `⌃⌥Space` puts the keyboard on the bar; arrows walk it, Return opens what is
+focused, Escape gives the keyboard back.
 
 The palette has been keyboard-first since Milestone 5 and VoiceOver can press every row since D88,
 but a sighted keyboard user had no way into the bar at all: it is a pointer target and nothing else.
-macOS solves this for its own Dock with `⌃F3`, and that is the shortcut Nexus takes — the real Dock
-is hidden while Nexus is the dock, and the muscle memory is already there.
+
+`⌃F3` — what macOS uses for its own Dock — was the obvious shortcut and is unusable: the system
+consumes it before a Carbon hotkey sees it, so registration succeeds and nothing ever happens
+(D101). The default is `⌃⌥Space`, one modifier away from the palette's `⌥Space`.
 
 ## The one exception to "never key"
 
@@ -44,6 +46,9 @@ running applications, the minimized windows (M22), Trash, Search.
 - **Escape** leaves.
 - Everything else travels on untouched, so a key the bar does not use is not a key the bar eats.
 
+The keys are handled by the **panel**, not by the hosting view: inside an `NSHostingView` the first
+responder is one of SwiftUI's own subviews, so a `keyDown` override on the view never runs (D101).
+
 The now-playing row is deliberately not in the walk. It is three targets in one row, and the
 transport keys on the keyboard already reach the player from anywhere — including from inside
 another application, which is better than what a focus ring could offer.
@@ -80,7 +85,7 @@ pointer target.
 
 ## Acceptance criteria
 
-- `⌃F3` rings the first row; arrows move the ring; Return opens what it is on.
+- `⌃⌥Space` rings the first row; arrows move the ring; Return opens what it is on.
 - Escape returns the keyboard to the application that had it.
 - Typing into another application after leaving works with no click in between.
-- With the setting off, `⌃F3` does nothing and the bar is unchanged.
+- With the setting off, `⌃⌥Space` does nothing and the bar is unchanged.

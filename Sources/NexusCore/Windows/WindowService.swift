@@ -105,11 +105,12 @@ public actor WindowService: WindowServing {
             let origin = AX.point(element, kAXPositionAttribute) ?? .zero
             let size = AX.size(element, kAXSizeAttribute) ?? .zero
 
-            // Standard windows only. This keeps sheets, popovers and toolbars out (`AXUnknown`,
-            // e.g. Brave's find bar) and also the elements that carry no subrole at all, which is
-            // what Finder's desktop window is — it was showing up as a third "Finder" window.
+            // Standard windows, plus anything currently minimized. The subrole filter keeps
+            // sheets, popovers and toolbars out (`AXUnknown`, e.g. Brave's find bar) and the
+            // elements with no subrole at all, which is what Finder's desktop window is — but a
+            // window that is minimized stops calling itself standard (D100).
             let subrole: String? = (try? AX.value(element, kAXSubroleAttribute)) ?? nil
-            guard subrole == kAXStandardWindowSubrole else { continue }
+            guard Self.isListable(subrole: subrole, minimized: minimized) else { continue }
 
             let identifier: CGWindowID
             if let real = AX.windowID(of: element) {
@@ -133,6 +134,16 @@ public actor WindowService: WindowServing {
         elements[application] = cache
         snapshot[application] = windows
         return windows
+    }
+
+    /// Whether an AX element counts as one of the application's windows.
+    ///
+    /// Minimising a window changes its subrole: Finder's becomes `AXDialog` the moment it goes to
+    /// the Dock, and a filter on `AXStandardWindow` alone loses it — which is why the window list
+    /// used to shrink by one instead of gaining a minimized entry (D100).
+    static func isListable(subrole: String?, minimized: Bool) -> Bool {
+        if subrole == kAXStandardWindowSubrole { return true }
+        return minimized && subrole != kAXUnknownSubrole
     }
 
     public func allWindows() throws -> [NexusWindow] {

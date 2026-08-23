@@ -1,3 +1,4 @@
+import ApplicationServices
 import Foundation
 import Testing
 
@@ -107,3 +108,30 @@ struct LoginItemLocationTests {
         )
     }
 }
+
+@Suite("Which windows count as windows")
+struct WindowSubroleTests {
+    @Test("A standard window counts, minimized or not")
+    func standardWindows() {
+        #expect(WindowService.isListable(subrole: kAXStandardWindowSubrole, minimized: false))
+        #expect(WindowService.isListable(subrole: kAXStandardWindowSubrole, minimized: true))
+    }
+
+    /// The bug: minimising a window changes its subrole — Finder's becomes `AXDialog` — so a
+    /// filter on `AXStandardWindow` alone lost it, and the minimized section stayed empty (D100).
+    @Test("A minimized window counts even after its subrole changes")
+    func minimizedDialog() {
+        #expect(WindowService.isListable(subrole: kAXDialogSubrole, minimized: true))
+        #expect(WindowService.isListable(subrole: nil, minimized: true))
+    }
+
+    @Test("Sheets, palettes and the desktop still do not count")
+    func nonWindows() {
+        #expect(WindowService.isListable(subrole: kAXDialogSubrole, minimized: false) == false)
+        #expect(WindowService.isListable(subrole: nil, minimized: false) == false)
+        #expect(WindowService.isListable(subrole: kAXUnknownSubrole, minimized: false) == false)
+        // Even minimized, an AXUnknown element is not a window anybody asked for.
+        #expect(WindowService.isListable(subrole: kAXUnknownSubrole, minimized: true) == false)
+    }
+}
+

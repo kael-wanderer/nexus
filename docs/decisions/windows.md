@@ -159,3 +159,19 @@ the list. Without that the rows would reshuffle every time any application's win
 *No thumbnail.* A preview needs Screen Recording (M10). A tile that is blank without a permission is
 worse than one that is honestly an application icon, and the flyout still shows thumbnails to
 anybody who granted it.
+
+## D100. A minimized window stops calling itself a standard window.
+
+The minimized section (M22) shipped with nothing in it, and the reason was two milestones older
+than the feature. D25 keeps sheets, palettes and Finder's desktop out of the window list by
+requiring `AXSubrole == AXStandardWindow`. Minimising a window **changes that subrole**: Finder's
+window reads `AXDialog` the moment it goes to the Dock, so the filter dropped it and the
+enumeration went from nine windows to eight instead of nine-with-one-minimized. Measured, not
+guessed — System Events reports `minimized=true subrole=AXDialog` for exactly that window.
+
+The rule is now: a standard window always counts, and anything currently minimized counts unless it
+is `AXUnknown`. `AXUnknown` stays excluded because that is what a find bar or a toolbar overlay
+reports, and one of those being minimized is not a window anybody wants back.
+
+This was never only about M22: the window flyout has claimed to list minimized windows since M4, and
+it could not have.

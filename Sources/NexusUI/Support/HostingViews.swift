@@ -1,4 +1,5 @@
 import AppKit
+import NexusCore
 import SwiftUI
 
 /// A non-key panel normally swallows the first click into it. Accepting first mouse is what
@@ -14,21 +15,14 @@ public final class FirstMouseHostingView<Content: View>: NSHostingView<Content> 
     }
 }
 
-/// The bar's own hosting view. Same first-mouse rule, plus the keys that drive keyboard mode
-/// (M23) — handled here rather than in SwiftUI because the panel is only key while the user has
-/// asked for it, and `onKeyPress` in a window that is usually not key is not a thing to rely on.
+/// The bar's own hosting view: the first-mouse rule, and the drop target for files dragged from
+/// Finder. Keys are the panel's business (D101), not this view's.
 public final class BarHostingView<Content: View>: NSHostingView<Content> {
-    /// Set by `PanelController`. Returning `true` means the key was used and must not travel on.
-    public var onKey: ((KeyCommand) -> Bool)?
-
-    public enum KeyCommand: Sendable, Equatable {
-        case previous
-        case next
-        case first
-        case last
-        case activate
-        case cancel
-    }
+    /// A drop from Finder — an application to pin, or a folder to keep as a stack (M21). Handled
+    /// in AppKit rather than with SwiftUI's `.dropDestination`, for the same reason clicks are
+    /// (D39): the row overlays sit on top of the SwiftUI view and a drop over one of them never
+    /// reached it. They register only Nexus's own row type, so a file drag falls through to here.
+    public var onFiles: (([URL]) -> Bool)?
 
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     public override var acceptsFirstResponder: Bool { true }
@@ -38,28 +32,34 @@ public final class BarHostingView<Content: View>: NSHostingView<Content> {
 
     required public init(rootView: Content) {
         super.init(rootView: rootView)
+        registerForDraggedTypes([.fileURL])
     }
 
-    public override func keyDown(with event: NSEvent) {
-        guard let command = Self.command(for: event), onKey?(command) == true else {
-            super.keyDown(with: event)
-            return
-        }
+    public override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        Self.urls(from: sender).isEmpty ? [] : .copy
     }
 
-    /// Both axes are accepted whichever edge the bar is on: the rows run along the bar, and a
-    /// person pressing → on a bottom bar means the same thing as ↓ on a left one.
-    public static func command(for event: NSEvent) -> KeyCommand? {
-        switch Int(event.keyCode) {
-        case 123, 126: return .previous          // ← ↑
-        case 124, 125: return .next              // → ↓
-        case 115: return .first                  // Home
-        case 119: return .last                   // End
-        case 36, 76, 49: return .activate        // Return, Enter, Space
-        case 53: return .cancel                  // Escape
-        default: return nil
-        }
+    public override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        Self.urls(from: sender).isEmpty ? [] : .copy
     }
+
+    public override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        let urls = Self.urls(from: sender)
+        guard !urls.isEmpty else { return false }
+        let accepted = onFiles?(urls) ?? false
+        Log.sidebar.notice(
+            "Dropped \(urls.count, privacy: .public) file(s) on the bar: \(accepted ? "pinned" : "nothing to pin", privacy: .public)"
+        )
+        return accepted
+    }
+
+    static func urls(from sender: any NSDraggingInfo) -> [URL] {
+        sender.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        ) as? [URL] ?? []
+    }
+
 }
 
 /// System material background. Semantic materials mean dark mode, light mode and Increase
@@ -85,6 +85,30 @@ public struct VisualEffectBackground: NSViewRepresentable {
     public func updateNSView(_ view: NSVisualEffectView, context: Context) {
         view.material = material
         view.blendingMode = blending
+    }
+}
+
+/// A key press that means something to the bar in keyboard mode (M23). Both axes map to the same
+/// two commands: the rows run along the bar, so `→` on a bottom bar means what `↓` means on a left
+/// one.
+public enum BarKeyCommand: Sendable, Equatable {
+    case previous
+    case next
+    case first
+    case last
+    case activate
+    case cancel
+
+    public init?(_ event: NSEvent) {
+        switch Int(event.keyCode) {
+        case 123, 126: self = .previous          // ← ↑
+        case 124, 125: self = .next              // → ↓
+        case 115: self = .first                  // Home
+        case 119: self = .last                   // End
+        case 36, 76, 49: self = .activate        // Return, Enter, Space
+        case 53: self = .cancel                  // Escape
+        default: return nil
+        }
     }
 }
 

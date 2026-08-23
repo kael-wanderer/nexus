@@ -295,6 +295,9 @@ final class Composition {
             await applications.updateWindowCounts(byBundleIdentifier: counts)
             // The same enumeration feeds the minimized section: minimising a window is one of the
             // events that brought us here (M22).
+            Log.windows.debug(
+                "Windows: \(all.count, privacy: .public) total, \(all.filter(\.isMinimized).count, privacy: .public) minimized"
+            )
             await MainActor.run { sidebarModel.setAllWindows(all) }
             events.publish(.applicationsChanged)
         }

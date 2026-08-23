@@ -6,8 +6,7 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
-- Keyboard control of the bar (M23): `⌃F3` — the shortcut macOS uses for its own Dock — puts the
-  keyboard on the bar. Arrows walk it on either axis, Home and End jump, Return opens the focused
+- Keyboard control of the bar (M23): `⌃⌥Space` puts the keyboard on the bar. Arrows walk it on either axis, Home and End jump, Return opens the focused
   row, Escape hands the keyboard back to whatever had it. The panel becomes key only while that
   mode is on and stops being key on Escape, on opening a row, on losing key status, or after ten
   seconds of silence (D99). `general.focusBarShortcut`, on by default, Settings → Behavior.
@@ -118,6 +117,22 @@ this project follows [Semantic Versioning](https://semver.org).
   30-minute leak soak and the one item that still needs hardware: multi-monitor reconnect.
 
 ### Fixed
+- Minimized windows never appeared, because a minimized window stops calling itself a standard
+  window: Finder's subrole becomes `AXDialog` in the Dock, and the window list has filtered on
+  `AXStandardWindow` since M4. The list now keeps anything minimized as well (D100). The window
+  flyout has claimed to show minimized windows since M4 and could not have.
+- Dragging a folder or an application from Finder onto the bar does something. The drop was
+  SwiftUI's `.dropDestination`, and the AppKit row overlays that own clicks sit on top of it — so a
+  drop anywhere over a row, which is most of the bar, was lost. It is an AppKit drop target now.
+- The bar's keyboard shortcut fires. `⌃F3` registered and never triggered: macOS owns it for its own
+  Dock. Default is `⌃⌥Space`, and a stored `⌃F3` is replaced rather than honoured. Keys are handled
+  by the panel rather than by the hosting view, where SwiftUI's own first responder swallowed them
+  (D101).
+- A group of applications that declare no category is named after its members — "Google Chrome &
+  Brave Browser" — instead of "Group".
+- Flyouts, group popovers and folder stacks open beside the bar the pointer is on. With a bar on
+  every display they anchored to the first one, so clicking a group on the second monitor opened its
+  popover on the first.
 - The media row goes away when the player quits (D95). It deliberately survives a pause — a paused
   film still has something to resume — but a player that has quit sends no notification saying so,
   and the last track sat there with buttons that reached nobody. The row now clears on

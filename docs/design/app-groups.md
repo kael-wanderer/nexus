@@ -55,8 +55,12 @@ test that matters is a v1 file loading into v2 with the same dock, in the same o
 Applications declare `LSApplicationCategoryType` in their `Info.plist`
 (`public.app-category.social`, `.developer-tools`, …). The group takes the category shared by the
 majority of its members, mapped to a display name — Slack + Telegram + WhatsApp becomes "Social",
-Xcode + Terminal becomes "Developer". No agreement, or no categories at all, falls back to
-"Group". `LaunchServices` supplies this for free from the bundle Nexus already reads for the icon.
+Xcode + Terminal becomes "Developer". `LaunchServices` supplies this for free from the bundle Nexus already reads for the icon.
+
+Plenty of applications declare nothing — Chrome and Brave both declare no category — and a group of
+two browsers called "Group" tells the user nothing they could not see. So the fallback is the
+members' own names: "Google Chrome & Brave Browser" for a pair, "Chrome & 2 more" beyond that, and
+"Group" only when there are no names either.
 
 ## Row rendering
 

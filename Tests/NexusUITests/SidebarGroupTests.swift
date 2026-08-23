@@ -287,3 +287,46 @@ struct SidebarGroupTests {
         #expect(model.sectionRowCounts.first == 2)
     }
 }
+
+@Suite("Naming a group")
+struct GroupNamingTests {
+    @Test("A shared category names the group")
+    func sharedCategory() {
+        #expect(
+            ApplicationCategory.groupName(
+                for: ["public.app-category.developer-tools", "public.app-category.developer-tools"],
+                names: ["Xcode", "Terminal"]
+            ) == "Developer"
+        )
+    }
+
+    @Test("Applications that declare no category are named after themselves")
+    func noCategory() {
+        #expect(
+            ApplicationCategory.groupName(for: [nil, nil], names: ["Google Chrome", "Brave Browser"])
+                == "Google Chrome & Brave Browser"
+        )
+        #expect(
+            ApplicationCategory.groupName(for: [nil, nil, nil], names: ["Chrome", "Brave", "Safari"])
+                == "Chrome & 2 more"
+        )
+        #expect(ApplicationCategory.groupName(for: [nil], names: ["Chrome"]) == "Chrome")
+    }
+
+    @Test("With neither a category nor a name, it is still a Group")
+    func nothingToGoOn() {
+        #expect(ApplicationCategory.groupName(for: [nil, nil], names: []) == "Group")
+        #expect(ApplicationCategory.groupName(for: [nil], names: ["  "]) == "Group")
+    }
+
+    @Test("A plurality still wins over the members' names")
+    func pluralityWins() {
+        #expect(
+            ApplicationCategory.groupName(
+                for: ["public.app-category.social-networking", nil],
+                names: ["Slack", "Chrome"]
+            ) == "Social"
+        )
+    }
+}
+

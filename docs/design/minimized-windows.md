@@ -36,6 +36,14 @@ Beyond three, the older ones stay exactly where they are today: in their applica
 flyout, which lists minimized windows and restores them on click. The section is a shortcut to the
 recent ones, not the only way back.
 
+## Finding them at all
+
+A minimized window changes its accessibility subrole — Finder's reads `AXDialog` once it is in the
+Dock — and the window list has filtered on `AXStandardWindow` since Milestone 4 (D25). So the
+section shipped empty: minimising a window made it *leave* the enumeration rather than appear in it
+as minimized. The list now keeps a standard window always, and anything minimized unless it calls
+itself `AXUnknown` (D100).
+
 ## Newest first
 
 The window layer has no minimise timestamp — `AXMinimized` is a boolean, and enumeration order is

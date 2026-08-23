@@ -773,7 +773,8 @@ public final class SidebarViewModel {
         ApplicationCategory.groupName(
             for: members.map { identifier in
                 items[identifier].flatMap { ApplicationCategory.category(of: $0.bundleURL) }
-            }
+            },
+            names: members.compactMap { items[$0]?.name }
         )
     }
 

@@ -42,13 +42,33 @@ public enum ApplicationCategory {
         Bundle(url: bundleURL)?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
     }
 
-    /// The name for a group of applications: the category shared by most of them, or `Group` when
-    /// they have nothing in common — including when none of them declares a category at all.
+    /// The name for a group of applications: the category shared by most of them, and otherwise
+    /// the members' own names.
     ///
     /// "Most" means a plurality, not a majority: two Developer applications and one Social one is
     /// a Developer group. Ties go to the first category in member order, so the name does not
     /// depend on dictionary iteration.
-    public static func groupName(for categories: [String?]) -> String {
+    ///
+    /// Plenty of applications declare no category at all — Chrome and Brave both do not — and a
+    /// group of two browsers called "Group" tells the user nothing they could not see. `names`
+    /// gives the fallback something to work with: "Chrome & Brave", or "Chrome & 2 more" past a
+    /// pair. `Group` is what is left when there are no names either.
+    public static func groupName(for categories: [String?], names: [String] = []) -> String {
+        if let shared = sharedCategoryName(for: categories) { return shared }
+        return name(from: names)
+    }
+
+    static func name(from names: [String]) -> String {
+        let usable = names.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        switch usable.count {
+        case 0: return fallbackName
+        case 1: return usable[0]
+        case 2: return "\(usable[0]) & \(usable[1])"
+        default: return "\(usable[0]) & \(usable.count - 1) more"
+        }
+    }
+
+    static func sharedCategoryName(for categories: [String?]) -> String? {
         var counts: [String: Int] = [:]
         var order: [String] = []
         for case let category? in categories {
@@ -62,6 +82,6 @@ public enum ApplicationCategory {
             best = name
             bestCount = counts[name] ?? 0
         }
-        return best ?? fallbackName
+        return best
     }
 }

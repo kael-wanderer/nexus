@@ -274,8 +274,7 @@ public final class PanelController {
     private func layoutFolder() {
         guard let panel = folderPanel,
               let hosting = folderHosting,
-              let sidebar = sidebarPanel,
-              let screen = targetScreen,
+              let (sidebar, screen) = barUnderPointer(),
               let folder = folderModel.folder
         else { return }
 
@@ -311,8 +310,7 @@ public final class PanelController {
     private func layoutGroup() {
         guard let panel = groupPanel,
               let hosting = groupHosting,
-              let sidebar = sidebarPanel,
-              let screen = targetScreen,
+              let (sidebar, screen) = barUnderPointer(),
               let group = groupModel.group
         else { return }
 
@@ -380,8 +378,7 @@ public final class PanelController {
     private func layoutFlyout() {
         guard let panel = flyoutPanel,
               let hosting = flyoutHosting,
-              let sidebar = sidebarPanel,
-              let screen = targetScreen,
+              let (sidebar, screen) = barUnderPointer(),
               let identity = flyoutModel.target
         else { return }
 
@@ -496,7 +493,7 @@ public final class PanelController {
 
     /// One key press while the bar has the keyboard. `false` lets the key travel on, which is what
     /// keeps every other key — a typed character, a system shortcut — working normally.
-    private func handleKey(_ command: BarHostingView<SidebarView>.KeyCommand) -> Bool {
+    private func handleKey(_ command: BarKeyCommand) -> Bool {
         guard model.isKeyboardNavigating else { return false }
         armKeyboardIdleTimeout()
         switch command {
@@ -580,11 +577,12 @@ public final class PanelController {
         }
         while bars.count < screens.count {
             let hosting = BarHostingView(rootView: SidebarView(model: model))
-            hosting.onKey = { [weak self] command in self?.handleKey(command) ?? false }
+            hosting.onFiles = { [weak self] urls in self?.model.pinApplications(at: urls) ?? false }
             let bar = NonActivatingPanel(
                 contentView: hosting,
                 title: String(localized: "Nexus")
             )
+            bar.onKey = { [weak self] command in self?.handleKey(command) ?? false }
             bars.append(bar)
             if !isSuppressed { bar.orderFrontRegardless() }
         }

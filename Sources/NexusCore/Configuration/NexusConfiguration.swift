@@ -62,8 +62,15 @@ public enum DisplayPreference: Codable, Sendable, Equatable {
 }
 
 public struct KeyboardShortcut: Codable, Sendable, Equatable, Hashable {
-    /// `⌃F3` — what macOS itself uses to put the keyboard on the Dock (M23).
-    public static let focusBarDefault = KeyboardShortcut(keyCode: 99, modifiers: controlKey)
+    /// `⌃⌥Space` — beside the palette's `⌥Space`, and free.
+    ///
+    /// `⌃F3` was the obvious choice, since that is what macOS uses to put the keyboard on the
+    /// Dock. It registers and then never fires: the system owns it and consumes the key before a
+    /// Carbon hotkey ever sees it, whether or not the Dock is hidden (D101).
+    public static let focusBarDefault = KeyboardShortcut(
+        keyCode: 49,                                     // Space
+        modifiers: controlKey | optionKey
+    )
 
     /// Carbon virtual key code; identical to `NSEvent.keyCode`.
     public var keyCode: UInt32
@@ -109,9 +116,8 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
     public var globalShortcutEnabled = true
     /// An addition, not a replacement for the palette — off until asked for (M11).
     public var showStartMenu = false
-    /// Puts the keyboard on the bar (M23). `nil` switches it off. Default `⌃F3`, which is what
-    /// macOS itself uses to focus the Dock — muscle memory Nexus may as well inherit, and the real
-    /// Dock is hidden while Nexus is the dock anyway.
+    /// Puts the keyboard on the bar (M23). `nil` switches it off. Default `⌃⌥Space` — `⌃F3`, the
+    /// shortcut macOS uses for its own Dock, is owned by the system and never reaches us (D101).
     public var focusBarShortcut: KeyboardShortcut? = .focusBarDefault
     /// The now-playing row in the bar's tail (M15). Off by default, and its row gives its slot back
     /// to the applications when it is off (D74).
@@ -129,6 +135,11 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
         showStartMenu = try container.decodeIfPresent(Bool.self, forKey: .showStartMenu) ?? false
         focusBarShortcut = try container.decodeIfPresent(KeyboardShortcut.self, forKey: .focusBarShortcut)
             ?? .focusBarDefault
+        // A stored ⌃F3 is the old default, which macOS eats. Nobody chose it deliberately: it was
+        // shipped as a default for one build, so it is replaced rather than honoured (D101).
+        if focusBarShortcut == KeyboardShortcut(keyCode: 99, modifiers: KeyboardShortcut.controlKey) {
+            focusBarShortcut = .focusBarDefault
+        }
         showNowPlaying = try container.decodeIfPresent(Bool.self, forKey: .showNowPlaying) ?? false
     }
 }

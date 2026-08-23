@@ -27,7 +27,6 @@ public struct SidebarView: View {
         .opacity(model.appearance.opacity)
         .animation(Design.animation(Design.reveal, reduceMotion: reduceMotion), value: model.isExpanded)
         .onHover { model.hoverChanged($0) }
-        .dropDestination(for: URL.self) { urls, _ in model.pinApplications(at: urls) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Nexus sidebar"))
     }

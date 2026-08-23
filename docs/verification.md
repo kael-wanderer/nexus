@@ -119,3 +119,23 @@ The three pending checks, for whoever is next at the keyboard:
 2. Minimise a window and look before the Trash; click the row to restore it (M22).
 3. Press `⌃F3`, walk with the arrows, press Return, then press Escape and type into whatever was
    in front — no click in between (M23).
+
+## The three pending checks, run — 2026-08-23, 18:45
+
+Two 2560×1440 displays, bar on both, driven with synthetic events against the installed build.
+Every one of them found something.
+
+| Check | Result |
+|---|---|
+| M21, dragging a folder from Finder onto the bar | **Failed, fixed, passed.** `~/Desktop/NexusStackTest` dragged onto the bar did nothing: the drop was SwiftUI's and the AppKit row overlays sit on top of it, so a drop over a row never reached it. With an AppKit drop target on the bar's hosting view: `Pinned folder /Users/cong.bui/Desktop/NexusStackTest`, `Dropped 1 file(s) on the bar: pinned` |
+| M21, opening the stack | Pass: the popover reads `NexusStackTest · 3 items` with Subfolder, alpha.txt and beta.txt on the grid |
+| M22, minimising a window | **Failed, fixed, passed.** Minimising a Finder window took the window *out* of Nexus's enumeration — `Windows: 9 total, 0 minimized` became `8 total, 0 minimized` — because a minimized window's subrole changes to `AXDialog` (D100). After the fix: `9 total, 1 minimized`, and the row appears before the Trash |
+| M22, restoring | Pass: clicking the row unminimised the window (`collapsed` false for every Finder window) and the count went back to `0 minimized` |
+| M23, the shortcut | **Failed, fixed, passed.** `⌃F3` registered and never fired — macOS owns it. `⌃⌥Space` registers (`modifiers 6144`) and works |
+| M23, the keys | **Failed, fixed, passed.** Arrows did nothing: `keyDown` on the hosting view never runs, because SwiftUI's own subview is first responder. Handled on the panel now — `→` moves the ring from the launcher to Finder, Escape clears it and hands focus back to Finder (D101) |
+| Group popover title | Not a bug: the popover draws its name. The group was *called* "Group", because Chrome and Brave declare no `LSApplicationCategoryType` at all. Groups with nothing in common are now named after their members |
+| Popovers on the right display | Found while testing the above: clicking a group on the second monitor opened its popover on the first, because every popover anchored to `bars.first`. They anchor to the bar under the pointer now |
+
+Method note: `screencapture -R` for the bar strips, System Events for the accessibility answers
+(`minimized=true subrole=AXDialog` is what named D100), `log show` for Nexus's own trail, and
+synthetic CGEvents for the drag, the clicks and the keys.

@@ -520,7 +520,8 @@ Spec: `docs/design/minimized-windows.md`.
 **Shipped** 2026-08-23 (live pass pending, with M21 and M22).
 
 **Scope**
-- `⌃F3` — what macOS uses for its own Dock — puts the keyboard on the bar. Arrows walk it on both
+- `⌃⌥Space` puts the keyboard on the bar (`⌃F3`, macOS's own Dock shortcut, is eaten by the
+  system — D101). Arrows walk it on both
   axes, Home and End jump, Return opens the focused row, Escape gives the keyboard back.
 - The sidebar panel becomes key **only** while that mode is on: `acceptsKeyboardFocus`, cleared by
   Escape, by opening a row, by losing key status, and by ten seconds of silence.
@@ -531,9 +532,9 @@ Spec: `docs/design/minimized-windows.md`.
 **Permissions:** none. The hotkey is Carbon's, like the palette's.
 
 **Acceptance criteria**
-- `⌃F3` rings the first row and arrows move the ring; Return opens what it is on.
+- `⌃⌥Space` rings the first row and arrows move the ring; Return opens what it is on.
 - Escape returns the keyboard to the application that had it, with no click in between.
 - A shortcut another application owns fails to register and is logged; the bar still works.
-- With the setting off, `⌃F3` does nothing.
+- With the setting off, `⌃⌥Space` does nothing.
 
 Spec: `docs/design/keyboard-navigation.md`.

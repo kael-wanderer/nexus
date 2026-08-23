@@ -75,6 +75,11 @@ icon, name over two lines, click to open.
 - **Add**: drag a folder from Finder onto the bar. The same drop handler that pins an application
   takes a directory as a folder entry; an `.app` is still an application, because a bundle is a
   directory and the specific case wins.
+
+  The drop is AppKit's, on the bar's hosting view, not SwiftUI's `.dropDestination`. The row
+  overlays that own clicks and reordering (D39) sit on top of the SwiftUI view, and a drop over one
+  of them — which is most of the bar — never reached it. They register only Nexus's own row type, so
+  a file drag falls through to the view underneath, which is where it is now handled.
 - **Remove**: the row's context menu — Remove from Bar — beside the Move Up / Move Down / Move to
   End the other rows have.
 - **Open in Finder**: the same menu, and the popover's header.
