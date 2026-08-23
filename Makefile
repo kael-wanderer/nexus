@@ -6,7 +6,8 @@
 # Override with:  make app SIGNING_IDENTITY="Bugler Local Dev"
 
 CONFIG      ?= debug
-BUILD_DIR   := $(shell swift build -c $(CONFIG) --show-bin-path)
+# One architecture per artifact, never a universal binary (see scripts/build-app.sh).
+ARCH        ?= arm64
 APP_NAME    := Nexus
 APP         := build/$(APP_NAME).app
 BUNDLE_ID   := com.congbui.nexus
@@ -15,13 +16,17 @@ INSTALLED   := $(INSTALL_DIR)/$(APP_NAME).app
 # Read from the bundle's own Info.plist, so the version lives in exactly one place — the same one
 # the About tab reads at runtime.
 VERSION     := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Resources/Info.plist)
-DMG         := build/$(APP_NAME)-$(VERSION).dmg
 ZIP         := build/$(APP_NAME)-$(VERSION).zip
 
-# Auto-detect, in order: an "Apple Development" certificate, then ANY valid codesigning
-# identity, then ad-hoc. Stability is what matters to TCC, not who issued the certificate.
+# Auto-detect, in order: the local development certificate by name, an "Apple Development"
+# certificate, then ANY valid codesigning identity, then ad-hoc. Stability is what matters to TCC,
+# not who issued the certificate. `scripts/build-app.sh` runs the same chain when called directly.
 SIGNING_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null \
+                      | grep -o '"Bugler Local Dev"' | head -1 | tr -d '"')
+ifeq ($(strip $(SIGNING_IDENTITY)),)
+SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null \
                       | grep -o '"Apple Development[^"]*"' | head -1 | tr -d '"')
+endif
 ifeq ($(strip $(SIGNING_IDENTITY)),)
 SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null \
                       | grep -oE '"[^"]+"' | head -1 | tr -d '"')
@@ -60,19 +65,12 @@ signing-info:
 	  echo "         (type: Code Signing), or a free Apple Development certificate in Xcode."; \
 	fi
 
-app: build signing-info
-	@rm -rf $(APP)
-	@mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
-	@cp Resources/Info.plist $(APP)/Contents/Info.plist
-	@cp $(BUILD_DIR)/NexusApp $(APP)/Contents/MacOS/NexusApp
-	@cp Resources/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
-	@cp Resources/NexusTemplate.png Resources/NexusTemplate@2x.png $(APP)/Contents/Resources/
-	@if [ -d "$(BUILD_DIR)/Nexus_NexusUI.bundle" ]; then cp -R "$(BUILD_DIR)/Nexus_NexusUI.bundle" $(APP)/Contents/Resources/; fi
-	@if [ -d "$(BUILD_DIR)/Nexus_NexusCore.bundle" ]; then cp -R "$(BUILD_DIR)/Nexus_NexusCore.bundle" $(APP)/Contents/Resources/; fi
-	@printf 'APPL????' > $(APP)/Contents/PkgInfo
-	codesign --force --sign "$(SIGNING_IDENTITY)" --identifier $(BUNDLE_ID) $(APP)
-	@codesign -dv $(APP) 2>&1 | head -5
-	@echo "Built $(APP)"
+## The assembly, the architecture guards and the signing live in scripts/build-app.sh, so the same
+## bundle comes out whether the Makefile or a release run built it. ARCH is a parameter, never a
+## universal binary: `make app ARCH=x86_64` builds the Intel artifact from this commit.
+app: signing-info
+	@CONFIGURATION=$(CONFIG) NEXUS_ARCH=$(ARCH) CODESIGN_IDENTITY="$(SIGNING_IDENTITY)" \
+	  scripts/build-app.sh
 
 ## Install into /Applications and run from there. Launch at login registers the bundle where it
 ## stands, so a login item is only meaningful once Nexus lives somewhere permanent — not in build/,
@@ -96,15 +94,7 @@ install: app
 ## says too.
 dmg:
 	@$(MAKE) --no-print-directory app CONFIG=release
-	@rm -rf build/dmg $(DMG)
-	@mkdir -p build/dmg
-	@ditto $(APP) "build/dmg/$(APP_NAME).app"
-	@ln -s /Applications build/dmg/Applications
-	@hdiutil create -volname "$(APP_NAME) $(VERSION)" -srcfolder build/dmg -ov -format UDZO $(DMG) >/dev/null
-	@rm -rf build/dmg
-	@codesign --force --sign "$(SIGNING_IDENTITY)" $(DMG) 2>/dev/null || true
-	@shasum -a 256 $(DMG)
-	@echo "Built $(DMG)"
+	@scripts/make-dmg.sh
 
 ## The same build as a zip, for when a disk image is more ceremony than the situation needs.
 zip:
