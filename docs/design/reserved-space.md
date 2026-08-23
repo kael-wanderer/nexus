@@ -64,6 +64,23 @@ the same capability pattern as everything else (`mvp.md` §3).
 - Remembering and restoring the frames Nexus changed. Turning the setting off leaves windows where
   they are.
 
+## What shipped
+
+As specified, with three details worth keeping:
+
+- The geometry is two pure functions in `SidebarLayout` — `availableFrame(besides:in:position:)` for
+  what is left of the screen, and `fit(_:into:display:)` which clamps one window into it and is
+  deliberately space-agnostic, since the caller works in Accessibility coordinates.
+- Which means the flip: Cocoa measures up from the bottom-left of the primary display,
+  Accessibility down from its top-left. `ScreenGeometry.flipped` is the one line that converts, and
+  it is its own inverse (D70).
+- Position is written, then the size, then the position again. An application that will not shrink
+  past its own minimum — TextEdit refuses to be as wide as the screen — would otherwise keep an
+  origin that assumed it had.
+
+Verified live: a window dropped at x = 10 lands at x = 84, the far edge of the bar, keeping its
+width; a full-screen window is untouched; a window on the second display is untouched.
+
 ## Tests
 
 - The geometry function: push for each of the four edges, shrink when the window is too large to

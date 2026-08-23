@@ -9,6 +9,10 @@ public enum NexusEvent: Sendable, Equatable {
     /// retitled, minimised or focused. Consumers re-read the authoritative list from
     /// `WindowService` (D22).
     case windowsChanged(ApplicationIdentity)
+    /// One coalesced event per application whose windows stopped moving or resizing. Separate from
+    /// `windowsChanged` because it fires continuously while a window is dragged, and only Reserved
+    /// Space (M12) cares — the observers for it are installed only while that setting is on.
+    case windowGeometrySettled(ApplicationIdentity)
     case displaysChanged
     case configurationChanged(NexusConfiguration)
     case permissionChanged(Permission, PermissionStatus)

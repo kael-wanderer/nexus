@@ -32,7 +32,7 @@ public struct SettingsView: View {
                 .tabItem { Label(String(localized: "Dock"), systemImage: "rectangle.bottomthird.inset.filled") }
             AppearancePane(configuration: configuration)
                 .tabItem { Label(String(localized: "Appearance"), systemImage: "paintbrush") }
-            BehaviorPane(configuration: configuration)
+            BehaviorPane(configuration: configuration, permissions: permissions)
                 .tabItem { Label(String(localized: "Behavior"), systemImage: "slider.horizontal.3") }
             SearchPane(configuration: configuration, validateShortcut: validateShortcut)
                 .tabItem { Label(String(localized: "Search"), systemImage: "magnifyingglass") }
@@ -269,6 +269,7 @@ struct AppearancePane: View {
 
 struct BehaviorPane: View {
     @Bindable var configuration: ConfigurationController
+    let permissions: any PermissionChecking
 
     var body: some View {
         Form {
@@ -316,6 +317,16 @@ struct BehaviorPane: View {
                 }
             }
             Section {
+                Toggle(
+                    String(localized: "Keep windows off Nexus"),
+                    isOn: configuration.binding(\.behavior.reserveSpace)
+                )
+                .disabled(configuration.configuration.behavior.autoHide)
+                Text(reservedSpaceCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Toggle(String(localized: "Show running applications"), isOn: configuration.binding(\.behavior.showRunningApplications))
                 Toggle(String(localized: "Show window count"), isOn: configuration.binding(\.behavior.showWindowCount))
                 Toggle(String(localized: "Show favourites"), isOn: configuration.binding(\.behavior.showFavorites))
@@ -328,6 +339,18 @@ struct BehaviorPane: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Says why the toggle is unavailable, or what it needs, rather than leaving a dimmed row with
+    /// no explanation.
+    private var reservedSpaceCaption: String {
+        if configuration.configuration.behavior.autoHide {
+            return String(localized: "A bar that hides cannot hold space; turn off auto-hide first.")
+        }
+        if permissions.status(of: .accessibility) != .granted {
+            return String(localized: "Needs Accessibility, which is also what the window list uses. Grant it in the Permissions tab.")
+        }
+        return String(localized: "Windows that open over Nexus are moved off it. Full-screen windows are left alone.")
     }
 }
 

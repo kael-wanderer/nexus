@@ -22,6 +22,7 @@ final class Composition {
     let flyoutModel: WindowFlyoutViewModel
     let searchModel: SearchViewModel
     let panels: PanelController
+    let reservedSpace: ReservedSpaceController
     let searchPanel: SearchPanelController
     let startMenuModel: StartMenuViewModel
     let startMenu: StartMenuPanelController
@@ -81,6 +82,11 @@ final class Composition {
             configuration: configuration,
             events: events
         )
+        reservedSpace = ReservedSpaceController(
+            configuration: configuration,
+            events: events,
+            windows: windows
+        )
         searchPanel = SearchPanelController(model: searchModel)
         startMenuModel = StartMenuViewModel(
             index: applicationIndex.snapshot,
@@ -119,6 +125,14 @@ final class Composition {
             guard let self else { return }
             Task { [windows] in try? await windows.activate(identity) }
         }
+        // Reserved space needs the bar's geometry, and installs the move/resize observers only
+        // while it is switched on (M12).
+        reservedSpace.geometry = { [weak self] in self?.panels.reservedSpaceGeometry }
+        reservedSpace.observeGeometry = { [weak self] observes in
+            self?.windowMonitor.setObservesGeometry(observes)
+        }
+        panels.onBarFrameChange = { [weak self] in self?.reservedSpace.barFrameChanged() }
+
         sidebarModel.openSearch = { [weak self] in self?.searchPanel.show() }
         sidebarModel.openStartMenu = { [weak self] in self?.showStartMenu() }
         applicationIndex.onIndexed = { [weak self] in self?.startMenuModel.indexChanged() }
@@ -130,6 +144,7 @@ final class Composition {
         sidebarModel.start()
         flyoutModel.start()
         panels.start()
+        reservedSpace.start()
         searchPanel.start()
         startMenu.start()
         applicationMonitor.start()
@@ -337,6 +352,7 @@ final class Composition {
         startMenu.stop()
         searchPanel.stop()
         applicationIndex.stop()
+        reservedSpace.stop()
         windowMonitor.stop()
         applicationMonitor.stop()
         panels.stop()

@@ -4,8 +4,8 @@ import Foundation
 
 /// Carries a plain closure across the C callback boundary. Holds nothing mutable.
 private final class AXCallbackBox: @unchecked Sendable {
-    let notify: @Sendable () -> Void
-    init(notify: @escaping @Sendable () -> Void) { self.notify = notify }
+    let notify: @Sendable (String) -> Void
+    init(notify: @escaping @Sendable (String) -> Void) { self.notify = notify }
 }
 
 private func axObserverCallback(
@@ -15,7 +15,7 @@ private func axObserverCallback(
     _ refcon: UnsafeMutableRawPointer?
 ) {
     guard let refcon else { return }
-    Unmanaged<AXCallbackBox>.fromOpaque(refcon).takeUnretainedValue().notify()
+    Unmanaged<AXCallbackBox>.fromOpaque(refcon).takeUnretainedValue().notify(notification as String)
 }
 
 /// One `AXObserver` per running application, created when the application appears and destroyed
@@ -32,6 +32,13 @@ public final class WindowMonitor {
         kAXWindowDeminiaturizedNotification,
     ]
 
+    /// Moves and resizes. Installed only while something acts on them (M12): dragging one window
+    /// emits hundreds of these, and every one of them wakes the main run loop.
+    private static let geometryNotifications: [String] = [
+        kAXWindowMovedNotification,
+        kAXWindowResizedNotification,
+    ]
+
     private struct Registration {
         let observer: AXObserver
         let box: AXCallbackBox
@@ -41,8 +48,10 @@ public final class WindowMonitor {
     private let events: EventBus
     private var registrations: [ApplicationIdentity: Registration] = [:]
     private var coalescing: [ApplicationIdentity: Task<Void, Never>] = [:]
+    private var geometryCoalescing: [ApplicationIdentity: Task<Void, Never>] = [:]
     private var eventTask: Task<Void, Never>?
     private var isRunning = false
+    private var observesGeometry = false
 
     public init(service: WindowService, events: EventBus) {
         self.service = service
@@ -87,6 +96,8 @@ public final class WindowMonitor {
         eventTask = nil
         for task in coalescing.values { task.cancel() }
         coalescing.removeAll()
+        for task in geometryCoalescing.values { task.cancel() }
+        geometryCoalescing.removeAll()
         for identity in registrations.keys { unregister(identity) }
     }
 
@@ -105,16 +116,53 @@ public final class WindowMonitor {
             return
         }
 
-        let box = AXCallbackBox { [weak self] in
-            MainActor.assumeIsolated { self?.scheduleRefresh(identity) }
+        let box = AXCallbackBox { [weak self] notification in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if Self.geometryNotifications.contains(notification) {
+                    self.scheduleGeometryRefresh(identity)
+                } else {
+                    self.scheduleRefresh(identity)
+                }
+            }
         }
         let refcon = Unmanaged.passUnretained(box).toOpaque()
         let element = AX.application(pid: pid)
         for notification in Self.notifications {
             AXObserverAddNotification(observer, element, notification as CFString, refcon)
         }
+        if observesGeometry {
+            for notification in Self.geometryNotifications {
+                AXObserverAddNotification(observer, element, notification as CFString, refcon)
+            }
+        }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         registrations[identity] = Registration(observer: observer, box: box)
+    }
+
+    /// Starts or stops listening for window moves and resizes, on the observers that already
+    /// exist. Idempotent.
+    public func setObservesGeometry(_ observes: Bool) {
+        guard observes != observesGeometry else { return }
+        observesGeometry = observes
+        for (identity, registration) in registrations {
+            guard let pid = identity.processIdentifier ?? Self.processIdentifier(for: identity)
+            else { continue }
+            let element = AX.application(pid: pid)
+            let refcon = Unmanaged.passUnretained(registration.box).toOpaque()
+            for notification in Self.geometryNotifications {
+                if observes {
+                    AXObserverAddNotification(registration.observer, element, notification as CFString, refcon)
+                } else {
+                    AXObserverRemoveNotification(registration.observer, element, notification as CFString)
+                }
+            }
+        }
+        if !observes {
+            for task in geometryCoalescing.values { task.cancel() }
+            geometryCoalescing.removeAll()
+        }
+        Log.windows.notice("Window geometry observers \(observes ? "installed" : "removed", privacy: .public)")
     }
 
     private func unregister(_ identity: ApplicationIdentity) {
@@ -125,6 +173,7 @@ public final class WindowMonitor {
             .defaultMode
         )
         coalescing.removeValue(forKey: identity)?.cancel()
+        geometryCoalescing.removeValue(forKey: identity)?.cancel()
     }
 
     private func scheduleRefresh(_ identity: ApplicationIdentity) {
@@ -134,6 +183,18 @@ public final class WindowMonitor {
             guard !Task.isCancelled else { return }
             events.publish(.windowsChanged(identity))
             self?.coalescing[identity] = nil
+        }
+    }
+
+    /// Waits for the moving to stop rather than coalescing a burst: acting mid-drag would fight
+    /// the drag, so the event fires once the window has been still for a moment.
+    private func scheduleGeometryRefresh(_ identity: ApplicationIdentity) {
+        geometryCoalescing[identity]?.cancel()
+        geometryCoalescing[identity] = Task { [weak self, events] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            events.publish(.windowGeometrySettled(identity))
+            self?.geometryCoalescing[identity] = nil
         }
     }
 

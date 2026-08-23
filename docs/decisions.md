@@ -509,3 +509,20 @@ field and the action row alone and the panel opened as a 106 pt sliver. The heig
 row count instead. The panel also has to be told when the index finishes building, since it opens
 before the first build completes — `ApplicationIndex.onIndexed`.
 
+**D70. Screen space is not reserved, windows are moved out of it.**
+`NSScreen.visibleFrame` is the menu bar's and the Dock's to shrink; macOS offers no public API,
+and no entitlement, that lets a third party reserve space. The private `CGSSetWorkspaceDockRect`
+route would mean shipping against an unversioned SPI to fight the component Nexus has already
+asked to hide. So Reserved Space watches for windows that overlap the bar and moves them off it,
+through the Accessibility permission the window list already needs — pushed if they still fit,
+resized only if they do not. The ceiling is honest and visible: a window can *open* over the bar
+and be nudged a moment later, where the Dock's space was never available in the first place.
+
+Two rules keep it from becoming a nuisance. Auto-hide turns it off entirely — a bar that comes and
+goes cannot own space, and moving windows aside every time it appeared without ever putting them
+back would be worse than doing nothing. And an application that puts its window straight back wins
+after four attempts inside two seconds: the alternative is a fight that neither side ends.
+
+Everything is compared in Accessibility coordinates, which grow downwards from the primary
+display's top-left, unlike Cocoa's. `ScreenGeometry.flipped` is the only place that knows.
+

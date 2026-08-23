@@ -272,6 +272,8 @@ Spec: `docs/design/start-menu.md`.
 
 ## Milestone 12 — Reserved space  ← post-MVP
 
+**Shipped** 2026-08-23.
+
 **Scope**
 - While the bar is visible and not auto-hiding, ordinary windows are kept off it: pushed if they
   fit on what is left of the screen, shrunk only if they do not.

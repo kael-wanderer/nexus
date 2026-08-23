@@ -21,6 +21,10 @@ public final class PanelController {
     private var eventTask: Task<Void, Never>?
     private var screenObserver: (any NSObjectProtocol)?
 
+    /// Called whenever the bar's frame or edge changes, so Reserved Space (M12) can re-check what
+    /// is underneath it.
+    public var onBarFrameChange: (() -> Void)?
+
     /// Session-only: the status-item "Toggle Sidebar" hides the panel without changing settings.
     private var isSuppressed = false
     /// Auto-hide state. Always true when auto-hide is off.
@@ -199,6 +203,7 @@ public final class PanelController {
         if isSuppressed {
             sidebarPanel?.orderOut(nil)
             edgePanel?.orderOut(nil)
+            onBarFrameChange?()
         } else {
             reframe(animated: false)
             sidebarPanel?.orderFrontRegardless()
@@ -229,6 +234,24 @@ public final class PanelController {
         )
         setFrame(frame, on: panel, animated: animated)
         updateEdgePanel()
+        onBarFrameChange?()
+    }
+
+    /// What Reserved Space needs to know: where the bar is, and on which screen. `nil` whenever
+    /// the bar is not really there — suppressed, hidden, or auto-hiding, which reserves nothing.
+    public var reservedSpaceGeometry: ReservedSpaceController.Geometry? {
+        guard let panel = sidebarPanel,
+              let screen = targetScreen,
+              !isSuppressed,
+              isRevealed,
+              !configuration.configuration.behavior.autoHide
+        else { return nil }
+        return ReservedSpaceController.Geometry(
+            bar: panel.frame,
+            visible: screen.visibleFrame,
+            display: screen.frame,
+            position: model.appearance.position
+        )
     }
 
     private func setFrame(_ frame: NSRect, on panel: NSPanel, animated: Bool) {

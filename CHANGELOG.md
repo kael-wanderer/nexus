@@ -27,7 +27,16 @@ this project follows [Semantic Versioning](https://semver.org).
   launcher row at the leading end of the bar; `appearance.startMenuCorner` picks which corner it
   opens from.
 
+- Reserved space (M12, off by default): while the bar is visible and not auto-hiding, windows that
+  overlap it are moved off it — pushed if they still fit on what is left of the screen, resized
+  only if they do not. Full-screen windows are exempt, and an application that puts its window
+  straight back wins (D70). `behavior.reserveSpace`.
+
 ### Fixed
+- The start menu drew a tile with no caption for any bundle shipping an empty `CFBundleName`; an
+  empty name now falls through to the file name like a missing one.
+- "Show windows on hover" read as the window list rather than the previews it controls, and the
+  General pane drew an empty row where a zero-height view carried an `onAppear`.
 - Configuration sections decoded strictly, so adding a field reset the whole section on upgrade;
   every section now decodes field by field (D67).
 - The application index listed background agents, helpers and input methods — 454 bundles where

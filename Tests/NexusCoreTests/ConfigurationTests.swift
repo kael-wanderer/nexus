@@ -123,6 +123,7 @@ struct ConfigurationTests {
         #expect(configuration.appearance.startMenuCorner == .bottomLeading)
         #expect(configuration.behavior.hoverPreview)
         #expect(configuration.behavior.hoverPreviewDelay == 0.5)
+        #expect(configuration.behavior.reserveSpace == false)
         #expect(configuration.general.showStartMenu == false)
         #expect(configuration.dock.replacementEnabled == false)
         #expect(configuration.runningApplicationOrder.isEmpty)

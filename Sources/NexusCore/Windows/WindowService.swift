@@ -7,6 +7,10 @@ public protocol WindowServing: Sendable {
     func windows(for application: ApplicationIdentity) async throws -> [NexusWindow]
     func allWindows() async throws -> [NexusWindow]
     func activate(_ window: WindowIdentity) async throws
+    /// Moves and resizes one window. `false` means the application would not have it — the caller
+    /// is expected to stop asking rather than retry.
+    @discardableResult
+    func setFrame(_ frame: CGRect, for window: WindowIdentity) async throws -> Bool
 }
 
 /// Accessibility window enumeration. Everything here is synchronous IPC into another process
@@ -158,6 +162,33 @@ public actor WindowService: WindowServing {
                 .first?
                 .activate()
         }
+    }
+
+    /// Moves and resizes one window, in Accessibility coordinates. Reserved Space (M12) is the
+    /// only caller.
+    ///
+    /// Position is written twice around the resize: a window that refuses to shrink past its own
+    /// minimum size would otherwise keep an origin that assumed it had.
+    @discardableResult
+    public func setFrame(_ frame: CGRect, for window: WindowIdentity) throws -> Bool {
+        guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
+        guard let element = elements[window.owner]?[window.number] else {
+            throw NexusError.targetDisappeared
+        }
+        guard AX.isSettable(element, kAXPositionAttribute) else { return false }
+
+        let currentSize = AX.size(element, kAXSizeAttribute) ?? frame.size
+        var moved = AX.set(element, kAXPositionAttribute, frame.origin)
+        if frame.size != currentSize, AX.isSettable(element, kAXSizeAttribute) {
+            AX.set(element, kAXSizeAttribute, frame.size)
+            moved = AX.set(element, kAXPositionAttribute, frame.origin) || moved
+        }
+        if var stored = snapshot[window.owner],
+           let index = stored.firstIndex(where: { $0.identity.number == window.number }) {
+            stored[index].frame = frame
+            snapshot[window.owner] = stored
+        }
+        return moved
     }
 
     // MARK: - Process lookup

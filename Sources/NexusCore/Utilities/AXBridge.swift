@@ -86,4 +86,27 @@ public enum AX {
     public static func set(_ element: AXUIElement, _ attribute: String, _ newValue: CFTypeRef) -> Bool {
         AXUIElementSetAttributeValue(element, attribute as CFString, newValue) == .success
     }
+
+    @discardableResult
+    public static func set(_ element: AXUIElement, _ attribute: String, _ point: CGPoint) -> Bool {
+        var value = point
+        guard let boxed = AXValueCreate(.cgPoint, &value) else { return false }
+        return set(element, attribute, boxed)
+    }
+
+    @discardableResult
+    public static func set(_ element: AXUIElement, _ attribute: String, _ size: CGSize) -> Bool {
+        var value = size
+        guard let boxed = AXValueCreate(.cgSize, &value) else { return false }
+        return set(element, attribute, boxed)
+    }
+
+    /// Whether the application will accept a write at all. A window that refuses its position —
+    /// a modal alert, a window an application pins itself — is not one to keep pushing at.
+    public static func isSettable(_ element: AXUIElement, _ attribute: String) -> Bool {
+        var settable: DarwinBoolean = false
+        guard AXUIElementIsAttributeSettable(element, attribute as CFString, &settable) == .success
+        else { return false }
+        return settable.boolValue
+    }
 }

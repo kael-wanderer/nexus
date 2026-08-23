@@ -163,6 +163,9 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     public var showRunningApplications = true
     public var showWindowCount = true
     public var showFavorites = true
+    /// Keep other applications' windows off the bar (M12). Off by default: it moves windows
+    /// belonging to other applications, which is not something to do to somebody unasked.
+    public var reserveSpace = false
     public var clickBehavior: ClickBehavior = .activateOrLaunch
     public var reduceMotionOverride: Bool?
     public init() {}
@@ -180,6 +183,7 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         showRunningApplications = try container.decodeIfPresent(Bool.self, forKey: .showRunningApplications) ?? true
         showWindowCount = try container.decodeIfPresent(Bool.self, forKey: .showWindowCount) ?? true
         showFavorites = try container.decodeIfPresent(Bool.self, forKey: .showFavorites) ?? true
+        reserveSpace = try container.decodeIfPresent(Bool.self, forKey: .reserveSpace) ?? false
         clickBehavior = try container.decodeIfPresent(ClickBehavior.self, forKey: .clickBehavior) ?? .activateOrLaunch
         reduceMotionOverride = try container.decodeIfPresent(Bool.self, forKey: .reduceMotionOverride)
     }

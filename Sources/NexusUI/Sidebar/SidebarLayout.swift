@@ -166,6 +166,75 @@ public enum SidebarLayout {
         )
     }
 
+    // MARK: - Reserved space
+
+    /// What is left of the screen once the bar has its strip — everything on the far side of it,
+    /// measured from the edge the bar sits on. The 8 pt the bar keeps clear of the edge counts as
+    /// the bar's: a window sliding into that gap still reads as being underneath it.
+    public static func availableFrame(
+        besides bar: CGRect,
+        in visibleFrame: CGRect,
+        position: SidebarPosition
+    ) -> CGRect {
+        switch position {
+        case .left:
+            let edge = min(max(visibleFrame.minX, bar.maxX), visibleFrame.maxX)
+            return CGRect(
+                x: edge,
+                y: visibleFrame.minY,
+                width: visibleFrame.maxX - edge,
+                height: visibleFrame.height
+            )
+        case .right:
+            let edge = max(min(visibleFrame.maxX, bar.minX), visibleFrame.minX)
+            return CGRect(
+                x: visibleFrame.minX,
+                y: visibleFrame.minY,
+                width: edge - visibleFrame.minX,
+                height: visibleFrame.height
+            )
+        case .bottom:
+            let edge = min(max(visibleFrame.minY, bar.maxY), visibleFrame.maxY)
+            return CGRect(
+                x: visibleFrame.minX,
+                y: edge,
+                width: visibleFrame.width,
+                height: visibleFrame.maxY - edge
+            )
+        case .top:
+            let edge = max(min(visibleFrame.maxY, bar.minY), visibleFrame.minY)
+            return CGRect(
+                x: visibleFrame.minX,
+                y: visibleFrame.minY,
+                width: visibleFrame.width,
+                height: edge - visibleFrame.minY
+            )
+        }
+    }
+
+    /// The frame a window needs so it stops overlapping the bar, or `nil` for "leave it alone".
+    /// It is pushed if it still fits in what is left, and resized only if it does not — a move is
+    /// something the user can undo by dragging, a resize is not.
+    ///
+    /// Space-agnostic on purpose: every rectangle must be in the same coordinate space. The caller
+    /// works in Accessibility coordinates, because that is the space it can read and write.
+    public static func fit(_ window: CGRect, into available: CGRect, display: CGRect) -> CGRect? {
+        guard available.width > 1, available.height > 1 else { return nil }
+        // Windows belonging to another display, or straddling two, are that display's business.
+        guard display.contains(CGPoint(x: window.midX, y: window.midY)) else { return nil }
+        // Full screen — or the desktop — covers the display outright. Not ours to move, and the
+        // bar hides over a full-screen space anyway.
+        guard !window.insetBy(dx: -1, dy: -1).contains(display) else { return nil }
+        guard !available.insetBy(dx: -0.5, dy: -0.5).contains(window) else { return nil }
+
+        var frame = window
+        frame.size.width = min(frame.width, available.width)
+        frame.size.height = min(frame.height, available.height)
+        frame.origin.x = min(max(frame.minX, available.minX), available.maxX - frame.width)
+        frame.origin.y = min(max(frame.minY, available.minY), available.maxY - frame.height)
+        return frame == window ? nil : frame
+    }
+
     public static func edgeTriggerFrame(
         in visibleFrame: CGRect,
         position: SidebarPosition

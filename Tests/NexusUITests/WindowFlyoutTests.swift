@@ -8,6 +8,9 @@ import Testing
 actor FakeWindowService: WindowServing {
     private var byApplication: [String: [NexusWindow]]
     private(set) var activated: [WindowIdentity] = []
+    private(set) var framesSet: [(window: WindowIdentity, frame: CGRect)] = []
+    private var refuses: Set<CGWindowID> = []
+    private var putsBack: Set<CGWindowID> = []
     private var trusted: Bool
 
     init(_ byApplication: [String: [NexusWindow]] = [:], trusted: Bool = true) {
@@ -32,6 +35,33 @@ actor FakeWindowService: WindowServing {
     func activate(_ window: WindowIdentity) async throws {
         guard trusted else { throw NexusError.permissionDenied(.accessibility) }
         activated.append(window)
+    }
+
+    @discardableResult
+    func setFrame(_ frame: CGRect, for window: WindowIdentity) async throws -> Bool {
+        guard trusted else { throw NexusError.permissionDenied(.accessibility) }
+        framesSet.append((window, frame))
+        guard !refuses.contains(window.number) else { return false }
+        if var list = byApplication[window.owner.bundleIdentifier],
+           let index = list.firstIndex(where: { $0.identity.number == window.number }) {
+            list[index].frame = putsBack.contains(window.number) ? list[index].frame : frame
+            byApplication[window.owner.bundleIdentifier] = list
+        }
+        return true
+    }
+
+    /// Windows whose application refuses to move them at all.
+    func refuse(_ number: CGWindowID) { refuses.insert(number) }
+    /// Windows whose application drags them straight back where they were.
+    func putBack(_ number: CGWindowID) { putsBack.insert(number) }
+}
+
+/// Polls until `condition` holds, up to a second. Replaces a fixed sleep in tests that wait on
+/// work handed to a Task.
+func until(_ condition: @Sendable () async -> Bool) async {
+    for _ in 0..<100 {
+        if await condition() { return }
+        try? await Task.sleep(for: .milliseconds(10))
     }
 }
 
@@ -102,7 +132,9 @@ struct WindowFlyoutTests {
         #expect(model.windows.map(\.title) == ["GitHub", "Docs"])
 
         model.activate(model.windows[0])
-        try await Task.sleep(for: .milliseconds(50))
+        // Activation is a detached Task; wait for it rather than guessing at a sleep that fails
+        // whenever the machine is busy.
+        await until { await service.activated.count == 1 }
         #expect(await service.activated.map(\.number) == [1])
         #expect(model.target == nil)   // activating dismisses the flyout
     }
