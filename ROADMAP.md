@@ -182,3 +182,24 @@ declining both leaves a fully usable launcher.
 - Instruments: no leaks, no unbounded growth over a 30-minute session with heavy app churn.
 - VoiceOver can drive the sidebar and the search palette without the mouse.
 - Revoking Accessibility while running degrades to Milestone 3 behaviour with a clear notice.
+
+## Milestone 8 — Dock replacement  ← post-MVP
+
+**Scope**
+- `SidebarPosition` gains `.top` and `.bottom`; `SidebarLayout` transposed for horizontal edges.
+- Dock Replacement Mode: `com.apple.dock` auto-hide with a 1000 s delay, Dock parked on the
+  opposite edge, original configuration snapshotted and restored.
+- Restore on quit, on toggle off, and on the next launch after a crash; a Restore button in
+  Settings and the status menu that never depends on the toggle.
+- Settings "Dock" pane and one new onboarding step, both defaulting to off.
+
+**Permissions:** none new. No system files, no `Dock.app` modification, no SIP changes.
+
+**Acceptance criteria**
+- All four positions pass the `SidebarLayout` suite, including the `.top` menu-bar case.
+- Enabling, quitting and relaunching leaves the Dock exactly as it was found — keys that were
+  never set are deleted, not written back with a default.
+- Killing Nexus with `SIGKILL` and relaunching restores the Dock.
+- Skipping the onboarding step leaves the Dock untouched.
+
+Spec: `docs/DESIGN_M8_DOCK_REPLACEMENT.md`.
