@@ -20,12 +20,23 @@ public enum SidebarLayout {
         appearance.iconSize + 8
     }
 
+    /// What a horizontal bar needs on top of the icon: the row's own padding, the gap under the
+    /// icon and the running dot, and the bar's outer padding at both edges. Without it a 64 pt icon
+    /// in a 64 pt bar has its feet cut off — and the dot that says an application is running is the
+    /// first thing to go (D102).
+    static let horizontalExtras: CGFloat = outerPadding * 2 + 4 * 2 + 2 + Design.runningDotDiameter
+
     /// Thickness across the bar. Hover-expand is vertical-only (D53): growing a horizontal bar's
     /// height on hover would shove every window on the screen.
+    ///
+    /// `appearance.width` is the *vertical* bar's measurement. Lying it across the screen does not
+    /// make it the right thickness for a horizontal one, which has to hold an icon and everything
+    /// drawn under it, so that case is computed rather than configured.
     public static func width(_ appearance: AppearanceConfiguration, expanded: Bool) -> CGFloat {
-        expanded && appearance.position.isVertical
-            ? max(expandedWidth, appearance.width)
-            : appearance.width
+        guard appearance.position.isVertical else {
+            return max(appearance.width, appearance.iconSize + horizontalExtras)
+        }
+        return expanded ? max(expandedWidth, appearance.width) : appearance.width
     }
 
     /// Length along the bar's axis. `sectionRowCounts` lists the rows in each visible section, in

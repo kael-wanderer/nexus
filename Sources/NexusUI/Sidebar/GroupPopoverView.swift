@@ -14,6 +14,9 @@ public final class GroupPopoverViewModel {
     /// Set by the composition root, so a click here does the same thing a click in the bar does.
     @ObservationIgnored public var launch: ((SidebarItem) -> Void)?
     @ObservationIgnored public var remove: ((SidebarItem) -> Void)?
+    /// Renaming, from the popover's own title. The alert belongs to the row's world, not this
+    /// panel's, so it is injected (M13, D102).
+    @ObservationIgnored public var rename: ((SidebarGroup) -> Void)?
     @ObservationIgnored public var onDismiss: (() -> Void)?
 
     public init() {}
@@ -75,10 +78,7 @@ public struct GroupPopoverView: View {
 
     private func content(_ group: SidebarGroup) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(group.name)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 4)
+            header(group)
             LazyVGrid(
                 columns: Array(
                     repeating: GridItem(.fixed(Self.tileSize), spacing: 4),
@@ -97,6 +97,30 @@ public struct GroupPopoverView: View {
         }
         .padding(Self.padding)
         .frame(width: CGFloat(model.columns) * (Self.tileSize + 4) + Self.padding * 2)
+    }
+
+    /// The group's name, as the thing you click to change it — the folder title on iOS, which is
+    /// where everybody now looks for a rename.
+    private func header(_ group: SidebarGroup) -> some View {
+        HStack(spacing: 6) {
+            Text(group.name)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Image(systemName: "pencil")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .nexusRow(onClick: { model.rename?(group) })
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(group.name)
+        .accessibilityHint(String(localized: "Renames the group"))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { model.rename?(group) }
     }
 }
 
@@ -119,6 +143,14 @@ struct GroupMemberTile: View {
                     .frame(width: Design.runningDotDiameter, height: Design.runningDotDiameter)
                     .offset(y: 5)
                     .opacity(item.isRunning ? 1 : 0)
+            }
+            .overlay(alignment: .topLeading) {
+                // Taking an application out by dragging it onto the bar is precise work with nine
+                // or sixteen tiles in front of you. The badge is the same answer iOS gives.
+                if isHovered {
+                    RemoveBadge(action: remove)
+                        .offset(x: -8, y: -8)
+                }
             }
             Text(item.name)
                 .font(.caption2)
@@ -160,3 +192,23 @@ struct GroupMemberTile: View {
         .accessibilityAction { launch() }
     }
 }
+
+/// The minus badge that takes an application out of a group. Its own row rather than a `Button`,
+/// because AppKit controls render inactive in a panel that can never become key.
+struct RemoveBadge: View {
+    let action: () -> Void
+
+    var body: some View {
+        Image(systemName: "minus.circle.fill")
+            .font(.system(size: 16))
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(.white, .secondary)
+            .background(Circle().fill(.background).padding(2))
+            .contentShape(Circle())
+            .nexusRow(onClick: action)
+            .accessibilityLabel(String(localized: "Remove from group"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
+    }
+}
+

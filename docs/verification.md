@@ -139,3 +139,13 @@ Every one of them found something.
 Method note: `screencapture -R` for the bar strips, System Events for the accessibility answers
 (`minimized=true subrole=AXDialog` is what named D100), `log show` for Nexus's own trail, and
 synthetic CGEvents for the drag, the clicks and the keys.
+
+## The four asks from the bottom-edge round — 2026-08-23, 19:10
+
+| Check | Result |
+|---|---|
+| The bar's bottom edge | Before: a 64 pt icon in a 64 pt bar, feet and running dots clipped by the screen edge. After: icons whole, a dot visible under each one, and the bar sits the same 8 pt off the edge — it is the bar that grew, not the gap (D102) |
+| Rename from the second monitor | Before: popover on display 1, alert on display 0. After: alert at x 3710 for a click on display 1, x 1150 for a click on display 0 — read back from the accessibility tree, not by eye |
+| The group popover | Title reads as a title and carries a pencil; hovering a member shows the minus badge. Both verified on the real popover at 2× |
+| Settings | 620 × 790, resizable, eight tabs. Dock holds where the bar is, Bar what it shows, Appearance how it looks. About shows `Version 0.1.0 (1)`, author, licence and `/Applications` |
+| `make dmg` | `build/Nexus-0.1.0.dmg`, 3.2 MB, mounts as `Nexus 0.1.0` with `Nexus.app` and the `Applications` shortcut inside |

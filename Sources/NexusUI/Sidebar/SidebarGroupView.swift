@@ -153,24 +153,8 @@ struct SidebarGroupView: View {
         return items
     }
 
-    /// Renaming happens in an alert rather than in the popover's header: the popover can never
-    /// become key (design/mvp.md §2.1), and a text field nobody can type into is worse than a
-    /// menu item.
     private func promptForName() {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Rename Group")
-        alert.informativeText = String(localized: "Choose a name for this group of applications.")
-        alert.addButton(withTitle: String(localized: "Rename"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
-        field.stringValue = group.name
-        field.placeholderString = ApplicationCategory.fallbackName
-        alert.accessoryView = field
-        NSApp.activate()
-        alert.window.initialFirstResponder = field
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        model.renameGroup(group.id, to: field.stringValue)
+        GroupRename.prompt(for: group, model: model)
     }
 }
 

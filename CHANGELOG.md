@@ -116,7 +116,24 @@ this project follows [Semantic Versioning](https://semver.org).
 - The Definition of Done (§33) walkthrough is recorded in `docs/verification.md`, including the
   30-minute leak soak and the one item that still needs hardware: multi-monitor reconnect.
 
+### Added
+- `make dmg` and `make zip`: a signed release build packaged for another Mac, versioned from the
+  bundle's own `Info.plist`. Not notarised — the first launch on another machine is right-click →
+  Open, which the README now says.
+- Settings has an **About** tab (version, build, author, licence, where it is running from, and a
+  Copy Version Details button for bug reports) and a **Bar** tab. The panes were re-cut along what
+  they are about: Dock is where the bar is, Bar is what it has in it, Appearance is how it looks.
+  The window is bigger — sized for the longest pane rather than the average one — and resizable.
+- A group's popover is where a group is edited: its title renames it, and hovering a member shows a
+  minus badge that takes that application out. Dragging one tile out of sixteen was precise work.
+
 ### Fixed
+- A horizontal bar is as thick as its icons need. `appearance.width` is the vertical bar's
+  measurement, and using it on its side cut the feet off a 64 pt icon in a 64 pt bar — the running
+  dots went first (D102).
+- The rename alert opens on the screen the click came from. `NSAlert` centres on the main display,
+  and re-centres itself as `runModal()` starts, so the move has to happen from inside the modal loop.
+- A group with no shared category is named after its members rather than "Group".
 - Minimized windows never appeared, because a minimized window stops calling itself a standard
   window: Finder's subrole becomes `AXDialog` in the Dock, and the window list has filtered on
   `AXStandardWindow` since M4. The list now keeps anything minimized as well (D100). The window

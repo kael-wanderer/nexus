@@ -12,6 +12,11 @@ APP         := build/$(APP_NAME).app
 BUNDLE_ID   := com.congbui.nexus
 INSTALL_DIR ?= /Applications
 INSTALLED   := $(INSTALL_DIR)/$(APP_NAME).app
+# Read from the bundle's own Info.plist, so the version lives in exactly one place — the same one
+# the About tab reads at runtime.
+VERSION     := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Resources/Info.plist)
+DMG         := build/$(APP_NAME)-$(VERSION).dmg
+ZIP         := build/$(APP_NAME)-$(VERSION).zip
 
 # Auto-detect, in order: an "Apple Development" certificate, then ANY valid codesigning
 # identity, then ad-hoc. Stability is what matters to TCC, not who issued the certificate.
@@ -25,7 +30,7 @@ ifeq ($(strip $(SIGNING_IDENTITY)),)
 SIGNING_IDENTITY := -
 endif
 
-.PHONY: all build release test lint app install run stop clean signing-info reset-config logs
+.PHONY: all build release test lint app install run stop clean signing-info reset-config logs dmg zip
 
 all: app
 
@@ -84,6 +89,30 @@ install: app
 	@codesign --verify --strict "$(INSTALLED)" && echo "Signature verified"
 	@open "$(INSTALLED)"
 	@echo "Installed $(INSTALLED). Turn on Launch at login in Settings > General."
+
+## A disk image to hand to another Mac. Release build, signed, with the drag-to-Applications
+## layout people expect. It is *not* notarised — Nexus has no Developer ID — so the first launch on
+## another machine needs right-click → Open, or `xattr -dr com.apple.quarantine`, which the README
+## says too.
+dmg:
+	@$(MAKE) --no-print-directory app CONFIG=release
+	@rm -rf build/dmg $(DMG)
+	@mkdir -p build/dmg
+	@ditto $(APP) "build/dmg/$(APP_NAME).app"
+	@ln -s /Applications build/dmg/Applications
+	@hdiutil create -volname "$(APP_NAME) $(VERSION)" -srcfolder build/dmg -ov -format UDZO $(DMG) >/dev/null
+	@rm -rf build/dmg
+	@codesign --force --sign "$(SIGNING_IDENTITY)" $(DMG) 2>/dev/null || true
+	@shasum -a 256 $(DMG)
+	@echo "Built $(DMG)"
+
+## The same build as a zip, for when a disk image is more ceremony than the situation needs.
+zip:
+	@$(MAKE) --no-print-directory app CONFIG=release
+	@rm -f $(ZIP)
+	@ditto -c -k --keepParent $(APP) $(ZIP)
+	@shasum -a 256 $(ZIP)
+	@echo "Built $(ZIP)"
 
 run: stop app
 	open $(APP)

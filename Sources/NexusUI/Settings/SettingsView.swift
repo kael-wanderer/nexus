@@ -30,6 +30,8 @@ public struct SettingsView: View {
                 .tabItem { Label(String(localized: "General"), systemImage: "gearshape") }
             DockPane(configuration: configuration, dockReplacement: dockReplacement)
                 .tabItem { Label(String(localized: "Dock"), systemImage: "rectangle.bottomthird.inset.filled") }
+            BarPane(configuration: configuration)
+                .tabItem { Label(String(localized: "Bar"), systemImage: "rectangle.grid.1x2") }
             AppearancePane(configuration: configuration)
                 .tabItem { Label(String(localized: "Appearance"), systemImage: "paintbrush") }
             BehaviorPane(configuration: configuration, permissions: permissions)
@@ -38,8 +40,13 @@ public struct SettingsView: View {
                 .tabItem { Label(String(localized: "Search"), systemImage: "magnifyingglass") }
             PermissionsPane(permissions: permissions)
                 .tabItem { Label(String(localized: "Permissions"), systemImage: "lock.shield") }
+            AboutPane()
+                .tabItem { Label(String(localized: "About"), systemImage: "info.circle") }
         }
-        .frame(width: 520, height: 430)
+        // Sized for the longest pane rather than the average one: a settings window that scrolls
+        // hides the switch somebody came looking for. The window is resizable for the screens this
+        // is still too tall for.
+        .frame(width: 620, height: 790)
     }
 }
 
@@ -62,35 +69,6 @@ struct GeneralPane: View {
                     String(localized: "Enable the global shortcut"),
                     isOn: binding(\.general.globalShortcutEnabled)
                 )
-            }
-            Section {
-                Toggle(
-                    String(localized: "Show the start menu button"),
-                    isOn: binding(\.general.showStartMenu)
-                )
-                if configuration.configuration.general.showStartMenu {
-                    Picker(
-                        String(localized: "Opens from"),
-                        selection: configuration.binding(\.appearance.startMenuCorner)
-                    ) {
-                        Text("Bottom left").tag(StartMenuCorner.bottomLeading)
-                        Text("Bottom right").tag(StartMenuCorner.bottomTrailing)
-                        Text("Top left").tag(StartMenuCorner.topLeading)
-                        Text("Top right").tag(StartMenuCorner.topTrailing)
-                    }
-                }
-                Text("A browsable grid of everything installed, for the applications you cannot name from memory.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section {
-                Toggle(
-                    String(localized: "Show what is playing"),
-                    isOn: binding(\.general.showNowPlaying)
-                )
-                Text("A row in the bar with transport controls, and the track for players that publish it. It appears only while something is playing.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             Section {
                 Button(String(localized: "Run Setup Again…"), action: runOnboarding)
@@ -207,38 +185,6 @@ struct DockPane: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
-        }
-        .formStyle(.grouped)
-        .onAppear { isDockHidden = dockReplacement.isDockHidden }
-    }
-}
-
-/// The four edges, shared by Settings and onboarding.
-public struct SidebarPositionPicker: View {
-    @Bindable var configuration: ConfigurationController
-
-    public init(configuration: ConfigurationController) {
-        self.configuration = configuration
-    }
-
-    public var body: some View {
-        Picker(String(localized: "Position"), selection: configuration.binding(\.appearance.position)) {
-            Text("Left").tag(SidebarPosition.left)
-            Text("Right").tag(SidebarPosition.right)
-            Text("Top").tag(SidebarPosition.top)
-            Text("Bottom").tag(SidebarPosition.bottom)
-        }
-        .pickerStyle(.segmented)
-    }
-}
-
-// MARK: - Appearance
-
-struct AppearancePane: View {
-    @Bindable var configuration: ConfigurationController
-
-    var body: some View {
-        Form {
             Section {
                 Picker(String(localized: "Display"), selection: displayBinding) {
                     Text("Main display").tag(DisplayPreferenceChoice.main)
@@ -249,59 +195,9 @@ struct AppearancePane: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Section {
-                slider(String(localized: "Sidebar width"), \.appearance.width, AppearanceConfiguration.widthRange, step: 2)
-                slider(String(localized: "Icon size"), \.appearance.iconSize, AppearanceConfiguration.iconSizeRange, step: 2)
-                slider(String(localized: "Icon spacing"), \.appearance.iconSpacing, AppearanceConfiguration.iconSpacingRange, step: 1)
-                slider(String(localized: "Corner radius"), \.appearance.cornerRadius, AppearanceConfiguration.cornerRadiusRange, step: 1)
-                slider(String(localized: "Opacity"), \.appearance.opacity, AppearanceConfiguration.opacityRange, step: 0.05)
-            }
-            Section {
-                Stepper(
-                    value: configuration.binding(\.appearance.pinnedLimit),
-                    in: AppearanceConfiguration.rowLimitRange
-                ) {
-                    LabeledContent(
-                        String(localized: "Most pinned rows"),
-                        value: Self.rowLimitLabel(configuration.configuration.appearance.pinnedLimit)
-                    )
-                }
-                Stepper(
-                    value: configuration.binding(\.appearance.runningLimit),
-                    in: AppearanceConfiguration.rowLimitRange
-                ) {
-                    LabeledContent(
-                        String(localized: "Most running rows"),
-                        value: Self.rowLimitLabel(configuration.configuration.appearance.runningLimit)
-                    )
-                }
-                Text("The bar grows until it runs out of screen, then each section scrolls inside itself. Trash and Search always stay in view.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section {
-                Picker(
-                    String(localized: "Media player"),
-                    selection: configuration.binding(\.appearance.mediaWidth)
-                ) {
-                    Text("Wide").tag(MediaWidth.wide)
-                    Text("Compact").tag(MediaWidth.compact)
-                }
-                if configuration.configuration.appearance.mediaWidth == .wide {
-                    Picker(
-                        String(localized: "Wide player shows"),
-                        selection: configuration.binding(\.appearance.mediaContent)
-                    ) {
-                        Text("Progress bar").tag(MediaContent.progress)
-                        Text("What is playing").tag(MediaContent.title)
-                    }
-                }
-                Text("A wide player takes four slots and shows the progress bar or the track inline. A left or right bar is always compact — a scrubber that narrow cannot be dragged.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
+        .onAppear { isDockHidden = dockReplacement.isDockHidden }
     }
 
     /// Zero is not "no rows", it is "however many fit" — so it says so.
@@ -331,6 +227,66 @@ struct AppearancePane: View {
                 configuration.update { $0.appearance.display = preference }
             }
         )
+    }
+
+}
+
+/// The four edges, shared by Settings and onboarding.
+public struct SidebarPositionPicker: View {
+    @Bindable var configuration: ConfigurationController
+
+    public init(configuration: ConfigurationController) {
+        self.configuration = configuration
+    }
+
+    public var body: some View {
+        Picker(String(localized: "Position"), selection: configuration.binding(\.appearance.position)) {
+            Text("Left").tag(SidebarPosition.left)
+            Text("Right").tag(SidebarPosition.right)
+            Text("Top").tag(SidebarPosition.top)
+            Text("Bottom").tag(SidebarPosition.bottom)
+        }
+        .pickerStyle(.segmented)
+    }
+}
+
+// MARK: - Appearance
+
+struct AppearancePane: View {
+    @Bindable var configuration: ConfigurationController
+
+    var body: some View {
+        Form {
+            Section {
+                slider(String(localized: "Sidebar width"), \.appearance.width, AppearanceConfiguration.widthRange, step: 2)
+                slider(String(localized: "Icon size"), \.appearance.iconSize, AppearanceConfiguration.iconSizeRange, step: 2)
+                slider(String(localized: "Icon spacing"), \.appearance.iconSpacing, AppearanceConfiguration.iconSpacingRange, step: 1)
+                slider(String(localized: "Corner radius"), \.appearance.cornerRadius, AppearanceConfiguration.cornerRadiusRange, step: 1)
+                slider(String(localized: "Opacity"), \.appearance.opacity, AppearanceConfiguration.opacityRange, step: 0.05)
+            }
+            Section {
+                Picker(
+                    String(localized: "Media player"),
+                    selection: configuration.binding(\.appearance.mediaWidth)
+                ) {
+                    Text("Wide").tag(MediaWidth.wide)
+                    Text("Compact").tag(MediaWidth.compact)
+                }
+                if configuration.configuration.appearance.mediaWidth == .wide {
+                    Picker(
+                        String(localized: "Wide player shows"),
+                        selection: configuration.binding(\.appearance.mediaContent)
+                    ) {
+                        Text("Progress bar").tag(MediaContent.progress)
+                        Text("What is playing").tag(MediaContent.title)
+                    }
+                }
+                Text("A wide player takes four slots and shows the progress bar or the track inline. A left or right bar is always compact — a scrubber that narrow cannot be dragged.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 
     private func slider(
@@ -410,44 +366,6 @@ struct BehaviorPane: View {
                 )
                 .disabled(configuration.configuration.behavior.autoHide)
                 Text(reservedSpaceCaption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section {
-                Toggle(String(localized: "Show running applications"), isOn: configuration.binding(\.behavior.showRunningApplications))
-                Toggle(String(localized: "Show minimized windows"), isOn: configuration.binding(\.behavior.showMinimizedWindows))
-                Text("Minimized windows sit before the Trash, newest first, at most three.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Toggle(String(localized: "Show window count"), isOn: configuration.binding(\.behavior.showWindowCount))
-                Toggle(String(localized: "Show favourites"), isOn: configuration.binding(\.behavior.showFavorites))
-            }
-            Section {
-                Toggle(
-                    String(localized: "Keyboard access to the bar"),
-                    isOn: Binding(
-                        get: { configuration.configuration.general.focusBarShortcut != nil },
-                        set: { on in
-                            configuration.update {
-                                $0.general.focusBarShortcut = on ? .focusBarDefault : nil
-                            }
-                        }
-                    )
-                )
-                if let current = configuration.configuration.general.focusBarShortcut {
-                    LabeledContent(String(localized: "Focus the bar")) {
-                        ShortcutRecorder(
-                            shortcut: Binding(
-                                get: { current },
-                                set: { new in
-                                    configuration.update { $0.general.focusBarShortcut = new }
-                                }
-                            ),
-                            validate: { _ in nil }
-                        )
-                    }
-                }
-                Text("Puts the keyboard on the bar: arrows move along it, Return opens what is focused, Escape gives the keyboard back. It also returns on its own after ten seconds of nothing.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -578,3 +496,178 @@ extension ConfigurationController {
         )
     }
 }
+
+
+// MARK: - Bar
+
+/// What the bar has in it. Not "how it looks" (Appearance) and not "where it is" (Dock): the rows
+/// themselves, and how many of them there may be.
+struct BarPane: View {
+    @Bindable var configuration: ConfigurationController
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(
+                    String(localized: "Start menu button"),
+                    isOn: configuration.binding(\.general.showStartMenu)
+                )
+                if configuration.configuration.general.showStartMenu {
+                    Picker(
+                        String(localized: "Opens from"),
+                        selection: configuration.binding(\.appearance.startMenuCorner)
+                    ) {
+                        Text("Bottom left").tag(StartMenuCorner.bottomLeading)
+                        Text("Bottom right").tag(StartMenuCorner.bottomTrailing)
+                        Text("Top left").tag(StartMenuCorner.topLeading)
+                        Text("Top right").tag(StartMenuCorner.topTrailing)
+                    }
+                }
+                Text("A browsable grid of everything installed, for the applications you cannot name from memory.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle(
+                    String(localized: "What is playing"),
+                    isOn: configuration.binding(\.general.showNowPlaying)
+                )
+                Text("A row in the bar with transport controls, and the track for players that publish it. It appears only while something is playing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle(String(localized: "Running applications"), isOn: configuration.binding(\.behavior.showRunningApplications))
+                Toggle(String(localized: "Minimized windows"), isOn: configuration.binding(\.behavior.showMinimizedWindows))
+                Text("Minimized windows sit before the Trash, newest first, at most three.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle(String(localized: "Window count badges"), isOn: configuration.binding(\.behavior.showWindowCount))
+                Toggle(String(localized: "Favourites"), isOn: configuration.binding(\.behavior.showFavorites))
+            }
+            Section {
+                Toggle(
+                    String(localized: "Keyboard access to the bar"),
+                    isOn: Binding(
+                        get: { configuration.configuration.general.focusBarShortcut != nil },
+                        set: { on in
+                            configuration.update {
+                                $0.general.focusBarShortcut = on ? .focusBarDefault : nil
+                            }
+                        }
+                    )
+                )
+                if let current = configuration.configuration.general.focusBarShortcut {
+                    LabeledContent(String(localized: "Focus the bar")) {
+                        ShortcutRecorder(
+                            shortcut: Binding(
+                                get: { current },
+                                set: { new in
+                                    configuration.update { $0.general.focusBarShortcut = new }
+                                }
+                            ),
+                            validate: { _ in nil }
+                        )
+                    }
+                }
+                Text("Puts the keyboard on the bar: arrows move along it, Return opens what is focused, Escape gives the keyboard back. It also returns on its own after ten seconds of nothing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Stepper(
+                    value: configuration.binding(\.appearance.pinnedLimit),
+                    in: AppearanceConfiguration.rowLimitRange
+                ) {
+                    LabeledContent(
+                        String(localized: "Most pinned rows"),
+                        value: Self.rowLimitLabel(configuration.configuration.appearance.pinnedLimit)
+                    )
+                }
+                Stepper(
+                    value: configuration.binding(\.appearance.runningLimit),
+                    in: AppearanceConfiguration.rowLimitRange
+                ) {
+                    LabeledContent(
+                        String(localized: "Most running rows"),
+                        value: Self.rowLimitLabel(configuration.configuration.appearance.runningLimit)
+                    )
+                }
+                Text("The bar grows until it runs out of screen, then each section scrolls inside itself. Trash and Search always stay in view.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    /// Zero is not "no rows", it is "however many fit" — so it says so.
+    private static func rowLimitLabel(_ limit: Int) -> String {
+        limit == 0 ? String(localized: "Fit the screen") : "\(limit)"
+    }
+}
+
+// MARK: - About
+
+/// What is running, and where it came from.
+struct AboutPane: View {
+    private var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+    }
+
+    private var build: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+    }
+
+    private var copyright: String {
+        Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String ?? "MIT Licensed."
+    }
+
+    private var location: String {
+        Bundle.main.bundleURL.deletingLastPathComponent().path
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                HStack(spacing: 14) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 64, height: 64)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Nexus").font(.title2.weight(.semibold))
+                        Text("Version \(version) (\(build))")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Text("A dock and a launcher for macOS.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 4)
+            }
+            Section {
+                LabeledContent(String(localized: "Author"), value: "Cong Bui")
+                LabeledContent(String(localized: "Licence"), value: copyright)
+                LabeledContent(String(localized: "Running from"), value: location)
+            }
+            Section {
+                Button(String(localized: "Copy Version Details")) {
+                    let summary = """
+                    Nexus \(version) (\(build))
+                    macOS \(ProcessInfo.processInfo.operatingSystemVersionString)
+                    Running from \(location)
+                    """
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(summary, forType: .string)
+                }
+                Text("Paste this into a bug report, so the answer is not a guess.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+

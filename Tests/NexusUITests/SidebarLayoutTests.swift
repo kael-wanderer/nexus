@@ -126,14 +126,35 @@ struct SidebarLayoutTests {
         let vertical = SidebarLayout.size(sectionRowCounts: [3, 2], appearance: appearance, expanded: false)
         let flat = SidebarLayout.size(sectionRowCounts: [3, 2], appearance: horizontal, expanded: false)
         #expect(flat.width == vertical.height)
-        #expect(flat.height == vertical.width)
+        // Not the vertical bar's width: a horizontal bar's thickness has to hold the icon, its
+        // padding and the running dot underneath it (D102).
+        #expect(flat.height == CGFloat(horizontal.iconSize) + SidebarLayout.horizontalExtras)
+        #expect(flat.height > vertical.width)
+    }
+
+    @Test("A horizontal bar is never thinner than its icons need")
+    func horizontalThickness() {
+        var horizontal = appearance
+        horizontal.position = .bottom
+        horizontal.iconSize = 64
+        horizontal.width = 64
+        let thickness = SidebarLayout.width(horizontal, expanded: false)
+        #expect(thickness >= CGFloat(horizontal.iconSize) + Design.runningDotDiameter)
+        #expect(thickness == 64 + SidebarLayout.horizontalExtras)
+
+        // A configured width larger than the icons need is still honoured.
+        horizontal.width = 200
+        #expect(SidebarLayout.width(horizontal, expanded: false) == 200)
     }
 
     @Test("Hover-expand is ignored on a horizontal bar")
     func horizontalNeverExpands() {
         var horizontal = appearance
         horizontal.position = .top
-        #expect(SidebarLayout.width(horizontal, expanded: true) == CGFloat(horizontal.width))
+        #expect(
+            SidebarLayout.width(horizontal, expanded: true)
+                == SidebarLayout.width(horizontal, expanded: false)
+        )
         #expect(SidebarLayout.width(appearance, expanded: true) == SidebarLayout.expandedWidth)
     }
 

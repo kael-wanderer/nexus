@@ -306,3 +306,19 @@ hosting view the first responder is one of SwiftUI's own subviews, so the event 
 swallowed) below the override. The panel is the one object guaranteed to be in the chain, so
 `NonActivatingPanel` handles the keys and hands each one to `PanelController`, which returns whether
 it was used. Anything the bar does not use travels on untouched.
+
+## D102. A horizontal bar's thickness is its icons' business, and an alert opens where the click was.
+
+Two things the bottom edge got wrong, both reported as "it looks tight".
+
+**Thickness.** `appearance.width` is the *vertical* bar's measurement, and laying it on its side kept
+using it: a 64 pt bar holding a 64 pt icon has nothing left for the icon's own padding, let alone the
+running dot underneath it. So the dots — the thing that says an application is open — were the first
+pixels off the screen. A horizontal bar now computes its thickness from the icon size and only
+honours `width` when the number is larger than the icons need.
+
+**Alerts.** Renaming a group from the second monitor opened the rename sheet on the first, because
+`NSAlert` centres itself on the main display. Setting the frame beforehand does not survive:
+`runModal()` re-centres as it starts. The move has to happen *inside* the modal loop — a block
+queued for `.modalPanel` runs once the alert is up — and it goes to the screen the pointer is on,
+which is the screen the click came from.

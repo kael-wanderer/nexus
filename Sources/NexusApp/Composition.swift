@@ -149,6 +149,10 @@ final class Composition {
         sidebarModel.rowsDidChange = { [weak self] in self?.panels.groupsChanged() }
         groupModel.launch = { [weak self] item in self?.sidebarModel.activateOrLaunch(item) }
         groupModel.remove = { [weak self] item in self?.sidebarModel.removeFromGroup(item.id) }
+        groupModel.rename = { [weak self] group in
+            guard let self else { return }
+            GroupRename.prompt(for: group, model: sidebarModel)
+        }
         // Opening what is in a stack is the system's business: a file goes to its default
         // application, a folder to Finder (M21).
         folderModel.open = { url in NSWorkspace.shared.open(url) }

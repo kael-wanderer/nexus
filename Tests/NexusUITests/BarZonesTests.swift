@@ -188,7 +188,7 @@ struct BarZonesTests {
 
         appearance.position = .bottom
         let horizontal = SidebarLayout.size(zones: zones, appearance: appearance, expanded: false)
-        #expect(horizontal.height == CGFloat(appearance.width))
+        #expect(horizontal.height == SidebarLayout.width(appearance, expanded: false))
         #expect(horizontal.width == zones.total)
     }
 }

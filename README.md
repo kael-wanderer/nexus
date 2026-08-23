@@ -79,6 +79,18 @@ Settings toggle says as much when Nexus is running from anywhere else.
 
 Uninstalling is the usual drag to the Trash; macOS drops the login item with it.
 
+### Taking it to another Mac
+
+```sh
+make dmg     # build/Nexus-<version>.dmg — a release build, signed, with the Applications shortcut
+make zip     # build/Nexus-<version>.zip — the same build, when a disk image is too much ceremony
+```
+
+Neither is notarised: notarising needs a paid Developer ID, and Nexus has none. So on the *other*
+Mac the first launch has to be right-click → **Open** (or `xattr -dr com.apple.quarantine
+/Applications/Nexus.app`), after which macOS remembers. The permissions are per-machine too —
+Accessibility is granted again on each one.
+
 **Signing matters.** macOS ties Accessibility and Screen Recording grants to the code
 signature. An ad-hoc signature changes on **every rebuild**, so every permission you grant is
 reset the next time you build — and because TCC's record no longer matches the running binary,

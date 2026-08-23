@@ -49,6 +49,12 @@ test that matters is a v1 file loading into v2 with the same dock, in the same o
   application dissolves the group; removing the second-to-last leaves one application and
   dissolves it too, because a folder of one is a lie.
 - **Drag out**: dragging an application from the popover back to the bar takes it out of the group.
+- **Or take it out where it is**: hovering a member shows a minus badge, and clicking that removes
+  it. Dragging one tile out of nine or sixteen is precise work; the badge is the answer iOS gives to
+  the same problem, and it is the same action either way.
+- **Rename from the popover**: its title is the control — click the name (it carries a pencil) and
+  the rename alert opens, on the screen the click came from (D102). The row's context menu still has
+  Rename… for anybody who never opens the popover.
 
 ## Auto-naming
 

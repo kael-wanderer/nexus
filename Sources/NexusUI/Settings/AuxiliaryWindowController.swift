@@ -46,7 +46,9 @@ public final class AuxiliaryWindowController: NSObject, NSWindowDelegate {
         let hosting = NSHostingView(rootView: makeContent())
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
-            styleMask: [.titled, .closable, .miniaturizable],
+            // Resizable as well: the panes are sized for the longest one, and somebody on a small
+            // screen still has to be able to make it fit.
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
