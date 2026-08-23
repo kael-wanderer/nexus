@@ -926,3 +926,25 @@ Not the cause of the report that prompted it: closing a browser *tab* was measur
 clears the row (a YouTube tab, a `<video>` element and a WebAudio tone all stop CoreAudio's
 `IsRunningOutput` within two seconds, and the row goes with them). What this fixes is the case one
 step further out — the player itself going away.
+
+**D96. A folder in the dock is a path, and what it cannot read it says out loud.**
+
+Three choices worth writing down from Milestone 21.
+
+*A path, not a bookmark.* A security-scoped bookmark is the sandboxed answer to "remember this
+folder", and Nexus has no App Sandbox: the bookmark would be resolved on every read and buy nothing.
+The cost is that a folder moved after it was pinned stops resolving — so the row stays and says
+*This folder is no longer there* when opened, rather than deleting itself out of the dock. A row the
+user put there is theirs to remove.
+
+*Refused is not empty.* Desktop, Documents and Downloads are TCC-protected, and
+`contentsOfDirectory` answers a refusal with an error, not with zero entries. Flattening the two
+into "nothing here" would be a dead end for the user; the popover shows one line of explanation and
+an Open in Finder button, which is both what they wanted and what makes macOS ask again.
+
+*Version 5 for an additive change.* The store's own rule is that additive changes need no
+migration, and this one is additive — but the failure it prevents is not in this build. A v4 build
+reading `{"folder": …}` **throws** while decoding the dock, and a throw quarantines the file and
+resets the dock. A version it does not recognise is the one case the store handles gently: run on
+defaults, overwrite nothing. So the number moves, with an empty migration, and a downgrade costs a
+session rather than a dock.

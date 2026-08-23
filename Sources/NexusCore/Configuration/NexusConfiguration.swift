@@ -334,8 +334,9 @@ public struct OnboardingState: Codable, Sendable, Equatable {
 }
 
 public struct NexusConfiguration: Codable, Sendable, Equatable {
-    /// 4 since Milestone 16: icons default to the size of a macOS Dock tile.
-    public static let currentVersion = 4
+    /// 5 since Milestone 21: the dock's entries can be folders. Additive, but a downgrade has to
+    /// see a version it does not know rather than an entry it cannot decode.
+    public static let currentVersion = 5
 
     public var version: Int = currentVersion
     public var general = GeneralConfiguration()

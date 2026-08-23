@@ -21,6 +21,7 @@ final class Composition {
     let sidebarModel: SidebarViewModel
     let flyoutModel: WindowFlyoutViewModel
     let groupModel: GroupPopoverViewModel
+    let folderModel: FolderStackViewModel
     let nowPlaying: NowPlayingService
     let searchModel: SearchViewModel
     let panels: PanelController
@@ -79,11 +80,13 @@ final class Composition {
             index: applicationIndex.snapshot
         )
         groupModel = GroupPopoverViewModel()
+        folderModel = FolderStackViewModel()
         nowPlaying = NowPlayingService()
         panels = PanelController(
             model: sidebarModel,
             flyoutModel: flyoutModel,
             groupModel: groupModel,
+            folderModel: folderModel,
             permissions: permissions,
             configuration: configuration,
             events: events
@@ -146,6 +149,9 @@ final class Composition {
         sidebarModel.rowsDidChange = { [weak self] in self?.panels.groupsChanged() }
         groupModel.launch = { [weak self] item in self?.sidebarModel.activateOrLaunch(item) }
         groupModel.remove = { [weak self] item in self?.sidebarModel.removeFromGroup(item.id) }
+        // Opening what is in a stack is the system's business: a file goes to its default
+        // application, a folder to Finder (M21).
+        folderModel.open = { url in NSWorkspace.shared.open(url) }
 
         // Now playing (M15): the metadata is pushed by the players that publish it, the controls
         // are media keys, and the flyout follows the track.

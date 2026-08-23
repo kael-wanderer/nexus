@@ -24,15 +24,17 @@ public struct SidebarItem: Identifiable, Equatable, Sendable {
     }
 }
 
-/// One drawn row of the pinned section: an application, or a group of them (M13).
+/// One drawn row of the pinned section: an application, a group of them (M13), or a folder (M21).
 public enum SidebarRow: Identifiable, Equatable, Sendable {
     case application(SidebarItem)
     case group(SidebarGroup)
+    case folder(SidebarFolder)
 
     public var id: String {
         switch self {
         case .application(let item): item.id
         case .group(let group): group.id
+        case .folder(let folder): folder.id
         }
     }
 
@@ -45,6 +47,21 @@ public enum SidebarRow: Identifiable, Equatable, Sendable {
         guard case .group(let group) = self else { return nil }
         return group
     }
+
+    public var folder: SidebarFolder? {
+        guard case .folder(let folder) = self else { return nil }
+        return folder
+    }
+}
+
+/// A pinned folder, ready to draw. Its contents are not here: they are read when the stack opens
+/// (M21), so the bar never waits on a disk.
+public struct SidebarFolder: Identifiable, Equatable, Sendable {
+    public let path: String
+    public let name: String
+
+    public var id: String { DockEntry.folder(path).id }
+    public var url: URL { URL(fileURLWithPath: path) }
 }
 
 /// A group with its members resolved, ready to draw.
@@ -166,6 +183,8 @@ public final class SidebarViewModel {
     @ObservationIgnored public var activateWindow: ((WindowIdentity) -> Void)?
     /// Opens a group's popover. Injected at Milestone 13.
     @ObservationIgnored public var showGroup: ((SidebarGroup) -> Void)?
+    /// Opens a pinned folder's stack, the same way `showGroup` opens a group (M21).
+    @ObservationIgnored public var showFolder: ((SidebarFolder) -> Void)?
     /// Transport controls and the now-playing flyout. Injected at Milestone 15; without them the
     /// row is absent whatever the setting says.
     @ObservationIgnored public var mediaCommand: ((MediaKey) -> Void)?
@@ -375,6 +394,11 @@ public final class SidebarViewModel {
                 guard identifier != groupCandidateSource, var item = items[identifier] else { continue }
                 item.isPinned = true
                 resolvedPinned.append(.application(item))
+            case .folder(let path):
+                let url = URL(fileURLWithPath: path)
+                resolvedPinned.append(
+                    .folder(SidebarFolder(path: path, name: FolderStackService.displayName(of: url)))
+                )
             case .group(let group):
                 let members = group.applications
                     .filter { $0 != groupCandidateSource }
@@ -506,6 +530,9 @@ public final class SidebarViewModel {
             else { return false }
             group.applications.append(identifier)
             entries[targetIndex] = .group(group)
+        case .folder:
+            // A group is a group of applications (M13). Dropping something on a folder reorders it.
+            return false
         }
         // Wherever the dragged application was — its own slot, or another group — it is not there
         // any more.
@@ -529,6 +556,8 @@ public final class SidebarViewModel {
         case .group(let group):
             return group.applications.count < groupCapacity
                 && !group.applications.contains(identifier)
+        case .folder:
+            return false
         }
     }
 
@@ -578,6 +607,29 @@ public final class SidebarViewModel {
 
     public func openGroup(_ group: SidebarGroup) {
         showGroup?(group)
+    }
+
+    // MARK: - Folders
+
+    public func openFolder(_ folder: SidebarFolder) {
+        showFolder?(folder)
+    }
+
+    public func unpinFolder(_ id: String) {
+        setEntries(configuration.configuration.pinnedEntries.filter { $0.id != id })
+    }
+
+    /// Pins a folder at the end of the dock. Idempotent: a folder already on the bar keeps its
+    /// slot rather than gaining a second one.
+    @discardableResult
+    public func pinFolder(at url: URL) -> Bool {
+        let path = url.standardizedFileURL.path
+        var entries = configuration.configuration.pinnedEntries
+        guard !entries.contains(.folder(path)) else { return false }
+        entries.append(.folder(path))
+        setEntries(entries)
+        Log.sidebar.notice("Pinned folder \(path, privacy: .public)")
+        return true
     }
 
     /// The name a new group gets: whatever category most of its members declare (M13).
@@ -910,16 +962,25 @@ public final class SidebarViewModel {
         refreshTrash()
     }
 
-    /// Accepts a Finder drop of one or more `.app` bundles.
+    /// A drop from Finder. An `.app` is an application, any other directory is a folder stack
+    /// (M21) — a bundle is a directory too, so the specific case wins — and a plain file is
+    /// refused, since the bar has nothing to do with one.
     @discardableResult
     public func pinApplications(at urls: [URL]) -> Bool {
-        let identifiers = urls.compactMap { url -> String? in
-            guard url.pathExtension == "app", let bundle = Bundle(url: url) else { return nil }
-            return bundle.bundleIdentifier
+        var accepted = false
+        for url in urls {
+            if url.pathExtension == "app", let identifier = Bundle(url: url)?.bundleIdentifier {
+                pin(identifier)
+                accepted = true
+                continue
+            }
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue
+            else { continue }
+            accepted = pinFolder(at: url) || accepted
         }
-        guard !identifiers.isEmpty else { return false }
-        for identifier in identifiers { pin(identifier) }
-        return true
+        return accepted
     }
 
     public func revealInFinder(_ item: SidebarItem) {

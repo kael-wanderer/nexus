@@ -6,6 +6,12 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- Folder stacks (M21): drag a folder from Finder onto the bar and it becomes a row with the
+  folder's own icon. Clicking opens what is inside on a grid beside the bar — folders first, then
+  files, hidden files skipped, capped at 60 items and read when the stack opens rather than
+  watched. A file opens in its default application, a subfolder opens in Finder. A folder macOS
+  will not let Nexus read says exactly that, with a button that opens it in Finder; a folder that
+  has been deleted says that instead of vanishing from the dock (D96). Configuration version 5.
 - A bar on every monitor (M20): `appearance.display` gains **Every display**, so a second screen is
   no longer a dock-free zone — one panel per display over the same model, on every Space of each.
   **Display with the pointer** now really follows it, through a global mouse-moved monitor installed

@@ -464,3 +464,30 @@ Spec: `docs/design/search-scope.md`.
 - One row budget, sized to the smallest screen, so no bar overflows.
 
 Spec: `docs/design/multi-display.md`.
+
+## Milestone 21 — Folder stacks  ← post-MVP
+
+**Shipped** 2026-08-23.
+
+**Scope**
+- `DockEntry` gains `.folder(path)`: a folder is a slot in the dock like an application or a group.
+  Configuration version 4 → 5.
+- Drag a folder from Finder onto the bar to pin it; the row draws the folder's own icon.
+- Clicking opens a popover of the folder's contents beside the bar — the group popover's grid with
+  file tiles — read on open, folders first, capped at 60 items.
+- A file opens in its default application; a subfolder opens in Finder. Remove from Bar and Open in
+  Finder in the row's context menu.
+- A folder Nexus may not read says so, with a button that opens it in Finder, rather than drawing
+  an empty grid.
+
+**Permissions:** none new of Nexus's own. Reading Desktop, Documents or Downloads goes through the
+same macOS file-access prompt any application gets, and a refusal is shown rather than swallowed.
+
+**Acceptance criteria**
+- `~/Downloads` dropped on the bar becomes a row with its own icon that survives a restart.
+- Clicking it opens the grid beside the bar on the bar's own display; a click outside closes it.
+- A file opens, a subfolder opens in Finder.
+- A protected folder shows the permission line, not an empty grid.
+- Remove from Bar leaves the rest of the dock in order.
+
+Spec: `docs/design/folder-stacks.md`.

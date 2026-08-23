@@ -48,6 +48,7 @@ public final class ConfigurationStore: ConfigurationStoring {
         PinnedEntriesMigration(),
         AutomaticRowLimitsMigration(),
         DockSizedIconsMigration(),
+        FolderEntriesMigration(),
     ]
 
     public var outcomeOfLastLoad: ConfigurationLoadOutcome {
@@ -185,6 +186,19 @@ public struct DockSizedIconsMigration: ConfigurationMigration {
         }
         json["appearance"] = appearance
     }
+}
+
+/// Version 5 adds `{"folder": …}` to the dock's entries (M21). Nothing stored needs rewriting —
+/// the change is additive — but the number has to move: a build that only knows v4 throws on a
+/// folder entry, and a *higher* stored version is the one case the store handles gently, by running
+/// on defaults without overwriting what it cannot read. Without the bump, a downgrade would
+/// quarantine the file and take the dock with it.
+public struct FolderEntriesMigration: ConfigurationMigration {
+    public let fromVersion = 4
+
+    public init() {}
+
+    public func migrate(_ json: inout [String: Any]) throws {}
 }
 
 /// In-memory store for tests and previews.

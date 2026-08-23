@@ -9,6 +9,7 @@ public final class PanelController {
     private let model: SidebarViewModel
     private let flyoutModel: WindowFlyoutViewModel
     private let groupModel: GroupPopoverViewModel
+    private let folderModel: FolderStackViewModel
     private let permissions: any PermissionChecking
     private let configuration: ConfigurationController
     private let events: EventBus
@@ -28,6 +29,9 @@ public final class PanelController {
     private var groupPanel: NonActivatingPanel?
     private var groupHosting: NSView?
     private var groupHideTask: Task<Void, Never>?
+    private var folderPanel: NonActivatingPanel?
+    private var folderHosting: NSView?
+    private var folderHideTask: Task<Void, Never>?
     /// Clicks elsewhere close the popovers. A non-activating panel never loses key status — it never
     /// had any — so nothing else would (D81).
     private var outsideClickMonitor: Any?
@@ -48,6 +52,7 @@ public final class PanelController {
         model: SidebarViewModel,
         flyoutModel: WindowFlyoutViewModel,
         groupModel: GroupPopoverViewModel,
+        folderModel: FolderStackViewModel,
         permissions: any PermissionChecking,
         configuration: ConfigurationController,
         events: EventBus
@@ -55,6 +60,7 @@ public final class PanelController {
         self.model = model
         self.flyoutModel = flyoutModel
         self.groupModel = groupModel
+        self.folderModel = folderModel
         self.permissions = permissions
         self.configuration = configuration
         self.events = events
@@ -93,6 +99,18 @@ public final class PanelController {
             title: String(localized: "Nexus group")
         )
 
+        model.showFolder = { [weak self] folder in self?.showFolder(folder) }
+        folderModel.onDismiss = { [weak self] in self?.hideFolder() }
+        let folderHostingView = FirstMouseHostingView(
+            rootView: FolderStackView(model: folderModel)
+                .onHover { [weak self] hovering in self?.folderHoverChanged(hovering) }
+        )
+        folderHosting = folderHostingView
+        folderPanel = NonActivatingPanel(
+            contentView: folderHostingView,
+            title: String(localized: "Nexus folder")
+        )
+
 
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -128,6 +146,7 @@ public final class PanelController {
         eventTask?.cancel()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         groupHideTask?.cancel()
+        folderHideTask?.cancel()
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
         if let pointerMonitor { NSEvent.removeMonitor(pointerMonitor) }
@@ -136,6 +155,7 @@ public final class PanelController {
         for edge in edges { edge.orderOut(nil) }
         flyoutPanel?.orderOut(nil)
         groupPanel?.orderOut(nil)
+        folderPanel?.orderOut(nil)
     }
 
     // MARK: - Dismissing the popovers
@@ -159,11 +179,14 @@ public final class PanelController {
         if groupModel.group != nil, groupPanel?.frame.contains(point) != true {
             groupModel.hide()
         }
+        if folderModel.folder != nil, folderPanel?.frame.contains(point) != true {
+            folderModel.hide()
+        }
         removeOutsideClickMonitorIfIdle()
     }
 
     private func removeOutsideClickMonitorIfIdle() {
-        guard groupModel.group == nil else { return }
+        guard groupModel.group == nil, folderModel.folder == nil else { return }
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
     }
@@ -207,9 +230,72 @@ public final class PanelController {
         }
     }
 
+    // MARK: - Folder stack
+
+    private func showFolder(_ folder: SidebarFolder) {
+        folderHideTask?.cancel()
+        hideFlyout()
+        groupModel.hide()
+        folderModel.show(folder)
+        layoutFolder()
+        folderPanel?.orderFrontRegardless()
+        installOutsideClickMonitor()
+    }
+
+    private func hideFolder() {
+        folderHideTask?.cancel()
+        folderHideTask = nil
+        folderPanel?.orderOut(nil)
+        removeOutsideClickMonitorIfIdle()
+    }
+
+    private func folderHoverChanged(_ hovering: Bool) {
+        guard !hovering else {
+            folderHideTask?.cancel()
+            folderHideTask = nil
+            return
+        }
+        guard folderModel.folder != nil else { return }
+        folderHideTask?.cancel()
+        folderHideTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            self?.folderModel.hide()
+        }
+    }
+
+    private func layoutFolder() {
+        guard let panel = folderPanel,
+              let hosting = folderHosting,
+              let sidebar = sidebarPanel,
+              let screen = targetScreen,
+              let folder = folderModel.folder
+        else { return }
+
+        hosting.layoutSubtreeIfNeeded()
+        let margin = SidebarLayout.screenMargin * 2
+        let fitting = hosting.fittingSize
+        let size = CGSize(
+            width: min(fitting.width, screen.visibleFrame.width - margin),
+            height: min(fitting.height, screen.visibleFrame.height - margin)
+        )
+        panel.setFrame(
+            SidebarLayout.flyoutFrame(
+                size: size,
+                beside: sidebar.frame,
+                anchor: anchorOffset(forRow: folder.id),
+                in: screen.visibleFrame,
+                position: model.appearance.position
+            ),
+            display: true
+        )
+    }
+
     /// The popover follows its group: an edit that renames it, empties it or dissolves it has to
     /// be reflected before the next frame, or the panel shows a dock that no longer exists.
     public func groupsChanged() {
+        folderModel.update(from: model.pinned)
+        if folderModel.folder != nil { layoutFolder() }
         groupModel.update(from: model.pinned)
         guard groupModel.group != nil else { return }
         layoutGroup()
@@ -452,6 +538,7 @@ public final class PanelController {
         updateEdgePanel()
         onBarFrameChange?()
         if groupModel.group != nil { layoutGroup() }
+        if folderModel.folder != nil { layoutFolder() }
     }
 
     /// What Reserved Space needs to know: where each bar is, and on which screen. Empty whenever

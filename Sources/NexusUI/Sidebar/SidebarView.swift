@@ -81,7 +81,7 @@ public struct SidebarView: View {
         )
     }
 
-    /// The pinned section draws groups as well as applications (M13).
+    /// The pinned section draws groups (M13) and folders (M21) as well as applications.
     private var pinnedSection: some View {
         let spacing = model.appearance.iconSpacing
         let layout = isVertical
@@ -94,6 +94,8 @@ public struct SidebarView: View {
                     SidebarItemView(model: model, item: item, expanded: model.isExpanded)
                 case .group(let group):
                     SidebarGroupView(model: model, group: group, expanded: model.isExpanded)
+                case .folder(let folder):
+                    SidebarFolderView(model: model, folder: folder, expanded: model.isExpanded)
                 }
             }
         }
