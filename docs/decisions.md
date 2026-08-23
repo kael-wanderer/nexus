@@ -609,3 +609,20 @@ What none of them give is a title for a player that publishes none, so the row s
 the word "Playing" rather than scraping a window title and calling it a track. Artwork is the same
 story: neither notification carries an image, so the row draws the player's own icon.
 
+**D76. A player that publishes nothing is named by its window.**
+D75 settled for controls and the word "Playing" for anything that is not Music or Spotify, on the
+grounds that scraping a window title is guesswork. Using it made the answer obvious: an icon and
+"Playing" is not what anyone means by *what is playing*, and it read as a duplicate of the
+application's own row a few slots away.
+
+The window title is not a guess for this purpose — it is what the player has already published to
+every window list on the system. VLC names the file, a browser names the tab, and Nexus already
+reads window titles through Accessibility for the flyout. So the title of the frontmost window of
+the application CoreAudio says is making the sound becomes the track, after `MediaTitle` strips the
+furniture: the media extension, the site's name (`… - YouTube`), and the application's own name.
+
+It is still a heuristic and is treated as one. A window with nothing but the application's name in
+it yields no title rather than a wrong one, published metadata always wins when it exists, and the
+row is drawn as inset artwork with a waveform badge so it can never be confused with the
+application's own icon.
+

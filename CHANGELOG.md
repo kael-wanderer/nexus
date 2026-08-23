@@ -47,10 +47,13 @@ this project follows [Semantic Versioning](https://semver.org).
   ceilings, 0 meaning "fit the screen" (D73, D74). Configuration version 3.
 
 - Now playing (M15, off by default): a row in the bar's tail while something is playing, with
-  transport controls that reach any player — including a browser tab — and the track for Music and
-  Spotify, which publish it. Hovering opens a flyout with artwork and the three controls.
-  `general.showNowPlaying`. No new permission, and no `MediaRemote`: it is private and
-  entitlement-gated since macOS 15.4 (D75).
+  transport controls that reach any player — including a browser tab. The track comes from Music
+  and Spotify where they publish it, and otherwise from the playing application's window title,
+  cleaned of file extensions, site names and the application's own name — so VLC reads
+  `Loki S01 - Newmoon21` (D76). Hovering opens a flyout with artwork, the track and the three
+  controls; the row itself is inset artwork with a waveform badge, so it is not another copy of the
+  application's icon. `general.showNowPlaying`. No new permission, and no `MediaRemote`: it is
+  private and entitlement-gated since macOS 15.4 (D75).
 
 ### Fixed
 - With enough applications running, Trash and Search scrolled off the end of the bar: everything

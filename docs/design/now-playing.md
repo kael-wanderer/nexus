@@ -28,13 +28,20 @@ Two honest states, and the design says which is which rather than pretending:
 
 | | Shown |
 |---|---|
-| Music or Spotify playing | Artwork, title, artist, and controls. The real thing. |
-| Anything else playing — a browser tab, VLC, a game | Controls only, labelled "Playing". |
+| Music or Spotify playing | Artwork, title, artist, and controls, from what they publish. |
+| Anything else playing — VLC, a browser tab, a game | Its **window title** as the track, the application's name beneath it, and the same controls (D76). |
+| A window with nothing worth reading | Controls, and the word "Playing". No invented title. |
 | Nothing playing | The row is absent. The bar does not keep a dead slot. |
 
-Controls work in both cases, because media keys do not care who is playing. Only the *title* needs
-a cooperating application. Trying to hide that difference would mean scraping window titles, which
-is guesswork dressed up as a feature.
+The middle row is the one worth explaining. Control Center gets a real title for every player from
+`MediaRemote`, which is closed to us — but a player has already told the world what it is playing:
+VLC's window is called `Loki S01 - Newmoon21`, and a browser tab is called after the video. Nexus
+already reads window titles through Accessibility for the window flyout, so the title is there for
+free. What it needs is cleaning: the file extension, the site's name, the application's own name
+(`MediaTitle`).
+
+That is a heuristic, and it is treated as one — a window with nothing but the application's name in
+it produces no title rather than a bad one.
 
 ## Shape
 
@@ -80,9 +87,20 @@ Verified live: with VLC playing, the row appears in the tail with VLC's icon and
 "Playing", and hovering it opens the flyout with the three controls and no invented title. A probe
 confirmed VLC was the process actually outputting audio, so the row was right rather than stuck.
 
-Not verified live, and worth trying by hand: the title path (it needs Music or Spotify actually
-playing) and the controls reaching a player — sending a media key would have paused somebody's
-video. Both are covered by tests at the unit level.
+Then the row shipped a second time, because an icon and the word "Playing" is not what anyone means
+by "what is playing" — and worse, it read as a duplicate of the application's own row a few slots
+away. Two changes:
+
+- the title now comes from the playing application's window when it publishes none (D76), so VLC
+  reads `Loki S01 - Newmoon21` with `VLC` beneath it;
+- the row is drawn as artwork inset on a tinted tile with a waveform badge, so it cannot be mistaken
+  for the application's own icon.
+
+Verified live on a bottom bar: the row sits between the separator and Trash with its badge, and
+hovering it shows the artwork, `Loki S01 - Newmoon21`, `VLC`, and the three controls.
+
+Not verified live: Music's and Spotify's published metadata (it needs one of them actually playing)
+and the keys reaching a player — sending one would have paused somebody's film. Both are unit-tested.
 
 ## Tests
 

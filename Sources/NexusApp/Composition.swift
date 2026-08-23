@@ -36,6 +36,7 @@ final class Composition {
     private var onboardingWindow: AuxiliaryWindowController?
 
     private var permissionTask: Task<Void, Never>?
+    private var windowTitleTask: Task<Void, Never>?
     private var configurationTask: Task<Void, Never>?
 
     init() {
@@ -172,6 +173,7 @@ final class Composition {
         panels.start()
         reservedSpace.start()
         startNowPlaying()
+        observeWindowTitles()
         searchPanel.start()
         startMenu.start()
         applicationMonitor.start()
@@ -193,10 +195,17 @@ final class Composition {
     /// Mirrors the service's state into the sidebar. `@Observable` does not notify across types, so
     /// the bridge is an explicit callback rather than a timer that notices (§65).
     private func startNowPlaying() {
-        nowPlaying.onChange = { [weak self] playing, isActive in
+        // A player that publishes no metadata still names what it is playing in its window title —
+        // VLC names the file, a browser names the tab (D76). Accessibility already reads those.
+        nowPlaying.windowTitle = { [windows] bundleIdentifier in
+            let identity = ApplicationIdentity(bundleIdentifier: bundleIdentifier)
+            let list = (try? await windows.windows(for: identity)) ?? []
+            return list.first { !$0.title.isEmpty }?.title
+        }
+        nowPlaying.onChange = { [weak self] _, isActive in
             guard let self else { return }
             sidebarModel.nowPlayingChanged(
-                playing,
+                nowPlaying.display,
                 isActive: isActive,
                 players: nowPlaying.audioPlayers
             )
@@ -204,7 +213,7 @@ final class Composition {
         }
         nowPlaying.start()
         sidebarModel.nowPlayingChanged(
-            nowPlaying.current,
+            nowPlaying.display,
             isActive: nowPlaying.isActive,
             players: nowPlaying.audioPlayers
         )
@@ -322,6 +331,19 @@ final class Composition {
 
     // MARK: - Observation
 
+    /// The playing application's window title is its track: a track change shows up as a window
+    /// title change, which `WindowMonitor` already publishes.
+    private func observeWindowTitles() {
+        let stream = events.events()
+        windowTitleTask = Task { [weak self] in
+            for await event in stream {
+                guard let self else { return }
+                guard case .windowsChanged(let identity) = event else { continue }
+                nowPlaying.windowsChanged(identity.bundleIdentifier)
+            }
+        }
+    }
+
     private func observeConfiguration() {
         let stream = events.events()
         var lastShortcut = configuration.configuration.search.shortcut
@@ -399,6 +421,7 @@ final class Composition {
         startMenu.stop()
         searchPanel.stop()
         applicationIndex.stop()
+        windowTitleTask?.cancel()
         nowPlaying.stop()
         reservedSpace.stop()
         windowMonitor.stop()

@@ -63,18 +63,32 @@ struct NowPlayingRow: View {
         .accessibilityAddTraits(.isButton)
     }
 
+    /// Deliberately not just the application's icon: the same application usually has a row of its
+    /// own a few slots up, and two identical icons read as a duplicate rather than as a player. The
+    /// artwork is inset on a tinted tile with a waveform badge, so the row says "this is what is
+    /// playing" at a glance.
     private var artwork: some View {
-        ZStack {
-            Image(nsImage: model.nowPlayingArtwork(size: iconSize))
+        let inset = iconSize * 0.18
+        return ZStack {
+            RoundedRectangle(cornerRadius: iconSize * 0.24, style: .continuous)
+                .fill(.tint.opacity(0.22))
+            Image(nsImage: model.nowPlayingArtwork(size: iconSize - inset * 2))
                 .resizable()
-                .frame(width: iconSize, height: iconSize)
-                .clipShape(RoundedRectangle(cornerRadius: iconSize * 0.2, style: .continuous))
+                .frame(width: iconSize - inset * 2, height: iconSize - inset * 2)
+                .clipShape(RoundedRectangle(cornerRadius: iconSize * 0.14, style: .continuous))
             if isHovered {
-                RoundedRectangle(cornerRadius: iconSize * 0.2, style: .continuous)
-                    .fill(.black.opacity(0.45))
+                RoundedRectangle(cornerRadius: iconSize * 0.24, style: .continuous)
+                    .fill(.black.opacity(0.5))
                 Image(systemName: playing.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: iconSize * 0.4))
+                    .font(.system(size: iconSize * 0.36))
                     .foregroundStyle(.white)
+            } else {
+                Image(systemName: "waveform")
+                    .font(.system(size: iconSize * 0.24, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(2)
+                    .background(Circle().fill(.tint))
+                    .offset(x: iconSize * 0.28, y: iconSize * 0.28)
             }
         }
         .frame(width: iconSize, height: iconSize)
@@ -156,7 +170,8 @@ public struct NowPlayingPopoverView: View {
                     Text(artist)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
                 }
             }
             HStack(spacing: 6) {

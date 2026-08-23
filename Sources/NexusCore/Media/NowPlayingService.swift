@@ -27,6 +27,61 @@ public struct NowPlaying: Sendable, Equatable {
     public var hasMetadata: Bool { title?.isEmpty == false }
 }
 
+/// Turns a window title into something worth calling a track.
+///
+/// The title of the window making the sound is what a player already tells the world: VLC names the
+/// file, a browser names the tab, and both are the thing playing. What they add is furniture — the
+/// application's own name, the site's name, a file extension — and stripping it is the difference
+/// between "Loki S01 - Newmoon21" and "Loki S01 - Newmoon21.mkv — VLC media player".
+public enum MediaTitle {
+    /// Sites that put their own name on the end of every tab title.
+    static let siteSuffixes = [
+        "YouTube", "YouTube Music", "Netflix", "Twitch", "SoundCloud", "Spotify", "Vimeo",
+        "Disney+", "Prime Video", "Apple TV", "Apple Music", "Bandcamp", "Mixcloud",
+    ]
+
+    static let mediaExtensions: Set<String> = [
+        "mkv", "mp4", "m4v", "mov", "avi", "webm", "flv", "wmv", "mpg", "mpeg",
+        "mp3", "m4a", "flac", "wav", "aac", "ogg", "opus", "aiff", "alac",
+    ]
+
+    /// `nil` when nothing is left worth showing — an untitled window, or a title that was only ever
+    /// the application's own name.
+    public static func clean(_ title: String, applicationName: String?) -> String? {
+        var text = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+
+        // Strip trailing " - Something" once per known suffix, so "Track - YouTube - Brave" loses
+        // both without touching a hyphen that belongs to the title.
+        var strippedSomething = true
+        while strippedSomething {
+            strippedSomething = false
+            for separator in [" — ", " – ", " - ", " | "] {
+                guard let range = text.range(of: separator, options: .backwards) else { continue }
+                let tail = String(text[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+                let isFurniture = tail.caseInsensitiveCompare(applicationName ?? "") == .orderedSame
+                    || siteSuffixes.contains { $0.caseInsensitiveCompare(tail) == .orderedSame }
+                guard isFurniture else { continue }
+                text = String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+                strippedSomething = true
+                break
+            }
+        }
+
+        // A file name is a title with an extension on it.
+        let url = URL(fileURLWithPath: text)
+        if mediaExtensions.contains(url.pathExtension.lowercased()) {
+            text = url.deletingPathExtension().lastPathComponent
+        }
+
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty,
+              text.caseInsensitiveCompare(applicationName ?? "") != .orderedSame
+        else { return nil }
+        return text
+    }
+}
+
 /// The transport keys a keyboard has. Posting one reaches whichever application currently owns
 /// media playback — including a browser tab, which no API will name for us.
 public enum MediaKey: Int32, Sendable, CaseIterable {
@@ -84,12 +139,17 @@ public final class NowPlayingService {
 
     /// Injected so tests do not move the machine's actual playback.
     @ObservationIgnored public var send: (MediaKey) -> Void = MediaKeys.send
+    /// Given a bundle identifier, the title of that application's frontmost window — how a player
+    /// that publishes nothing still gets a name for what it is playing (D76). Injected because the
+    /// window layer is Accessibility's, and this type knows nothing about it.
+    @ObservationIgnored public var windowTitle: ((String) async -> String?)?
     /// Called whenever what is playing changes, or whether anything is. Push, because `@Observable`
     /// does not carry across types and a timer to notice a track change would be a timer (§65).
     @ObservationIgnored public var onChange: ((NowPlaying, Bool) -> Void)?
 
     @ObservationIgnored private var observers: [any NSObjectProtocol] = []
     @ObservationIgnored private var audioMonitor: AudioOutputMonitor?
+    @ObservationIgnored private var titleTask: Task<Void, Never>?
     @ObservationIgnored private let center: DistributedNotificationCenter
 
     public init(center: DistributedNotificationCenter = .default()) {
@@ -104,6 +164,29 @@ public final class NowPlayingService {
 
     /// What the row draws when no player published a track: the application making the sound.
     public var audioIsActive: Bool { !audioPlayers.isEmpty }
+
+    /// The title read from the playing application's window, when it publishes no metadata.
+    public private(set) var windowDerivedTitle: String?
+
+    /// What the row and the flyout actually show: published metadata when there is any, and
+    /// otherwise the playing application's own window title, which is what it is playing.
+    public var display: NowPlaying {
+        if current.hasMetadata { return current }
+        guard let player = audioPlayers.first else { return NowPlaying() }
+        return NowPlaying(
+            title: windowDerivedTitle,
+            artist: Self.applicationName(of: player),
+            playerBundleIdentifier: player,
+            isPlaying: true
+        )
+    }
+
+    static func applicationName(of bundleIdentifier: String) -> String? {
+        NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first?
+            .localizedName
+    }
 
     public func start() {
         for source in NowPlayingSource.notifications {
@@ -136,6 +219,8 @@ public final class NowPlayingService {
         observers.removeAll()
         audioMonitor?.stop()
         audioMonitor = nil
+        titleTask?.cancel()
+        titleTask = nil
     }
 
     public func received(_ playing: NowPlaying) {
@@ -159,6 +244,39 @@ public final class NowPlayingService {
     public func setAudioPlayers(_ players: [String]) {
         guard players != audioPlayers else { return }
         audioPlayers = players
+        if players.isEmpty { windowDerivedTitle = nil }
+        onChange?(current, isActive)
+        refreshWindowTitle()
+    }
+
+    /// Re-reads the playing application's window title. Called when the set of playing applications
+    /// changes and when that application's windows change — not on a timer (§65).
+    public func refreshWindowTitle() {
+        titleTask?.cancel()
+        guard !current.hasMetadata, let player = audioPlayers.first, let windowTitle else {
+            setWindowTitle(nil)
+            return
+        }
+        titleTask = Task { [weak self] in
+            let raw = await windowTitle(player)
+            guard !Task.isCancelled, let self else { return }
+            let cleaned = raw.flatMap {
+                MediaTitle.clean($0, applicationName: Self.applicationName(of: player))
+            }
+            self.setWindowTitle(cleaned)
+        }
+    }
+
+    /// One application's windows changed. Only interesting while that application is the one making
+    /// the sound.
+    public func windowsChanged(_ bundleIdentifier: String) {
+        guard audioPlayers.first == bundleIdentifier else { return }
+        refreshWindowTitle()
+    }
+
+    func setWindowTitle(_ title: String?) {
+        guard title != windowDerivedTitle else { return }
+        windowDerivedTitle = title
         onChange?(current, isActive)
     }
 
