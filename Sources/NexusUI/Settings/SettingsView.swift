@@ -108,6 +108,9 @@ struct LaunchAtLoginToggle: View {
             String(localized: "Launch Nexus at login"),
             isOn: Binding(get: { loginState == .enabled }, set: { setEnabled($0) })
         )
+        // External changes (the user toggling the login item in System Settings) show up when
+        // this pane comes back into view.
+        .onAppear { loginState = LoginItemService.state }
         if loginState == .requiresApproval {
             Text("Approve Nexus in System Settings → General → Login Items.")
                 .font(.caption)
@@ -116,9 +119,6 @@ struct LaunchAtLoginToggle: View {
         if let loginError {
             Text(loginError).font(.caption).foregroundStyle(.red)
         }
-        // External changes (the user toggling the login item in System Settings) show up when
-        // this pane comes back into view.
-        Color.clear.frame(height: 0).onAppear { loginState = LoginItemService.state }
     }
 
     private func setEnabled(_ enabled: Bool) {
@@ -292,7 +292,7 @@ struct BehaviorPane: View {
                 }
 
                 Toggle(
-                    String(localized: "Show windows on hover"),
+                    String(localized: "Show window previews on hover"),
                     isOn: configuration.binding(\.behavior.hoverPreview)
                 )
                 if configuration.configuration.behavior.hoverPreview {
