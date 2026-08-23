@@ -408,3 +408,29 @@ rules that a hand-rolled `FileManager` delete would skip. It needs Automation ac
 requested on first use; a refusal leaves the Trash untouched and is logged. The confirmation
 alert is the one modal in the sidebar — the action cannot be undone.
 
+## 2026-08-23 — Milestone 9, Dock parity
+
+**D58. Supersedes D55: the Trash row shows full vs empty again, counted with `stat`.**
+`readdir` on `~/.Trash` needs Full Disk Access, which Nexus is denied — but `stat` is not gated,
+and on APFS a directory's `st_nlink` is `2 + entry count`. Measured from inside Nexus:
+`contentsOfDirectory` → `nil`, `stat(~/.Trash)` → `nlink=44` for 42 items, `stat` of a file that
+does not exist → fails, so it is a real answer rather than a blanket yes. Finder's own
+`.DS_Store` and `.localized` are subtracted by name: Finder recreates `.DS_Store` the moment the
+Trash window opens, and counting it would leave the full icon showing over an empty Trash. The
+icons are the ones macOS itself uses, from `CoreTypes.bundle`, which is not protected either.
+
+**D59. A drag shows a preview order; the configuration is written once, on drop.**
+The dragged row fades to 35 % and `SidebarViewModel` holds a transient `previewOrder` that the
+rows are sorted by, so the others slide out of the way exactly as they do in the Dock. Rows are
+keyed by bundle identifier, so SwiftUI animates the moves on its own. A drag that is cancelled or
+dropped outside restores the stored order — writing on every `draggingUpdated` would leave a
+reordered dock behind after an abandoned drag.
+
+**D60. The window list lives in the context menu; the flyout becomes "Show All Windows".**
+Reaching an application's second window took right-click → Show Windows → flyout, where the Dock
+takes one step. The menu now opens with the windows, frontmost ticked. `NSMenu` is built
+synchronously and AX calls are not, so the titles come from a cache warmed when the pointer enters
+the row; a row with nothing cached shows no window section rather than blocking. Without
+Accessibility there is no section at all, which is the same split as D5 — counts are
+permission-free, titles are not.
+

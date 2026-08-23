@@ -19,7 +19,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 6 | Launch applications | M2 | None | |
 | 7 | Quit applications | M3 | None | `NSRunningApplication.terminate()`; force-quit in context menu |
 | 8 | Pin applications | M2 | None | Persisted as ordered bundle identifiers |
-| 9 | Reorder applications | M2, M9 | None | Drag a row onto another, or the context menu: Move Up / Move Down / Move to End. The drag is an AppKit session, not SwiftUI's (D56) |
+| 9 | Reorder applications | M2, M9 | None | Drag a row onto another — the rows move live under the drag and the order is stored on drop (D59) — or the context menu: Move Up / Move Down / Move to End |
 | 10 | Window grouping | M4 | **Accessibility** | Flyout listing an app's windows |
 | 11 | Activate windows | M4 | **Accessibility** | `AXRaise` + `NSRunningApplication.activate()` |
 | 12 | Window count | M3 | None | `CGWindowListCopyWindowInfo` — count only, no titles |
@@ -47,7 +47,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | Open System Settings | M5 | None | `x-apple.systempreferences:` URL |
 | Show Desktop | — | — | **Not in MVP** — no such bundle exists on macOS 14+; the alternatives need Accessibility or AppleScript (D28) |
 | Lock Screen | M5 | None | `SACLockScreenImmediate` (login framework) |
-| Trash | M9 | None | Always-present row before Search: click opens the Trash, context menu opens or empties it. Emptying asks first and goes through Finder. No full/empty icon state (D55) |
+| Trash | M9 | None | Always-present row before Search, drawn with the macOS Trash icons and showing full vs empty (counted with `stat`, no Full Disk Access — D58). Click opens it; the context menu opens or empties it, asking first |
 
 No shell execution, no AppleScript, no `osascript` in the MVP. Those need Automation
 permission and belong to the automation engine (§46, out of scope).

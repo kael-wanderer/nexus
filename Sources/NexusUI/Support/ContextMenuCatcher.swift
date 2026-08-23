@@ -37,18 +37,33 @@ struct PanelRowInteraction: NSViewRepresentable {
     var dragImage: NSImage?
     /// Another row's payload was dropped on this one.
     var onDrop: ((String) -> Void)?
+    /// A drag started from this row.
+    var onDragBegin: ((String) -> Void)?
+    /// A drag is hovering this row — drives the live preview order.
+    var onDragOver: ((String) -> Void)?
+    /// The drag that started here ended; `true` when it was accepted by a row.
+    var onDragEnd: ((Bool) -> Void)?
 
     func makeNSView(context: Context) -> NSView {
-        CatcherView(onClick: onClick, items: items, dragPayload: dragPayload, dragImage: dragImage, onDrop: onDrop)
+        let view = CatcherView(onClick: onClick, items: items)
+        update(view)
+        return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
         guard let view = view as? CatcherView else { return }
         view.onClick = onClick
         view.items = items
+        update(view)
+    }
+
+    private func update(_ view: CatcherView) {
         view.dragPayload = dragPayload
         view.dragImage = dragImage
         view.onDrop = onDrop
+        view.onDragBegin = onDragBegin
+        view.onDragOver = onDragOver
+        view.onDragEnd = onDragEnd
     }
 
     final class CatcherView: NSView, NSDraggingSource {
@@ -59,6 +74,9 @@ struct PanelRowInteraction: NSViewRepresentable {
         var onDrop: ((String) -> Void)? {
             didSet { registerDropTypes() }
         }
+        var onDragBegin: ((String) -> Void)?
+        var onDragOver: ((String) -> Void)?
+        var onDragEnd: ((Bool) -> Void)?
 
         private var mouseDownLocation: NSPoint?
         private var isDragging = false
@@ -70,20 +88,10 @@ struct PanelRowInteraction: NSViewRepresentable {
         /// stray text drag from another application can never reorder anything.
         static let rowType = NSPasteboard.PasteboardType("com.congbui.nexus.sidebar-row")
 
-        init(
-            onClick: (() -> Void)?,
-            items: @escaping () -> [NSMenuItem],
-            dragPayload: String?,
-            dragImage: NSImage?,
-            onDrop: ((String) -> Void)?
-        ) {
+        init(onClick: (() -> Void)?, items: @escaping () -> [NSMenuItem]) {
             self.onClick = onClick
             self.items = items
-            self.dragPayload = dragPayload
-            self.dragImage = dragImage
-            self.onDrop = onDrop
             super.init(frame: .zero)
-            registerDropTypes()
         }
 
         private func registerDropTypes() {
@@ -131,6 +139,7 @@ struct PanelRowInteraction: NSViewRepresentable {
             let image = dragImage ?? NSImage(size: bounds.size)
             dragging.setDraggingFrame(bounds, contents: image)
             isDragging = true
+            onDragBegin?(payload)
             beginDraggingSession(with: [dragging], event: event, source: self)
         }
 
@@ -151,16 +160,21 @@ struct PanelRowInteraction: NSViewRepresentable {
         ) {
             isDragging = false
             mouseDownLocation = nil
+            onDragEnd?(operation == .move)
         }
 
         // MARK: - NSDraggingDestination
 
         override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-            payload(from: sender) == nil ? [] : .move
+            guard let payload = payload(from: sender) else { return [] }
+            onDragOver?(payload)
+            return .move
         }
 
         override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
-            payload(from: sender) == nil ? [] : .move
+            guard let payload = payload(from: sender) else { return [] }
+            onDragOver?(payload)
+            return .move
         }
 
         override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
@@ -202,7 +216,10 @@ extension View {
         menu: @escaping () -> [NSMenuItem] = { [] },
         dragPayload: String? = nil,
         dragImage: NSImage? = nil,
-        onDrop: ((String) -> Void)? = nil
+        onDrop: ((String) -> Void)? = nil,
+        onDragBegin: ((String) -> Void)? = nil,
+        onDragOver: ((String) -> Void)? = nil,
+        onDragEnd: ((Bool) -> Void)? = nil
     ) -> some View {
         overlay(
             PanelRowInteraction(
@@ -210,7 +227,10 @@ extension View {
                 items: menu,
                 dragPayload: dragPayload,
                 dragImage: dragImage,
-                onDrop: onDrop
+                onDrop: onDrop,
+                onDragBegin: onDragBegin,
+                onDragOver: onDragOver,
+                onDragEnd: onDragEnd
             )
         )
     }

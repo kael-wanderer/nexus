@@ -39,6 +39,19 @@ public final class SidebarViewModel {
     /// Hover-expanded (names visible). Never true when `behavior.hoverExpand` is off.
     public var isExpanded = false
 
+    /// Drives which Trash icon the utility row draws.
+    public private(set) var trashIsEmpty = TrashService.isEmpty
+
+    /// The row currently being dragged, so it can be drawn as a gap (D59).
+    public private(set) var draggingIdentifier: String?
+    /// Where the pinned rows would land if the drag were dropped now. Never written to the
+    /// configuration until it is.
+    private var previewOrder: [String]?
+
+    /// Window titles per application, filled when the pointer enters a row so the context menu —
+    /// which `NSMenu` builds synchronously — never waits on Accessibility (D60).
+    public private(set) var windowsByApplication: [String: [NexusWindow]] = [:]
+
 
     /// Window flyout target, set at Milestone 4.
     public var flyoutTarget: ApplicationIdentity?
@@ -60,6 +73,10 @@ public final class SidebarViewModel {
     /// Recomputes window counts. Called when the pointer enters the sidebar, because macOS
     /// publishes no notification for another application opening a window.
     @ObservationIgnored public var refreshWindowCounts: (() -> Void)?
+    /// Asks for one application's windows; the answer arrives via `setWindows(_:for:)`.
+    @ObservationIgnored public var loadWindows: ((ApplicationIdentity) -> Void)?
+    /// Raises one window. Injected at Milestone 9; without it the menu shows no window section.
+    @ObservationIgnored public var activateWindow: ((WindowIdentity) -> Void)?
 
     public init(
         applications: any ApplicationServing,
@@ -92,6 +109,7 @@ public final class SidebarViewModel {
             }
         }
         Task { await refresh() }
+        refreshTrash()
     }
 
     public func stop() {
@@ -139,7 +157,7 @@ public final class SidebarViewModel {
             .map { SidebarItem(application: $0, isPinned: false) }
 
         let layoutChanged = resolvedPinned.count != pinned.count || resolvedRunning.count != running.count
-        pinned = resolvedPinned
+        pinned = ordered(resolvedPinned)
         running = resolvedRunning
         if layoutChanged {
             Log.sidebar.notice(
@@ -147,6 +165,13 @@ public final class SidebarViewModel {
             )
             layoutDidChange?()
         }
+    }
+
+    /// Applies the in-flight drag preview, if there is one, to a freshly built row list.
+    private func ordered(_ items: [SidebarItem]) -> [SidebarItem] {
+        guard let previewOrder else { return items }
+        let rank = Dictionary(uniqueKeysWithValues: previewOrder.enumerated().map { ($1, $0) })
+        return items.sorted { (rank[$0.id] ?? 0) < (rank[$1.id] ?? 0) }
     }
 
     public func configurationChanged() {
@@ -199,12 +224,49 @@ public final class SidebarViewModel {
         configuration.update { $0.pinnedApplications = order }
     }
 
-    /// A row was dropped on `target`. Dropping an application that is not pinned yet pins it
-    /// first, which is how the running section becomes the pinned one by dragging.
-    public func dropPinned(_ identifier: String, on target: String) {
-        guard identifier != target,
-              configuration.configuration.pinnedApplications.contains(target)
+    // MARK: - Dragging
+
+    /// A pinned row started moving. Only pinned rows get a preview: a running application has no
+    /// slot in the pinned section to preview it in, so it commits on drop instead.
+    public func beginDrag(_ identifier: String) {
+        guard configuration.configuration.pinnedApplications.contains(identifier) else { return }
+        draggingIdentifier = identifier
+        previewOrder = configuration.configuration.pinnedApplications
+    }
+
+    /// The drag is over `target`: show what dropping here would do.
+    public func dragMoved(over target: String) {
+        guard let dragged = draggingIdentifier,
+              dragged != target,
+              var order = previewOrder,
+              let from = order.firstIndex(of: dragged),
+              let to = order.firstIndex(of: target)
         else { return }
+        order.remove(at: from)
+        order.insert(dragged, at: to)
+        guard order != previewOrder else { return }
+        previewOrder = order
+        pinned = ordered(pinned)
+    }
+
+    /// The drag ended. A cancelled drag — dropped outside, or on nothing — must leave the stored
+    /// order exactly as it was.
+    public func endDrag(commit: Bool) {
+        let order = previewOrder
+        draggingIdentifier = nil
+        previewOrder = nil
+        guard commit, let order, order != configuration.configuration.pinnedApplications else {
+            Task { await refresh() }
+            return
+        }
+        configuration.update { $0.pinnedApplications = order }
+    }
+
+    /// A row was dropped on `target`. Reordering pinned rows is the preview's job; this is the
+    /// other case — a running application dragged into the pinned section, which pins it there.
+    public func dropPinned(_ identifier: String, on target: String) {
+        let order = configuration.configuration.pinnedApplications
+        guard identifier != target, order.contains(target), !order.contains(identifier) else { return }
         pin(identifier)
         movePinned(identifier, before: target)
     }
@@ -234,7 +296,34 @@ public final class SidebarViewModel {
         configuration.update { $0.pinnedApplications = order }
     }
 
+    // MARK: - Windows
+
+    /// Warms the cache the context menu reads. Called on hover, so the AX traffic follows the
+    /// pointer rather than a timer.
+    public func prefetchWindows(_ identity: ApplicationIdentity) {
+        guard activateWindow != nil else { return }
+        loadWindows?(identity)
+    }
+
+    public func setWindows(_ windows: [NexusWindow], for identity: ApplicationIdentity) {
+        windowsByApplication[identity.bundleIdentifier] = windows
+    }
+
+    public func windows(for identity: ApplicationIdentity) -> [NexusWindow] {
+        guard activateWindow != nil else { return [] }
+        return windowsByApplication[identity.bundleIdentifier] ?? []
+    }
+
     // MARK: - Trash
+
+    /// macOS publishes no Trash-changed notification, so this is sampled on the same user event
+    /// that refreshes window counts: the pointer entering the sidebar. Two `stat` calls, no
+    /// permission (D58).
+    public func refreshTrash() {
+        let empty = TrashService.isEmpty
+        guard empty != trashIsEmpty else { return }
+        trashIsEmpty = empty
+    }
 
     public func openTrash() {
         TrashService.open()
@@ -242,6 +331,7 @@ public final class SidebarViewModel {
 
     public func emptyTrash() {
         TrashService.empty()
+        refreshTrash()
     }
 
     /// Accepts a Finder drop of one or more `.app` bundles.
@@ -268,7 +358,10 @@ public final class SidebarViewModel {
     /// via `onHoverChange`, the auto-hide grace timer in `PanelController`.
     public func hoverChanged(_ hovering: Bool) {
         setExpanded(hovering)
-        if hovering { refreshWindowCounts?() }
+        if hovering {
+            refreshWindowCounts?()
+            refreshTrash()
+        }
         onHoverChange?(hovering)
     }
 

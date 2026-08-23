@@ -107,11 +107,47 @@ struct SidebarViewModelTests {
         #expect(configuration.configuration.pinnedApplications == ["a", "b"])
     }
 
-    @Test("Dropping a pinned row on another reorders them")
-    func dropReorders() async {
-        let (model, _, configuration) = makeModel([], pinned: ["a", "b", "c"])
-        model.dropPinned("c", on: "a")
+    @Test("Dragging a pinned row previews the move, and the drop commits it")
+    func dragPreviewCommits() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("a", name: "A"), makeApplication("b", name: "B"), makeApplication("c", name: "C")],
+            pinned: ["a", "b", "c"]
+        )
+        await model.refresh()
+
+        model.beginDrag("c")
+        model.dragMoved(over: "a")
+        // The rows have already moved; the stored order has not.
+        #expect(model.pinned.map(\.id) == ["c", "a", "b"])
+        #expect(configuration.configuration.pinnedApplications == ["a", "b", "c"])
+
+        model.endDrag(commit: true)
         #expect(configuration.configuration.pinnedApplications == ["c", "a", "b"])
+        #expect(model.draggingIdentifier == nil)
+    }
+
+    @Test("A cancelled drag leaves the stored order untouched")
+    func dragCancelled() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("a", name: "A"), makeApplication("b", name: "B")],
+            pinned: ["a", "b"]
+        )
+        await model.refresh()
+
+        model.beginDrag("b")
+        model.dragMoved(over: "a")
+        #expect(model.pinned.map(\.id) == ["b", "a"])
+
+        model.endDrag(commit: false)
+        #expect(configuration.configuration.pinnedApplications == ["a", "b"])
+        #expect(model.draggingIdentifier == nil)
+    }
+
+    @Test("Only pinned rows get a drag preview")
+    func runningRowHasNoPreview() async {
+        let (model, _, _) = makeModel([makeApplication("new", name: "New", running: true)], pinned: ["a"])
+        model.beginDrag("new")
+        #expect(model.draggingIdentifier == nil)
     }
 
     @Test("Dropping a running application on a pinned one pins it in that slot")
@@ -127,9 +163,28 @@ struct SidebarViewModelTests {
     @Test("A drop that lands on a row that is not pinned changes nothing")
     func dropOnUnpinnedTarget() async {
         let (model, _, configuration) = makeModel([], pinned: ["a", "b"])
-        model.dropPinned("a", on: "not-pinned")
+        model.dropPinned("new", on: "not-pinned")
         model.dropPinned("a", on: "a")
         #expect(configuration.configuration.pinnedApplications == ["a", "b"])
+    }
+
+    @Test("Window titles come from the cache, and only when raising a window is possible")
+    func windowMenuCache() async {
+        let (model, _, _) = makeModel([makeApplication("a", name: "A", running: true)], pinned: ["a"])
+        let identity = ApplicationIdentity(bundleIdentifier: "a")
+        let window = NexusWindow(
+            identity: WindowIdentity(owner: identity, number: 1),
+            title: "Design",
+            applicationName: "A"
+        )
+        model.setWindows([window], for: identity)
+
+        // Without an injected activateWindow there is nothing the menu could do with the list.
+        #expect(model.windows(for: identity).isEmpty)
+
+        model.activateWindow = { _ in }
+        #expect(model.windows(for: identity).map(\.title) == ["Design"])
+        #expect(model.windows(for: ApplicationIdentity(bundleIdentifier: "b")).isEmpty)
     }
 
     @Test("Hover expand is suppressed when the behaviour is disabled")

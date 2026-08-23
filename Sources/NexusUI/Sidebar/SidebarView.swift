@@ -74,6 +74,9 @@ public struct SidebarView: View {
                 SidebarItemView(model: model, item: item, expanded: model.isExpanded)
             }
         }
+        // Rows are keyed by bundle identifier, so reordering the array is all SwiftUI needs to
+        // slide them under the drag (D59). Reduce Motion drops the animation, not the reorder.
+        .animation(Design.animation(Design.reveal, reduceMotion: reduceMotion), value: items.map(\.id))
     }
 
     private var separator: some View {
@@ -102,6 +105,7 @@ public struct SidebarView: View {
     private var trashRow: some View {
         SidebarGlyphRow(
             systemImage: "trash",
+            image: TrashService.icon(empty: model.trashIsEmpty),
             title: String(localized: "Trash"),
             iconSize: model.appearance.iconSize,
             expanded: model.isExpanded,
@@ -214,10 +218,14 @@ struct SidebarItemView: View {
                 .fill(backgroundStyle)
         }
         .contentShape(Rectangle())
+        .opacity(model.draggingIdentifier == item.id ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering
             }
+            // Warm the window titles the context menu needs; NSMenu is built synchronously and
+            // must never wait on Accessibility (D60).
+            if hovering, item.isRunning { model.prefetchWindows(item.identity) }
         }
         // The drag is AppKit's, not SwiftUI's: this panel can never become key, so
         // PanelRowInteraction claims every mouse-down and SwiftUI's own drag gestures never fire.
@@ -226,7 +234,10 @@ struct SidebarItemView: View {
             menu: { contextMenuItems() },
             dragPayload: item.id,
             dragImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize),
-            onDrop: { dragged in model.dropPinned(dragged, on: item.id) }
+            onDrop: { dragged in model.dropPinned(dragged, on: item.id) },
+            onDragBegin: { dragged in model.beginDrag(dragged) },
+            onDragOver: { _ in model.dragMoved(over: item.id) },
+            onDragEnd: { accepted in model.endDrag(commit: accepted) }
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
@@ -265,12 +276,23 @@ struct SidebarItemView: View {
     }
 
     private func contextMenuItems() -> [NSMenuItem] {
-        var items: [NSMenuItem] = [
-            ClosureMenuItem(title: String(localized: "Open")) { model.activateOrLaunch(item) }
-        ]
+        var items: [NSMenuItem] = []
+
+        // The application's windows, frontmost ticked, exactly where the Dock puts them (D60).
+        let windows = model.windows(for: item.identity)
+        for (index, window) in windows.enumerated() {
+            let title = window.title.isEmpty ? item.name : window.title
+            let entry = ClosureMenuItem(title: title) { model.activateWindow?(window.identity) }
+            entry.state = item.isActive && index == 0 ? .on : .off
+            entry.image = NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)
+            items.append(entry)
+        }
+        if !windows.isEmpty { items.append(.separator()) }
+
+        items.append(ClosureMenuItem(title: String(localized: "Open")) { model.activateOrLaunch(item) })
         if item.isRunning, model.showWindows != nil {
             items.append(
-                ClosureMenuItem(title: String(localized: "Show Windows")) {
+                ClosureMenuItem(title: String(localized: "Show All Windows")) {
                     model.showWindows?(item.identity)
                 }
             )
@@ -316,6 +338,8 @@ struct SidebarItemView: View {
 /// render inactive in a window that can never become key (DESIGN_MVP §2.1).
 struct SidebarGlyphRow: View {
     let systemImage: String
+    /// Drawn instead of `systemImage` when present — the Trash row uses the macOS Trash icons.
+    var image: NSImage?
     let title: String
     let iconSize: CGFloat
     let expanded: Bool
@@ -332,9 +356,17 @@ struct SidebarGlyphRow: View {
             ? AnyLayout(HStackLayout(spacing: 8))
             : AnyLayout(VStackLayout(spacing: 2))
         return layout {
-            Image(systemName: systemImage)
-                .font(.system(size: iconSize * 0.5))
-                .frame(width: iconSize, height: iconSize)
+            Group {
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else {
+                    Image(systemName: systemImage)
+                        .font(.system(size: iconSize * 0.5))
+                }
+            }
+            .frame(width: iconSize, height: iconSize)
             if expanded, isVertical {
                 Text(title)
                     .frame(maxWidth: .infinity, alignment: .leading)

@@ -12,10 +12,14 @@ this project follows [Semantic Versioning](https://semver.org).
   when it quits, with the Dock parked on the edge Nexus is not using (D54). Settings → Dock, one
   onboarding step, a menu-bar status row and a Restore button that works whatever the flags say.
 - App icon and a menu-bar template icon.
-- Trash row, always present, before Search: click opens it, the context menu opens or empties it
-  (through Finder, after a confirmation).
+- Trash row, always present, before Search: the macOS Trash icon, full or empty, click opens it,
+  the context menu opens or empties it (through Finder, after a confirmation). Full/empty is
+  counted with `stat` link counts, so it needs no Full Disk Access (D58).
+- An application's windows are now in its context menu, frontmost ticked, one click from the
+  sidebar; the thumbnail flyout is renamed Show All Windows (D60).
 - Drag-to-reorder is back, as an AppKit dragging session (D56): drag a row onto another to move
-  it, or drag a running application onto the pinned rows to pin it in that slot.
+  it, or drag a running application onto the pinned rows to pin it in that slot. The rows move
+  live under the drag and the new order is stored only when the drop lands (D59).
 
 ### Fixed
 - Clicking a running application whose windows are all closed now shows a window: activation goes

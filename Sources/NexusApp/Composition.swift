@@ -98,6 +98,19 @@ final class Composition {
         configuration.flush()
 
         sidebarModel.refreshWindowCounts = { [weak self] in self?.applicationMonitor.refresh() }
+        // Window titles for the context menu. Accessibility-gated, so a refusal simply leaves the
+        // cache empty and the menu without a window section (D60).
+        sidebarModel.loadWindows = { [weak self] identity in
+            guard let self else { return }
+            Task { @MainActor [windows, sidebarModel] in
+                let list = (try? await windows.windows(for: identity)) ?? []
+                sidebarModel.setWindows(list, for: identity)
+            }
+        }
+        sidebarModel.activateWindow = { [weak self] identity in
+            guard let self else { return }
+            Task { [windows] in try? await windows.activate(identity) }
+        }
         sidebarModel.openSearch = { [weak self] in self?.searchPanel.show() }
 
         searchModel.frontmostApplication = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
@@ -116,7 +129,6 @@ final class Composition {
         applySearchConfiguration()
         registerHotKey()
         dockReplacement.start()
-        TrashService.probe()
 
         if !configuration.configuration.onboarding.hasCompleted {
             runOnboarding()
