@@ -32,18 +32,36 @@ public final class BarHostingView<Content: View>: NSHostingView<Content> {
 
     required public init(rootView: Content) {
         super.init(rootView: rootView)
-        registerForDraggedTypes([.fileURL])
+        // The bar's own rows as well as files: a row let go anywhere inside the bar is a drop, not
+        // a cancel (D103). The rows' own catchers sit deeper in the hierarchy, so they still take
+        // the drops that land on a row; this one takes the gaps, the padding and the end of the
+        // section, which used to revert the whole drag.
+        registerForDraggedTypes([.fileURL, PanelRowInteraction.CatcherView.rowType])
     }
 
     public override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        Self.urls(from: sender).isEmpty ? [] : .copy
+        operation(for: sender)
     }
 
     public override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        Self.urls(from: sender).isEmpty ? [] : .copy
+        operation(for: sender)
+    }
+
+    private func operation(for sender: any NSDraggingInfo) -> NSDragOperation {
+        if Self.isRow(sender) { return .move }
+        return Self.urls(from: sender).isEmpty ? [] : .copy
+    }
+
+    /// A row dropped on the bar needs no handling beyond saying yes: the drag's source commits the
+    /// preview it has been maintaining all along, when it hears the operation was `.move`.
+    static func isRow(_ sender: any NSDraggingInfo) -> Bool {
+        sender.draggingPasteboard.availableType(
+            from: [PanelRowInteraction.CatcherView.rowType]
+        ) != nil
     }
 
     public override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        if Self.isRow(sender) { return true }
         let urls = Self.urls(from: sender)
         guard !urls.isEmpty else { return false }
         let accepted = onFiles?(urls) ?? false

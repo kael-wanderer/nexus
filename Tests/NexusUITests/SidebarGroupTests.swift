@@ -187,25 +187,26 @@ struct SidebarGroupTests {
         #expect(configuration.configuration.pinnedEntries[1].id == id)
     }
 
-    @Test("Resting a drag on a row groups on drop; dragging past it only reorders")
-    func dwellDecidesGrouping() async {
+    @Test("The middle of a row groups on drop; either end of it only reorders")
+    func zoneDecidesGrouping() async {
         let (model, configuration) = makeModel(["a", "b", "c"], entries: [
             .application("a"), .application("b"), .application("c"),
         ])
         await model.refresh()
 
-        // Passing over a row: no dwell elapses, so the drop is a reorder.
+        // The end of a row: a reorder, however long the drag rests there.
         model.beginDrag("c")
-        model.dragMoved(over: "a")
+        model.dragMoved(over: "a", at: .leadingEdge)
         #expect(model.groupCandidate == nil)
+        #expect(model.pinned.map(\.id) == ["c", "a", "b"])
         model.endDrag(commit: true)
         #expect(configuration.configuration.pinnedApplications == ["c", "a", "b"])
 
-        // Resting on it: the candidate appears, the rows stop sliding, and the drop groups.
+        // The middle: the candidate appears at once, and nothing slides anywhere.
         model.beginDrag("b")
-        model.dragMoved(over: "a")
-        await until { model.groupCandidate == "a" }
-        #expect(model.pinned.map(\.id) == ["c", "a"])   // the dragged row has left the bar
+        model.dragMoved(over: "a", at: .middle)
+        #expect(model.groupCandidate == "a")
+        #expect(model.pinned.map(\.id) == ["c", "a", "b"])
         model.endDrag(commit: true)
 
         let entries = configuration.configuration.pinnedEntries
@@ -213,19 +214,74 @@ struct SidebarGroupTests {
         #expect(entries[1].group?.applications == ["a", "b"])
     }
 
-    @Test("A cancelled group drag changes nothing")
-    func cancelledDwell() async {
+    /// The bug this is here for: the preview used to be reset to the stored order the moment
+    /// grouping was decided, so the bar jumped back mid-drag and the reorder was lost.
+    @Test("Sliding between a row's middle and its end switches intent, and keeps the preview")
+    func zonesSwitchIntent() async {
         let (model, configuration) = makeModel(["a", "b"], entries: [.application("a"), .application("b")])
         await model.refresh()
 
         model.beginDrag("b")
-        model.dragMoved(over: "a")
-        await until { model.groupCandidate == "a" }
+        model.dragMoved(over: "a", at: .middle)
+        #expect(model.groupCandidate == "a")
+        model.dragMoved(over: "a", at: .middle)        // the same intent again: nothing changes
+        #expect(model.groupCandidate == "a")
+        #expect(model.pinned.map(\.id) == ["a", "b"])
+
+        model.dragMoved(over: "a", at: .leadingEdge)   // to the end of the row: a reorder
+        #expect(model.groupCandidate == nil)
+        #expect(model.pinned.map(\.id) == ["b", "a"])
+
+        model.dragMoved(over: "a", at: .middle)        // back to the middle: the preview stands
+        #expect(model.groupCandidate == "a")
+        #expect(model.pinned.map(\.id) == ["b", "a"])
+
+        model.endDrag(commit: true)
+        #expect(configuration.configuration.pinnedEntries.count == 1)
+        #expect(configuration.configuration.pinnedEntries[0].group?.applications == ["a", "b"])
+    }
+
+    @Test("The trailing end of a row puts the dragged row after it")
+    func trailingEdgeInsertsAfter() async {
+        let (model, configuration) = makeModel(["a", "b", "c"], entries: [
+            .application("a"), .application("b"), .application("c"),
+        ])
+        await model.refresh()
+
+        model.beginDrag("a")
+        model.dragMoved(over: "b", at: .trailingEdge)
+        #expect(model.pinned.map(\.id) == ["b", "a", "c"])
+        model.endDrag(commit: true)
+        #expect(configuration.configuration.pinnedApplications == ["b", "a", "c"])
+    }
+
+    @Test("A cancelled group drag changes nothing")
+    func cancelledGroupDrag() async {
+        let (model, configuration) = makeModel(["a", "b"], entries: [.application("a"), .application("b")])
+        await model.refresh()
+
+        model.beginDrag("b")
+        model.dragMoved(over: "a", at: .middle)
+        #expect(model.groupCandidate == "a")
         model.endDrag(commit: false)
 
         #expect(configuration.configuration.pinnedEntries == [.application("a"), .application("b")])
         #expect(model.groupCandidate == nil)
         #expect(model.pinned.map(\.id) == ["a", "b"])
+    }
+
+    @Test("A folder never groups, so its middle reorders like the rest of it")
+    func foldersDoNotGroup() async {
+        let (model, configuration) = makeModel(["a"], entries: [.application("a"), .folder("/tmp")])
+        await model.refresh()
+        let folder = DockEntry.folder("/tmp").id
+
+        #expect(model.canGroup("a", with: folder) == false)
+        model.beginDrag("a")
+        model.dragMoved(over: folder, at: .middle)
+        #expect(model.groupCandidate == nil)
+        model.endDrag(commit: true)
+        #expect(configuration.configuration.pinnedEntries == [.folder("/tmp"), .application("a")])
     }
 
     @Test("Dragging a member out of its group and dropping it in the dock takes it out")
@@ -236,7 +292,7 @@ struct SidebarGroupTests {
         await model.refresh()
 
         model.beginDrag("b")
-        model.dragMoved(over: "d")
+        model.dragMoved(over: "d", at: .leadingEdge)
         // Three rows while the drag is in flight: the group it left, the row it is being dragged
         // as, and "d".
         #expect(model.pinned.map(\.id).contains("b"))
@@ -285,6 +341,74 @@ struct SidebarGroupTests {
 
         #expect(model.pinned.count == 2)
         #expect(model.sectionRowCounts.first == 2)
+    }
+}
+
+@Suite("The group popover")
+@MainActor
+struct GroupPopoverTests {
+    private func makePopover() -> (GroupPopoverViewModel, SidebarGroup) {
+        let group = SidebarGroup(
+            group: ApplicationGroup(name: "Pair", applications: ["a", "b"]),
+            items: []
+        )
+        let model = GroupPopoverViewModel()
+        model.show(group)
+        return (model, group)
+    }
+
+    @Test("Clicking the title opens a field with the name in it, and takes the keyboard")
+    func beginRename() {
+        let (model, _) = makePopover()
+        var editing: [Bool] = []
+        model.setEditing = { editing.append($0) }
+
+        model.beginRename()
+        #expect(model.isRenaming)
+        #expect(model.draftName == "Pair")
+        #expect(editing == [true])
+
+        model.beginRename()                 // already open: nothing happens twice
+        #expect(editing == [true])
+    }
+
+    @Test("Return commits the typed name and gives the keyboard back")
+    func commitRename() {
+        let (model, group) = makePopover()
+        var renamed: [String] = []
+        var editing: [Bool] = []
+        model.rename = { _, name in renamed.append(name) }
+        model.setEditing = { editing.append($0) }
+
+        model.beginRename()
+        model.draftName = "Work"
+        model.commitRename()
+
+        #expect(renamed == ["Work"])
+        #expect(model.isRenaming == false)
+        #expect(editing == [true, false])
+        #expect(model.group?.id == group.id)
+    }
+
+    @Test("Escape leaves the name alone; the popover closing keeps what was typed")
+    func cancelAndClose() {
+        let (model, _) = makePopover()
+        var renamed: [String] = []
+        model.rename = { _, name in renamed.append(name) }
+
+        model.beginRename()
+        model.draftName = "Discarded"
+        model.cancelRename()
+        #expect(renamed.isEmpty)
+        #expect(model.isRenaming == false)
+
+        // Clicking away — which closes the popover — is a commit, not a cancel.
+        model.beginRename()
+        model.draftName = "Kept"
+        model.hide()
+        #expect(renamed == ["Kept"])
+        #expect(model.isRenaming == false)
+        #expect(model.group == nil)
     }
 }
 

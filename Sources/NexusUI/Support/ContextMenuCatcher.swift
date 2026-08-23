@@ -39,8 +39,10 @@ struct PanelRowInteraction: NSViewRepresentable {
     var onDrop: ((String) -> Void)?
     /// A drag started from this row.
     var onDragBegin: ((String) -> Void)?
-    /// A drag is hovering this row — drives the live preview order.
-    var onDragOver: ((String) -> Void)?
+    /// A drag is hovering this row, and *where* in the row it is — drives the live preview order
+    /// and the grouping zone (D103). The point is normalised 0…1 inside the row, measured from its
+    /// top-left corner, so `y` runs along a vertical bar and `x` along a horizontal one.
+    var onDragOver: ((String, CGPoint) -> Void)?
     /// The drag that started here ended; `true` when it was accepted by a row.
     var onDragEnd: ((Bool) -> Void)?
 
@@ -75,7 +77,7 @@ struct PanelRowInteraction: NSViewRepresentable {
             didSet { registerDropTypes() }
         }
         var onDragBegin: ((String) -> Void)?
-        var onDragOver: ((String) -> Void)?
+        var onDragOver: ((String, CGPoint) -> Void)?
         var onDragEnd: ((Bool) -> Void)?
 
         private var mouseDownLocation: NSPoint?
@@ -167,14 +169,27 @@ struct PanelRowInteraction: NSViewRepresentable {
 
         override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
             guard let payload = payload(from: sender) else { return [] }
-            onDragOver?(payload)
+            onDragOver?(payload, fraction(of: sender))
             return .move
         }
 
         override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
             guard let payload = payload(from: sender) else { return [] }
-            onDragOver?(payload)
+            onDragOver?(payload, fraction(of: sender))
             return .move
+        }
+
+        /// Where in the row the drag is, 0…1 from the top-left corner. Grouping is a *place* inside
+        /// a row rather than a length of time spent on it (D103), so the position is the whole
+        /// input: without it the model can only guess, and guessing is what made the bar shiver.
+        private func fraction(of sender: any NSDraggingInfo) -> CGPoint {
+            guard bounds.width > 0, bounds.height > 0 else { return CGPoint(x: 0.5, y: 0.5) }
+            let point = convert(sender.draggingLocation, from: nil)
+            return CGPoint(
+                x: min(max(point.x / bounds.width, 0), 1),
+                // AppKit's y grows upwards and the bar's rows run downwards.
+                y: 1 - min(max(point.y / bounds.height, 0), 1)
+            )
         }
 
         override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
@@ -218,7 +233,7 @@ extension View {
         dragImage: NSImage? = nil,
         onDrop: ((String) -> Void)? = nil,
         onDragBegin: ((String) -> Void)? = nil,
-        onDragOver: ((String) -> Void)? = nil,
+        onDragOver: ((String, CGPoint) -> Void)? = nil,
         onDragEnd: ((Bool) -> Void)? = nil
     ) -> some View {
         overlay(

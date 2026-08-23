@@ -50,6 +50,14 @@ actor FakeApplicationService: ApplicationServing {
     }
 }
 
+/// Where in a row a drag is, as `dragMoved(over:at:)` wants it: normalised, and the same on both
+/// axes so one point works whichever way the bar runs.
+extension CGPoint {
+    static let leadingEdge = CGPoint(x: 0.05, y: 0.05)
+    static let middle = CGPoint(x: 0.5, y: 0.5)
+    static let trailingEdge = CGPoint(x: 0.95, y: 0.95)
+}
+
 func makeApplication(
     _ bundleIdentifier: String,
     name: String,

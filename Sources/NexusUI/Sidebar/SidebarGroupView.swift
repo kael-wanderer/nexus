@@ -61,7 +61,7 @@ struct SidebarGroupView: View {
             dragImage: GroupIcon.image(for: group.items.map(\.bundleURL), size: iconSize),
             onDrop: { dragged in model.dropPinned(dragged, on: group.id) },
             onDragBegin: { dragged in model.beginDrag(dragged) },
-            onDragOver: { _ in model.dragMoved(over: group.id) },
+            onDragOver: { _, location in model.dragMoved(over: group.id, at: location) },
             onDragEnd: { accepted in model.endDrag(commit: accepted) }
         )
         .accessibilityElement(children: .ignore)

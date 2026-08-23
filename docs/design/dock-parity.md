@@ -54,7 +54,7 @@ the configuration until the drop lands.
 
 ```
 beginDrag(id)            dragged row drops to 35% opacity
-dragMoved(over: target)  preview order puts `id` where `target` is; SwiftUI animates the rest
+dragMoved(over:at:)      the middle of `target` offers a group; either end puts `id` beside it (D103)
 endDrag(commit:)         commit -> configuration; cancel -> preview cleared, rows animate back
 ```
 

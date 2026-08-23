@@ -147,19 +147,16 @@ public final class SidebarViewModel {
 
     /// The row currently being dragged, so it can be drawn as a gap (D59).
     public private(set) var draggingIdentifier: String?
-    /// The row the drag has been resting on long enough to mean "put these together" rather than
-    /// "move me here" — highlighted while it holds, and what a drop acts on (M13).
+    /// The row the drag is over the *middle* of, which is what means "put these together" rather
+    /// than "move me here" — highlighted while it holds, and what a drop acts on (M13, D103).
     public private(set) var groupCandidate: String?
     /// Where the rows would land if the drag were dropped now — one list per section. Never
     /// written to the configuration until the drop lands.
     private var previewPinned: [DockEntry]?
     private var previewRunning: [String]?
-    @ObservationIgnored private var dwellTask: Task<Void, Never>?
-    @ObservationIgnored private var dwellTarget: String?
-
-    /// How long a drag must rest on a row before it means grouping. Long enough that dragging
-    /// past a row never groups by accident, short enough to feel like a decision.
-    static let groupDwell = Duration.milliseconds(600)
+    /// The last thing the drag was understood to mean, so the same intent is never acted on twice
+    /// (D103).
+    @ObservationIgnored private var lastIntent: (target: String, intent: DragIntent)?
 
     /// Extent of the screen the bar may use along its own axis, set by `PanelController` when it
     /// reframes. Zero until then, which reads as "no budget yet" and shows the limits alone.
@@ -438,9 +435,7 @@ public final class SidebarViewModel {
         for entry in entries {
             switch entry {
             case .application(let identifier):
-                // The row being dragged onto another one is drawn nowhere: it is about to become
-                // part of that row rather than a slot of its own.
-                guard identifier != groupCandidateSource, var item = items[identifier] else { continue }
+                guard var item = items[identifier] else { continue }
                 item.isPinned = true
                 resolvedPinned.append(.application(item))
             case .folder(let path):
@@ -450,7 +445,6 @@ public final class SidebarViewModel {
                 )
             case .group(let group):
                 let members = group.applications
-                    .filter { $0 != groupCandidateSource }
                     .compactMap { identifier -> SidebarItem? in
                         guard var item = items[identifier] else { return nil }
                         item.isPinned = true
@@ -463,7 +457,7 @@ public final class SidebarViewModel {
             }
         }
         let resolvedRunning = runningIdentifiers
-            .filter { !pinnedSet.contains($0) && $0 != groupCandidateSource }
+            .filter { !pinnedSet.contains($0) }
             .compactMap { items[$0] }
 
         let layoutChanged = resolvedPinned.count != pinned.count
@@ -560,10 +554,18 @@ public final class SidebarViewModel {
     /// Puts `identifier` together with whatever `target` is: two applications become a new group
     /// named after what they have in common, and an application dropped on a group joins it.
     /// Refused — visibly, by the drop never being offered — when the group is full (M13).
+    ///
+    /// A target that is only *running* is pinned on the way (D103): two loose icons making a folder
+    /// is how everybody expects grouping to work, and refusing it because neither was pinned yet is
+    /// a rule the bar cannot explain.
     @discardableResult
     public func group(_ identifier: String, with target: String) -> Bool {
         guard identifier != target, items[identifier] != nil else { return false }
         var entries = configuration.configuration.pinnedEntries
+        if !entries.contains(where: { $0.id == target }) {
+            guard items[target] != nil, !target.hasPrefix(DockEntry.identifierPrefix) else { return false }
+            entries.append(.application(target))
+        }
         guard let targetIndex = entries.firstIndex(where: { $0.id == target }) else { return false }
 
         switch entries[targetIndex] {
@@ -592,13 +594,17 @@ public final class SidebarViewModel {
     }
 
     /// Whether a row will accept being grouped with what is being dragged: an application onto
-    /// another application, or onto a group with room left.
+    /// another application — pinned or merely running (D103) — or onto a group with room left.
     public func canGroup(_ identifier: String, with target: String) -> Bool {
         guard identifier != target,
               !identifier.hasPrefix(DockEntry.identifierPrefix),
-              items[identifier] != nil,
-              let entry = configuration.configuration.pinnedEntries.first(where: { $0.id == target })
+              items[identifier] != nil
         else { return false }
+        guard let entry = configuration.configuration.pinnedEntries.first(where: { $0.id == target })
+        else {
+            // Not in the dock at all: a running row, which grouping pins as it goes.
+            return items[target] != nil && !target.hasPrefix(DockEntry.identifierPrefix)
+        }
         switch entry {
         case .application(let existing):
             return existing != identifier
@@ -807,6 +813,7 @@ public final class SidebarViewModel {
     public func beginDrag(_ identifier: String) {
         guard items[identifier] != nil || identifier.hasPrefix(DockEntry.identifierPrefix) else { return }
         draggingIdentifier = identifier
+        lastIntent = nil
         // A member dragged out of a group leaves it for the duration of the drag: the preview then
         // treats it like any other row, and dropping it anywhere but back on the group is what
         // takes it out for good.
@@ -824,78 +831,72 @@ public final class SidebarViewModel {
         }
     }
 
-    /// The application that is about to be swallowed by a group, so the rows stop drawing it in a
-    /// slot of its own while the drag rests on its target.
-    private var groupCandidateSource: String? {
-        groupCandidate == nil ? nil : draggingIdentifier
+    /// What a drag over a row means, decided by *where* in the row it is (D103).
+    enum DragIntent: Equatable {
+        /// The middle of a row that can take the dragged application: put these together.
+        case group
+        case insertBefore
+        case insertAfter
     }
 
-    /// The drag is over `target`: show what dropping here would do. The row lands in whichever
-    /// section `target` belongs to, so dragging across the separator pins or unpins it.
-    public func dragMoved(over target: String) {
+    /// The middle band of a row that reads as grouping rather than reordering. Wide enough to hit
+    /// while the pointer is still moving, narrow enough that both ends stay easy reorder targets.
+    static let groupZone: ClosedRange<CGFloat> = 0.3...0.7
+
+    /// The drag is over `target`, at `location` inside it: show what dropping here would do.
+    ///
+    /// `location` is normalised 0…1 from the row's top-left corner, so `y` runs along a vertical
+    /// bar and `x` along a horizontal one. The middle of the row groups; either end reorders, into
+    /// whichever section `target` belongs to — which is what makes dragging across the separator
+    /// pin or unpin a row.
+    public func dragMoved(over target: String, at location: CGPoint) {
         guard let dragged = draggingIdentifier, dragged != target else { return }
-
-        // Resting on one row is how grouping is asked for; the dwell timer starts over whenever
-        // the drag reaches a different row.
-        if dwellTarget != target {
-            dwellTarget = target
-            clearGroupCandidate()
-            startDwell(dragged: dragged, target: target)
-        }
-        guard groupCandidate == nil else { return }
-
-        guard var pinnedOrder = previewPinned, var runningOrder = previewRunning else { return }
-
-        let intoPinned: Bool
-        let insertion: Int
-        if let index = pinnedOrder.firstIndex(where: { $0.id == target }) {
-            intoPinned = true
-            insertion = index
-        } else if let index = runningOrder.firstIndex(of: target) {
-            intoPinned = false
-            insertion = index
+        let fraction = appearance.position.isVertical ? location.y : location.x
+        let intent: DragIntent
+        if Self.groupZone.contains(fraction), canGroup(dragged, with: target) {
+            intent = .group
         } else {
-            return
+            intent = fraction < 0.5 ? .insertBefore : .insertAfter
         }
 
+        // Hysteresis. Every preview change moves the rows under a pointer that has not moved, so
+        // the next `draggingUpdated` arrives with fresh coordinates for a gesture that has not
+        // changed its mind. Acting on the same intent twice is what made the bar shiver.
+        if let last = lastIntent, last.target == target, last.intent == intent { return }
+        lastIntent = (target, intent)
+
+        switch intent {
+        case .group:
+            // The preview is deliberately left exactly as it is: the target grows a ring, and
+            // nothing moves. A reorder here is what used to snatch the target out from under the
+            // pointer the moment it was chosen.
+            groupCandidate = target
+        case .insertBefore, .insertAfter:
+            groupCandidate = nil
+            reorderPreview(dragged, target: target, after: intent == .insertAfter)
+        }
+    }
+
+    /// Moves the preview so the dragged row sits beside `target`. Nothing is stored until the drop.
+    private func reorderPreview(_ dragged: String, target: String, after: Bool) {
+        guard var pinnedOrder = previewPinned, var runningOrder = previewRunning else { return }
         let moved = pinnedOrder.first { $0.id == dragged } ?? .application(dragged)
         pinnedOrder.removeAll { $0.id == dragged }
         runningOrder.removeAll { $0 == dragged }
-        if intoPinned {
-            pinnedOrder.insert(moved, at: min(insertion, pinnedOrder.count))
+
+        // The index is taken *after* the removal, so "before" and "after" mean what they say
+        // whichever direction the row came from.
+        if let index = pinnedOrder.firstIndex(where: { $0.id == target }) {
+            pinnedOrder.insert(moved, at: after ? index + 1 : index)
+        } else if let index = runningOrder.firstIndex(of: target) {
+            runningOrder.insert(dragged, at: after ? index + 1 : index)
         } else {
-            runningOrder.insert(dragged, at: min(insertion, runningOrder.count))
+            return
         }
 
         guard pinnedOrder != previewPinned || runningOrder != previewRunning else { return }
         previewPinned = pinnedOrder
         previewRunning = runningOrder
-        rebuildRows()
-    }
-
-    private func startDwell(dragged: String, target: String) {
-        dwellTask?.cancel()
-        guard canGroup(dragged, with: target) else {
-            dwellTask = nil
-            return
-        }
-        dwellTask = Task { [weak self] in
-            try? await Task.sleep(for: Self.groupDwell)
-            guard !Task.isCancelled, let self, self.dwellTarget == target else { return }
-            self.groupCandidate = target
-            // The dragged row leaves the bar while it hovers: the rows stop sliding around and the
-            // target grows a ring instead, which is what says "these are about to be one row".
-            self.previewPinned = self.configuration.configuration.pinnedEntries
-            self.previewRunning = self.runningIdentifiers
-            self.rebuildRows()
-        }
-    }
-
-    private func clearGroupCandidate() {
-        dwellTask?.cancel()
-        dwellTask = nil
-        guard groupCandidate != nil else { return }
-        groupCandidate = nil
         rebuildRows()
     }
 
@@ -906,15 +907,13 @@ public final class SidebarViewModel {
         let runningOrder = previewRunning
         let dragged = draggingIdentifier
         let candidate = groupCandidate
-        dwellTask?.cancel()
-        dwellTask = nil
-        dwellTarget = nil
+        lastIntent = nil
         draggingIdentifier = nil
         groupCandidate = nil
         previewPinned = nil
         previewRunning = nil
 
-        // Resting on a row and letting go means "put these together", not "move me here".
+        // Letting go over the middle of a row means "put these together", not "move me here".
         if commit, let dragged, let candidate {
             group(dragged, with: candidate)
             rebuildRows()
@@ -936,13 +935,12 @@ public final class SidebarViewModel {
         rebuildRows()
     }
 
-    /// A row was dropped on `target`. The preview has normally already put it there; this covers
-    /// a drop that arrived without one — a drag begun before the row list was ready.
+    /// A row was dropped on `target`. A drag of the bar's own needs nothing here: its preview
+    /// already says where the row goes, and `endDrag` is what commits it. This covers a drop that
+    /// arrived without a preview — one from the group popover, or a drag begun before the row list
+    /// was ready.
     public func dropPinned(_ identifier: String, on target: String) {
-        guard draggingIdentifier == nil else {
-            dragMoved(over: target)
-            return
-        }
+        guard draggingIdentifier == nil else { return }
         let entries = configuration.configuration.pinnedEntries
         guard identifier != target,
               entries.contains(where: { $0.id == target }),

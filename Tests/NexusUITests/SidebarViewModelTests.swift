@@ -116,7 +116,7 @@ struct SidebarViewModelTests {
         await model.refresh()
 
         model.beginDrag("c")
-        model.dragMoved(over: "a")
+        model.dragMoved(over: "a", at: .leadingEdge)
         // The rows have already moved; the stored order has not.
         #expect(model.pinned.map(\.id) == ["c", "a", "b"])
         #expect(configuration.configuration.pinnedApplications == ["a", "b", "c"])
@@ -140,7 +140,7 @@ struct SidebarViewModelTests {
         #expect(model.running.map(\.id) == ["new"])
 
         model.beginDrag("new")
-        model.dragMoved(over: "b")
+        model.dragMoved(over: "b", at: .leadingEdge)
         // Previewed in the pinned section, gone from the running one, nothing stored yet.
         #expect(model.pinned.map(\.id) == ["a", "new", "b"])
         #expect(model.running.isEmpty)
@@ -159,7 +159,7 @@ struct SidebarViewModelTests {
         await model.refresh()
 
         model.beginDrag("new")
-        model.dragMoved(over: "a")
+        model.dragMoved(over: "a", at: .leadingEdge)
         model.endDrag(commit: false)
 
         #expect(configuration.configuration.pinnedApplications == ["a"])
@@ -178,13 +178,56 @@ struct SidebarViewModelTests {
         #expect(model.running.map(\.id) == ["chatgpt", "claude"])
 
         model.beginDrag("claude")
-        model.dragMoved(over: "chatgpt")
+        model.dragMoved(over: "chatgpt", at: .leadingEdge)
         #expect(model.running.map(\.id) == ["claude", "chatgpt"])
 
         model.endDrag(commit: true)
         #expect(configuration.configuration.runningApplicationOrder == ["claude", "chatgpt"])
         #expect(configuration.configuration.pinnedApplications.isEmpty)
         #expect(model.running.map(\.id) == ["claude", "chatgpt"])
+    }
+
+    @Test("Dropping a running application on the middle of another pins both into a group")
+    func groupsTwoRunningApplications() async {
+        let (model, _, configuration) = makeModel([
+            makeApplication("chatgpt", name: "ChatGPT", running: true),
+            makeApplication("claude", name: "Claude", running: true),
+        ])
+        await model.refresh()
+        #expect(model.canGroup("claude", with: "chatgpt"))
+
+        model.beginDrag("claude")
+        model.dragMoved(over: "chatgpt", at: .middle)
+        #expect(model.groupCandidate == "chatgpt")
+        model.endDrag(commit: true)
+
+        let entries = configuration.configuration.pinnedEntries
+        #expect(entries.count == 1)
+        #expect(entries[0].group?.applications == ["chatgpt", "claude"])
+        #expect(model.running.isEmpty)
+        #expect(model.pinned.count == 1)
+    }
+
+    @Test("The zone is measured along the bar's own axis")
+    func zoneFollowsTheAxis() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("a", name: "A"), makeApplication("b", name: "B")],
+            pinned: ["a", "b"]
+        )
+        configuration.update { $0.appearance.position = .bottom }
+        await model.refresh()
+
+        // A horizontal bar reads x. The same point read as y would be the end of the row.
+        model.beginDrag("b")
+        model.dragMoved(over: "a", at: CGPoint(x: 0.5, y: 0.05))
+        #expect(model.groupCandidate == "a")
+        model.endDrag(commit: false)
+
+        model.beginDrag("b")
+        model.dragMoved(over: "a", at: CGPoint(x: 0.05, y: 0.5))
+        #expect(model.groupCandidate == nil)
+        #expect(model.pinned.map(\.id) == ["b", "a"])
+        model.endDrag(commit: false)
     }
 
     @Test("An application nobody has moved keeps its alphabetical place")
@@ -198,7 +241,7 @@ struct SidebarViewModelTests {
         )
         await model.refresh()
         model.beginDrag("c")
-        model.dragMoved(over: "a")
+        model.dragMoved(over: "a", at: .leadingEdge)
         model.endDrag(commit: true)
         // Charlie was moved to the front; Alpha and Bravo keep their alphabetical order behind it.
         #expect(model.running.map(\.id) == ["c", "a", "b"])
@@ -216,7 +259,7 @@ struct SidebarViewModelTests {
         await model.refresh()
 
         model.beginDrag("a")
-        model.dragMoved(over: "live")
+        model.dragMoved(over: "live", at: .leadingEdge)
         #expect(model.pinned.isEmpty)
 
         model.endDrag(commit: true)
@@ -233,7 +276,7 @@ struct SidebarViewModelTests {
         await model.refresh()
 
         model.beginDrag("b")
-        model.dragMoved(over: "a")
+        model.dragMoved(over: "a", at: .leadingEdge)
         #expect(model.pinned.map(\.id) == ["b", "a"])
 
         model.endDrag(commit: false)
