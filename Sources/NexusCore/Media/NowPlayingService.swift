@@ -150,10 +150,19 @@ public final class NowPlayingService {
     @ObservationIgnored private var observers: [any NSObjectProtocol] = []
     @ObservationIgnored private var audioMonitor: AudioOutputMonitor?
     @ObservationIgnored private var titleTask: Task<Void, Never>?
+    @ObservationIgnored private var positionTask: Task<Void, Never>?
+    @ObservationIgnored private let control: any MediaPositionControlling
+    /// Whether the player is on screen. Position is the one thing in Nexus that is polled, and this
+    /// is what keeps it to the seconds somebody is actually looking at it (M16).
+    @ObservationIgnored private var isPlayerVisible = false
     @ObservationIgnored private let center: DistributedNotificationCenter
 
-    public init(center: DistributedNotificationCenter = .default()) {
+    public init(
+        center: DistributedNotificationCenter = .default(),
+        control: any MediaPositionControlling = AppleScriptMediaControl()
+    ) {
         self.center = center
+        self.control = control
     }
 
     /// A row worth drawing: either a player told us something, or something is making sound and the
@@ -167,6 +176,10 @@ public final class NowPlayingService {
 
     /// The title read from the playing application's window, when it publishes no metadata.
     public private(set) var windowDerivedTitle: String?
+
+    /// Where the player is, for the players that will say (M16). `nil` means no timeline, which is
+    /// the honest answer for a browser tab.
+    public private(set) var position: MediaPosition?
 
     /// What the row and the flyout actually show: published metadata when there is any, and
     /// otherwise the playing application's own window title, which is what it is playing.
@@ -221,6 +234,8 @@ public final class NowPlayingService {
         audioMonitor = nil
         titleTask?.cancel()
         titleTask = nil
+        positionTask?.cancel()
+        positionTask = nil
     }
 
     public func received(_ playing: NowPlaying) {
@@ -245,8 +260,10 @@ public final class NowPlayingService {
         guard players != audioPlayers else { return }
         audioPlayers = players
         if players.isEmpty { windowDerivedTitle = nil }
+        position = nil
         onChange?(current, isActive)
         refreshWindowTitle()
+        if isPlayerVisible { startPolling() }
     }
 
     /// Re-reads the playing application's window title. Called when the set of playing applications
@@ -278,6 +295,62 @@ public final class NowPlayingService {
         guard title != windowDerivedTitle else { return }
         windowDerivedTitle = title
         onChange?(current, isActive)
+    }
+
+    // MARK: - Position
+
+    /// The player appeared or went away. Nothing is read while nobody is looking (§65).
+    public func setPlayerVisible(_ visible: Bool) {
+        guard visible != isPlayerVisible else { return }
+        isPlayerVisible = visible
+        if visible {
+            startPolling()
+        } else {
+            positionTask?.cancel()
+            positionTask = nil
+        }
+    }
+
+    /// The player a timeline would belong to: whoever published the track, or whoever is making the
+    /// sound.
+    public var positionPlayer: String? {
+        current.hasMetadata ? current.playerBundleIdentifier : audioPlayers.first
+    }
+
+    private func startPolling() {
+        positionTask?.cancel()
+        guard let player = positionPlayer else {
+            setPosition(nil)
+            return
+        }
+        Log.system.notice("Reading position from \(player, privacy: .public)")
+        positionTask = Task { [weak self, control] in
+            while !Task.isCancelled {
+                let reading = await control.position(of: player)
+                guard !Task.isCancelled else { return }
+                self?.setPosition(reading)
+                // One second: a clock that ticks. Anything faster is an AppleScript round trip per
+                // frame for no visible gain.
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+
+    private func setPosition(_ reading: MediaPosition?) {
+        guard reading != position else { return }
+        position = reading
+        onChange?(current, isActive)
+    }
+
+    public func seek(to seconds: Double) {
+        guard let player = positionPlayer else { return }
+        // Optimistic: the thumb stays where it was dropped rather than snapping back for the second
+        // until the next reading.
+        if var current = position {
+            current.position = seconds
+            setPosition(current)
+        }
+        Task { [control] in await control.seek(to: seconds, in: player) }
     }
 
     public func toggle() { send(.play) }

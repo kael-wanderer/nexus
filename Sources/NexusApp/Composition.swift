@@ -159,6 +159,11 @@ final class Composition {
         nowPlayingModel.toggle = { [weak self] in self?.nowPlaying.toggle() }
         nowPlayingModel.next = { [weak self] in self?.nowPlaying.next() }
         nowPlayingModel.previous = { [weak self] in self?.nowPlaying.previous() }
+        nowPlayingModel.seek = { [weak self] seconds in self?.nowPlaying.seek(to: seconds) }
+        sidebarModel.setPlayerVisible = { [weak self] visible in
+            self?.nowPlaying.setPlayerVisible(visible)
+        }
+        sidebarModel.seekPlayer = { [weak self] seconds in self?.nowPlaying.seek(to: seconds) }
 
         sidebarModel.openSearch = { [weak self] in self?.searchPanel.show() }
         sidebarModel.openStartMenu = { [weak self] in self?.showStartMenu() }
@@ -207,7 +212,8 @@ final class Composition {
             sidebarModel.nowPlayingChanged(
                 nowPlaying.display,
                 isActive: isActive,
-                players: nowPlaying.audioPlayers
+                players: nowPlaying.audioPlayers,
+                position: nowPlaying.position
             )
             panels.nowPlayingChanged()
         }
@@ -215,7 +221,8 @@ final class Composition {
         sidebarModel.nowPlayingChanged(
             nowPlaying.display,
             isActive: nowPlaying.isActive,
-            players: nowPlaying.audioPlayers
+            players: nowPlaying.audioPlayers,
+            position: nowPlaying.position
         )
     }
 

@@ -144,7 +144,7 @@ public final class PanelController {
     private func showNowPlaying(_ playing: NowPlaying) {
         nowPlayingHideTask?.cancel()
         hideFlyout()
-        nowPlayingModel.show(playing)
+        nowPlayingModel.show(playing, position: model.nowPlayingPosition)
         layoutNowPlaying()
         nowPlayingPanel?.orderFrontRegardless()
     }
@@ -171,7 +171,7 @@ public final class PanelController {
 
     /// Keeps an open flyout in step with the track, and follows the row when the bar moves.
     public func nowPlayingChanged() {
-        nowPlayingModel.update(model.nowPlaying)
+        nowPlayingModel.update(model.nowPlaying, position: model.nowPlayingPosition)
         guard nowPlayingModel.isShowing else { return }
         layoutNowPlaying()
     }

@@ -90,6 +90,27 @@ struct NowPlayingRow: View {
                     .background(Circle().fill(.tint))
                     .offset(x: iconSize * 0.28, y: iconSize * 0.28)
             }
+            if let position = model.nowPlayingPosition, position.hasTimeline {
+                progress(position)
+            }
+        }
+        .frame(width: iconSize, height: iconSize)
+    }
+
+    /// How far through, on the tile itself: a two-point line along the bottom edge. The bar has no
+    /// room for a scrubber, and the popover is where dragging happens — but "half way through" is
+    /// worth knowing without hovering anything.
+    private func progress(_ position: MediaPosition) -> some View {
+        VStack {
+            Spacer(minLength: 0)
+            ZStack(alignment: .leading) {
+                Capsule().fill(.black.opacity(0.35)).frame(height: 3)
+                Capsule()
+                    .fill(.tint)
+                    .frame(width: max(2, (iconSize - 8) * position.fraction), height: 3)
+            }
+            .frame(width: iconSize - 8)
+            .padding(.bottom, 3)
         }
         .frame(width: iconSize, height: iconSize)
     }
@@ -111,38 +132,70 @@ struct NowPlayingRow: View {
     }
 }
 
-/// The hover flyout: what is playing, and the three controls. Same rules as the window flyout —
-/// it never takes focus, so it holds no text field and no scrubber.
+/// The hover flyout: what is playing, the three controls, and a timeline where the player will
+/// report one (M16). Same rules as the window flyout — it never takes focus, so the scrubber is a
+/// drag target rather than an `NSSlider`.
 @MainActor
 @Observable
 public final class NowPlayingPopoverViewModel {
     public private(set) var playing = NowPlaying()
     public private(set) var isShowing = false
+    public private(set) var position: MediaPosition?
+    /// Where the thumb is while a drag is in progress, so the clock reads the target rather than the
+    /// second-old truth.
+    public var dragFraction: Double?
 
     @ObservationIgnored public var artwork: (CGFloat) -> NSImage = { _ in NSImage() }
     @ObservationIgnored public var toggle: () -> Void = {}
     @ObservationIgnored public var next: () -> Void = {}
     @ObservationIgnored public var previous: () -> Void = {}
+    @ObservationIgnored public var seek: (Double) -> Void = { _ in }
     @ObservationIgnored public var onDismiss: (() -> Void)?
 
     public init() {}
 
-    public func show(_ playing: NowPlaying) {
+    public func show(_ playing: NowPlaying, position: MediaPosition?) {
         self.playing = playing
+        self.position = position
         isShowing = true
     }
 
     /// Keeps the open flyout in step with the track: a change of song must not leave the previous
     /// one on screen.
-    public func update(_ playing: NowPlaying) {
+    public func update(_ playing: NowPlaying, position: MediaPosition?) {
         guard isShowing else { return }
         self.playing = playing
+        // A reading arriving mid-drag must not yank the thumb out from under the pointer.
+        if dragFraction == nil { self.position = position }
     }
 
     public func hide() {
         guard isShowing else { return }
         isShowing = false
+        dragFraction = nil
         onDismiss?()
+    }
+
+    public var hasTimeline: Bool { position?.hasTimeline == true }
+
+    /// What the track draws: the drag if there is one, the reading otherwise.
+    public var fraction: Double { dragFraction ?? position?.fraction ?? 0 }
+
+    public var elapsedText: String {
+        MediaPosition.clock((position?.duration ?? 0) * fraction)
+    }
+
+    public var remainingText: String {
+        let duration = position?.duration ?? 0
+        return "-" + MediaPosition.clock(duration - duration * fraction)
+    }
+
+    /// A drop seeks once, to where the pointer is. Seeking per pixel would be an AppleScript round
+    /// trip per pixel, and a player that stutters.
+    public func endDrag() {
+        guard let dragFraction, let duration = position?.duration else { return }
+        self.dragFraction = nil
+        seek(duration * dragFraction)
     }
 }
 
@@ -173,6 +226,9 @@ public struct NowPlayingPopoverView: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
                 }
+            }
+            if model.hasTimeline {
+                Timeline(model: model)
             }
             HStack(spacing: 6) {
                 control("backward.fill", String(localized: "Previous")) { model.previous() }
@@ -217,6 +273,117 @@ private struct TransportButton: View {
             .background {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.quinary))
+            }
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
+                    isHovered = hovering
+                }
+            }
+            .nexusRow(onClick: action)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// The scrubber. Drawn rather than built from `NSSlider`, because AppKit controls render inactive
+/// in a window that can never become key (`design/mvp.md` §2.1) — and because the drag has to seek
+/// once on release rather than continuously.
+private struct Timeline: View {
+    @Bindable var model: NowPlayingPopoverViewModel
+
+    private let height: CGFloat = 4
+    private let thumb: CGFloat = 11
+
+    var body: some View {
+        VStack(spacing: 3) {
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.quaternary).frame(height: height)
+                    Capsule()
+                        .fill(.tint)
+                        .frame(width: max(0, width * model.fraction), height: height)
+                    Circle()
+                        .fill(.white)
+                        .shadow(radius: 1, y: 0.5)
+                        .frame(width: thumb, height: thumb)
+                        .offset(x: max(0, min(width - thumb, width * model.fraction - thumb / 2)))
+                }
+                .frame(height: thumb)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            model.dragFraction = min(max(value.location.x / width, 0), 1)
+                        }
+                        .onEnded { _ in model.endDrag() }
+                )
+            }
+            .frame(height: thumb)
+            HStack {
+                Text(model.elapsedText)
+                Spacer(minLength: 4)
+                Text(model.remainingText)
+            }
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Timeline"))
+        .accessibilityValue(model.elapsedText)
+    }
+}
+
+/// The controls, as a row of their own in the bar (M16): the three buttons a player needs, without
+/// a hover. Sized to fit across a 64 pt bar, and laid out along whichever axis the bar runs.
+struct NowPlayingControlsRow: View {
+    @Bindable var model: SidebarViewModel
+
+    private var isVertical: Bool { model.appearance.position.isVertical }
+    private var iconSize: CGFloat { model.appearance.iconSize }
+
+    var body: some View {
+        let layout = isVertical
+            ? AnyLayout(HStackLayout(spacing: 2))
+            : AnyLayout(HStackLayout(spacing: 2))
+        return layout {
+            button("backward.fill", String(localized: "Previous")) { model.previousTrack() }
+            button(
+                model.nowPlaying.isPlaying ? "pause.fill" : "play.fill",
+                model.nowPlaying.isPlaying ? String(localized: "Pause") : String(localized: "Play")
+            ) { model.togglePlayback() }
+            button("forward.fill", String(localized: "Next")) { model.nextTrack() }
+        }
+        .frame(
+            width: isVertical ? nil : SidebarLayout.rowHeight(model.appearance),
+            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+        )
+        .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
+    }
+
+    private func button(_ symbol: String, _ label: String, _ action: @escaping () -> Void) -> some View {
+        MiniTransportButton(symbol: symbol, label: label, size: iconSize / 3 - 2, action: action)
+    }
+}
+
+private struct MiniTransportButton: View {
+    let symbol: String
+    let label: String
+    let size: CGFloat
+    let action: () -> Void
+
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: max(8, size * 0.5)))
+            .frame(width: size, height: size)
+            .background {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))
             }
             .contentShape(Rectangle())
             .onHover { hovering in

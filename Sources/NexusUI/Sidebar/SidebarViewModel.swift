@@ -89,6 +89,9 @@ public final class SidebarViewModel {
     /// The application making the sound when no player published a track — a browser, say. It gives
     /// the row an icon instead of a blank square (D75).
     public private(set) var nowPlayingFallbackPlayer: String?
+    /// Where the player is, when it will say (M16). Drives the progress line under the row's
+    /// artwork and the popover's scrubber.
+    public private(set) var nowPlayingPosition: MediaPosition?
 
     /// Drives which Trash icon the utility row draws.
     public private(set) var trashIsEmpty = TrashService.isEmpty
@@ -164,6 +167,10 @@ public final class SidebarViewModel {
     @ObservationIgnored public var mediaCommand: ((MediaKey) -> Void)?
     @ObservationIgnored public var showNowPlaying: ((NowPlaying) -> Void)?
     @ObservationIgnored public var hideNowPlaying: (() -> Void)?
+    /// Tells the service whether anybody is looking at the player, since that is what gates reading
+    /// its position at all (M16).
+    @ObservationIgnored public var setPlayerVisible: ((Bool) -> Void)?
+    @ObservationIgnored public var seekPlayer: ((Double) -> Void)?
     /// Called after every row rebuild, so an open group popover can follow its group — or close,
     /// if the group has just been dissolved.
     @ObservationIgnored public var rowsDidChange: (() -> Void)?
@@ -222,7 +229,7 @@ public final class SidebarViewModel {
         if showsStartMenuRow { counts.append(1) }
         counts.append(zones.pinnedRows)
         if behavior.showRunningApplications { counts.append(zones.runningRows) }
-        if showsNowPlayingRow { counts.append(1) }
+        if showsNowPlayingRow { counts.append(nowPlayingRowCount) }
         counts.append(1)                                    // Trash
         if openSearch != nil { counts.append(1) }
         return counts
@@ -233,18 +240,24 @@ public final class SidebarViewModel {
     /// Rows in the fixed tail: the now-playing row when there is something to show, Trash, and
     /// Search once it is injected. A row that is not there gives its slot back to the applications
     /// (D74).
-    public var tailRowCount: Int { (showsNowPlayingRow ? 1 : 0) + (openSearch == nil ? 1 : 2) }
+    public var tailRowCount: Int {
+        (showsNowPlayingRow ? nowPlayingRowCount : 0) + (openSearch == nil ? 1 : 2)
+    }
 
     public var showsNowPlayingRow: Bool {
         general.showNowPlaying && mediaCommand != nil && nowPlayingIsActive
     }
+
+    /// Two: the artwork, and the controls beneath it. A player whose buttons are one hover away is
+    /// a player with a hover too many (M16).
+    public let nowPlayingRowCount = 2
 
     /// The sections that never scroll, each of which costs a separator: the launcher, then the
     /// tail's three parts.
     private var fixedSectionRows: [Int] {
         var rows: [Int] = []
         if showsStartMenuRow { rows.append(1) }
-        if showsNowPlayingRow { rows.append(1) }
+        if showsNowPlayingRow { rows.append(nowPlayingRowCount) }
         rows.append(1)                                      // Trash
         if openSearch != nil { rows.append(1) }
         return rows
@@ -745,14 +758,27 @@ public final class SidebarViewModel {
 
     /// The service pushed a new state. A row appearing or disappearing changes the bar's length,
     /// so the panel is told to reframe.
-    public func nowPlayingChanged(_ playing: NowPlaying, isActive: Bool, players: [String] = []) {
+    public func nowPlayingChanged(
+        _ playing: NowPlaying,
+        isActive: Bool,
+        players: [String] = [],
+        position: MediaPosition? = nil
+    ) {
         let wasShowing = showsNowPlayingRow
         nowPlaying = playing
         nowPlayingIsActive = isActive
         nowPlayingFallbackPlayer = players.first
-        if showsNowPlayingRow != wasShowing { layoutDidChange?() }
+        nowPlayingPosition = position
+        if showsNowPlayingRow != wasShowing {
+            layoutDidChange?()
+            // A row that has appeared is a row somebody can see: that is what starts the one poll
+            // Nexus allows itself (M16).
+            setPlayerVisible?(showsNowPlayingRow)
+        }
         if !showsNowPlayingRow { hideNowPlaying?() }
     }
+
+    public func seekPlayback(to seconds: Double) { seekPlayer?(seconds) }
 
     public func togglePlayback() { mediaCommand?(.play) }
     public func nextTrack() { mediaCommand?(.next) }

@@ -352,6 +352,8 @@ Spec: `docs/design/now-playing.md`.
 
 ## Milestone 16 — The media player row  ← post-MVP
 
+**Shipped** 2026-08-23.
+
 **Scope**
 - The now-playing row stops opening a window flyout and becomes a player: artwork, title, the three
   controls inline where there is room, and a popover with the same when there is not.

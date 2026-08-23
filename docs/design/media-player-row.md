@@ -74,6 +74,28 @@ None new. `general.showNowPlaying` already decides whether the row exists.
   otherwise.
 - The row lives in the tail (D73), so it survives thirty running applications.
 
+## What shipped
+
+The player, the controls and the timeline, with one thing traded away and one bug worth recording.
+
+**Traded away: inline controls in a wide row.** The sketch above shows the title and the timeline on
+one long row beside a horizontal bar. Rows in the bar are one tile each — `sectionExtent` counts
+rows, and every piece of layout maths assumes a uniform pitch — so a wide row would mean
+variable-extent sections throughout `SidebarLayout`. Not worth it for one row. Instead the player is
+**two rows**: the artwork tile, with how far through it is drawn as a line along its bottom edge, and
+the three transport buttons beneath. Buttons without a hover, which was the point, and the full
+scrubber lives in the popover where there is room to drag it.
+
+**The bug:** `NSAppleScript` ran on the actor's own thread, and it is not thread-safe — the first
+build read nothing at all and said nothing about it, because the failure path logged at `.debug`
+(memory-only, D66) and the parse path returned `nil` without logging. Scripts now run on the main
+actor and every failure is a `.notice`.
+
+Verified live against VLC: the artwork tile carries a progress line at 85%, the buttons sit beside it
+in the bar, and the popover shows `Loki S01 - Newmoon21`, `VLC`, a scrubber at `40:21` with `-5:01`
+to go, and ⏮ ⏯ ⏭. Position comes from VLC's own scripting dictionary once a second while the player
+is on screen, and stops the moment it is not.
+
 ## Tests
 
 - The row opens no window flyout on hover, ever.

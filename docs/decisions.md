@@ -646,3 +646,22 @@ looks like a downgrade: a dock replacement with smaller icons than the dock it r
 is 64 — a Dock tile at its own default — and configuration version 4 rewrites a stored 40, since
 nobody chose it while it was the default. Any other size was set by hand and is kept.
 
+**D80. Position is asked for, per player, and only while somebody is looking.**
+`MediaRemote` would have reported position for every player at once, and it is closed (D75).
+Nothing public reports how far into a video a browser tab is — so the timeline exists for the
+players that ship a scripting dictionary (Music, Spotify, VLC) and is simply absent for the rest.
+Absent, not faked: a row without a scrubber is honest, a scrubber that does not move is a bug that
+looks like a feature.
+
+That makes position the one thing in Nexus that is polled, since no notification carries it. The
+poll is bounded by visibility rather than by frequency: once a second, and only while the player is
+actually on screen — the expanded row or the open popover. It stops when the popover closes.
+Seeking is a single write on release rather than one per pixel, because each one is an AppleScript
+round trip and a player that receives forty of them stutters.
+
+Two implementation notes. Spotify reports its duration in milliseconds where Music and VLC report
+seconds, which is the kind of difference that silently turns a four-minute song into a
+four-thousand-second one. And `NSAppleScript` is not thread-safe: run from an actor's own thread it
+read nothing at all, and said nothing, because the failure path logged at `.debug` — the D66 lesson,
+learned twice.
+

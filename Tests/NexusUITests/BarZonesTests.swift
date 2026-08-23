@@ -305,7 +305,8 @@ struct NowPlayingRowTests {
 
         model.nowPlayingChanged(track, isActive: true)
         #expect(model.showsNowPlayingRow)
-        #expect(model.tailRowCount == 3)
+        // Artwork and controls: the player is two rows, not one (M16).
+        #expect(model.tailRowCount == 4)
     }
 
     @Test("With the setting off the row never appears, and its slot goes to the applications")

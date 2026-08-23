@@ -63,6 +63,12 @@ this project follows [Semantic Versioning](https://semver.org).
 - Icons default to 64 points, the size of a macOS Dock tile, rather than 40 (D79). Configuration
   version 4 rewrites the old default; a size set by hand is kept.
 
+- The now-playing row is a player rather than an icon (M16): two rows in the bar — artwork with a
+  progress line along its bottom edge, and ⏮ ⏯ ⏭ beneath it, no hover needed — and a popover with a
+  draggable timeline and a clock. Position comes from Music, Spotify or VLC over their own scripting
+  interfaces, once a second while the player is on screen and never otherwise; a player that will
+  not say gets the row without a scrubber rather than a fake one (D80).
+
 ### Fixed
 - The search palette stayed on screen when it lost the keyboard: a click in another application, or
   ⌘Tab, now dismisses it, as well as Escape. `hidesOnDeactivate` is off by necessity, so this needs

@@ -235,3 +235,114 @@ private func until(_ condition: () -> Bool) async {
     }
 }
 
+
+@Suite("Media position")
+struct MediaPositionTests {
+    @Test("A duration under a second is no timeline")
+    func noTimeline() {
+        #expect(MediaPosition(position: 0, duration: 0).hasTimeline == false)
+        #expect(MediaPosition(position: 5, duration: 240).hasTimeline)
+    }
+
+    @Test("The fraction is clamped, because a player past its own duration is not a drawing bug")
+    func fraction() {
+        #expect(MediaPosition(position: 120, duration: 240).fraction == 0.5)
+        #expect(MediaPosition(position: 300, duration: 240).fraction == 1)
+        #expect(MediaPosition(position: -4, duration: 240).fraction == 0)
+    }
+
+    @Test("The clock grows an hours field only when there is one")
+    func clock() {
+        #expect(MediaPosition.clock(118) == "1:58")
+        #expect(MediaPosition.clock(3_727) == "1:02:07")
+        #expect(MediaPosition.clock(0) == "0:00")
+        #expect(MediaPosition.clock(-1) == "0:00")
+        #expect(MediaPosition.clock(.nan) == "0:00")
+    }
+
+    @Test("Only the players with a scripting dictionary can report a position")
+    func dialects() {
+        #expect(AppleScriptMediaControl.canReportPosition("com.spotify.client"))
+        #expect(AppleScriptMediaControl.canReportPosition("org.videolan.vlc"))
+        #expect(AppleScriptMediaControl.canReportPosition("com.apple.Music"))
+        // A browser tab: nothing public will say where it is.
+        #expect(AppleScriptMediaControl.canReportPosition("com.brave.Browser") == false)
+    }
+
+    /// Spotify reports milliseconds where everyone else reports seconds, which is exactly the kind
+    /// of thing that silently makes a four-minute song look like a four-thousand-second one.
+    @Test("Spotify's duration is milliseconds and is converted")
+    func spotifyMilliseconds() {
+        #expect(AppleScriptMediaControl.dialects["com.spotify.client"]?.durationIsMilliseconds == true)
+        #expect(AppleScriptMediaControl.dialects["com.apple.Music"]?.durationIsMilliseconds == false)
+        #expect(AppleScriptMediaControl.dialects["org.videolan.vlc"]?.durationIsMilliseconds == false)
+    }
+}
+
+/// A player that answers, for the tests that need one.
+actor FakeMediaControl: MediaPositionControlling {
+    private var reading: MediaPosition?
+    private(set) var seeks: [Double] = []
+
+    init(_ reading: MediaPosition?) { self.reading = reading }
+
+    func position(of bundleIdentifier: String) async -> MediaPosition? { reading }
+
+    func seek(to seconds: Double, in bundleIdentifier: String) async {
+        seeks.append(seconds)
+        reading?.position = seconds
+    }
+}
+
+@MainActor
+@Suite("Position polling")
+struct PositionPollingTests {
+    @Test("Nothing is read until the player is on screen, and reading stops when it goes away")
+    func gatedOnVisibility() async {
+        let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
+        let service = NowPlayingService(control: control)
+        service.setAudioPlayers(["com.spotify.client"])
+
+        #expect(service.position == nil)
+
+        service.setPlayerVisible(true)
+        await untilPolled { service.position != nil }
+        #expect(service.position?.duration == 240)
+
+        service.setPlayerVisible(false)
+        // Nothing further arrives; the reading it had is left alone rather than blanked.
+        #expect(service.position?.duration == 240)
+    }
+
+    @Test("A seek moves the thumb at once and tells the player once")
+    func seek() async {
+        let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
+        let service = NowPlayingService(control: control)
+        service.setAudioPlayers(["com.spotify.client"])
+        service.setPlayerVisible(true)
+        await untilPolled { service.position != nil }
+
+        service.seek(to: 120)
+        #expect(service.position?.position == 120)      // optimistic, no waiting for the next read
+        await untilPolled { await control.seeks.isEmpty == false }
+        #expect(await control.seeks == [120])
+    }
+
+    @Test("A player that answers nothing gets no timeline, and no repeated asking")
+    func silentPlayer() async {
+        let service = NowPlayingService(control: FakeMediaControl(nil))
+        service.setAudioPlayers(["com.brave.Browser"])
+        service.setPlayerVisible(true)
+
+        try? await Task.sleep(for: .milliseconds(80))
+        #expect(service.position == nil)
+    }
+}
+
+@MainActor
+private func untilPolled(_ condition: () async -> Bool) async {
+    for _ in 0..<200 {
+        if await condition() { return }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+}
