@@ -353,3 +353,33 @@ or onboarding onto whichever monitor they land on and drags the sidebar along. `
 Added `DisplayService.menuBarScreen` and routed `.main`, `.withMouse`'s fallback and the
 disconnected-`.specific` fallback through it. Verified: sidebar stays at x = 8 with onboarding
 open on the other display.
+
+## 2026-08-23 — Milestone 8, Dock replacement
+
+**D51. Dock Replacement Mode is `defaults` keys plus a Dock restart.**
+`autohide`, `autohide-delay` (1000 s), `autohide-time-modifier` and `orientation`, written with
+`CFPreferences` and followed by terminating `com.apple.dock` — `killall Dock` without a shell,
+since `launchd` brings it straight back. Rejected `NSApplicationPresentationHideDock`:
+presentation options apply only while the owning application is active, and Nexus is an
+`LSUIElement` that never activates, so the Dock would reappear the moment focus moved. Nothing
+here touches `Dock.app`, system files or SIP — replace the Dock experience, not the Dock system
+component.
+
+**D52. Amends D14 ("Nexus never modifies the user's Dock settings").**
+It may, but only on explicit user action, only while running, and only after capturing a
+snapshot in which every field is optional — a key that was never set is *deleted* on restore,
+never written back as `false` or `0`. Dock-less exists only while Nexus runs: quitting restores,
+launching re-applies, and a launch that finds `applied` set without `replacementEnabled` cleans
+up after a run that was killed. That is also the uninstall story, since macOS gives an
+application no uninstall hook. `⌥⌘D` is deliberately left alone as the escape hatch that needs
+no Nexus at all.
+
+**D53. Hover-expand is vertical-only.**
+A horizontal bar growing taller on hover would shove every window on the screen. The toggle stays
+in Settings and says so while the position is top or bottom, rather than silently doing nothing.
+
+**D54. The Dock is parked on the edge Nexus is not using.**
+Sharing an edge would put the Dock's hot zone under Nexus's own edge trigger, where every stray
+mouse flick arms a 1000-second timer. The Dock has no top edge, so a top or bottom sidebar sends
+it left rather than to the literal opposite.
+

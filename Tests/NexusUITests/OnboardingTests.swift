@@ -16,7 +16,11 @@ private func makeOnboarding(
     let model = OnboardingViewModel(
         configuration: configuration,
         permissions: FakePermissions([:]),
-        applications: FakeApplicationService(running)
+        applications: FakeApplicationService(running),
+        dockReplacement: DockReplacementController(
+            configuration: configuration,
+            dock: FakeDockControl()
+        )
     )
     return (model, configuration)
 }
@@ -59,6 +63,8 @@ struct OnboardingTests {
         #expect(model.step == .permissions)
         model.advance()
         #expect(model.step == .sidebar)
+        model.advance()
+        #expect(model.step == .dock)
         model.advance()
         #expect(model.step == .done)
         #expect(model.isLastStep)

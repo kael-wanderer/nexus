@@ -203,10 +203,10 @@ struct FlyoutPlacementTests {
 
     @Test("Row centres advance by one row plus one gap within a section")
     func rowCentres() {
-        let first = SidebarLayout.rowCentreFromTop(
+        let first = SidebarLayout.rowCentre(
             sectionRowCounts: [3], section: 0, row: 0, appearance: appearance
         )
-        let second = SidebarLayout.rowCentreFromTop(
+        let second = SidebarLayout.rowCentre(
             sectionRowCounts: [3], section: 0, row: 1, appearance: appearance
         )
         let step: CGFloat = SidebarLayout.rowHeight(appearance) + CGFloat(appearance.iconSpacing)
@@ -216,10 +216,10 @@ struct FlyoutPlacementTests {
 
     @Test("The second section starts past the first section and its separator")
     func secondSection() {
-        let firstOfSecond = SidebarLayout.rowCentreFromTop(
+        let firstOfSecond = SidebarLayout.rowCentre(
             sectionRowCounts: [2, 2], section: 1, row: 0, appearance: appearance
         )
-        let lastOfFirst = SidebarLayout.rowCentreFromTop(
+        let lastOfFirst = SidebarLayout.rowCentre(
             sectionRowCounts: [2, 2], section: 0, row: 1, appearance: appearance
         )
         #expect(firstOfSecond > lastOfFirst)
@@ -232,7 +232,7 @@ struct FlyoutPlacementTests {
         let size = CGSize(width: 320, height: 200)
 
         let left = SidebarLayout.flyoutFrame(
-            size: size, beside: sidebar, anchorFromTop: 24,
+            size: size, beside: sidebar, anchor: 24,
             in: visible, position: .left
         )
         #expect(left.minX == sidebar.maxX + SidebarLayout.screenMargin)
@@ -240,7 +240,7 @@ struct FlyoutPlacementTests {
 
         let rightSidebar = CGRect(x: 1_368, y: 200, width: 64, height: 400)
         let right = SidebarLayout.flyoutFrame(
-            size: size, beside: rightSidebar, anchorFromTop: 24,
+            size: size, beside: rightSidebar, anchor: 24,
             in: visible, position: .right
         )
         #expect(right.maxX == rightSidebar.minX - SidebarLayout.screenMargin)
@@ -254,12 +254,12 @@ struct FlyoutPlacementTests {
         let size = CGSize(width: 320, height: 400)
 
         let top = SidebarLayout.flyoutFrame(
-            size: size, beside: sidebar, anchorFromTop: 20, in: visible, position: .left
+            size: size, beside: sidebar, anchor: 20, in: visible, position: .left
         )
         #expect(visible.contains(top))
 
         let bottom = SidebarLayout.flyoutFrame(
-            size: size, beside: sidebar, anchorFromTop: 850, in: visible, position: .left
+            size: size, beside: sidebar, anchor: 850, in: visible, position: .left
         )
         #expect(visible.contains(bottom))
     }

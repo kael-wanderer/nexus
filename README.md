@@ -21,12 +21,13 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 
 | | |
 |---|---|
-| **Vertical sidebar** | Left or right, configurable width, icon size, spacing, corner radius and opacity. Auto-hide with an edge-hover reveal, or always visible. |
-| **Applications** | Pin, unpin, reorder by drag, launch, activate, quit and force quit. Running indicator and per-app window count. |
+| **Sidebar on any edge** | Left, right, top or bottom, configurable width, icon size, spacing, corner radius and opacity. Auto-hide with an edge-hover reveal, or always visible. |
+| **Applications** | Pin, unpin, reorder, launch, activate, quit and force quit. Running indicator and per-app window count. |
 | **Windows** | Flyout listing an application's windows with live titles; click one to raise it. Optional thumbnails. *(Accessibility)* |
 | **Search** | A command palette on a global shortcut. Applications, windows, files and actions, ranked by match quality, provider weight and frecency. |
-| **Settings** | General, Appearance, Behavior, Search, Permissions. Everything applies live. |
-| **Onboarding** | Five skippable steps. Skipping all of them still leaves a working launcher. |
+| **Dock replacement** | Optional: the macOS Dock hides while Nexus runs and comes back when it quits. Your Dock settings are saved first and restored exactly. |
+| **Settings** | General, Dock, Appearance, Behavior, Search, Permissions. Everything applies live. |
+| **Onboarding** | Six skippable steps. Skipping all of them still leaves a working launcher. |
 | **Accessible** | VoiceOver labels on every element, Reduce Motion and Increase Contrast honoured. |
 
 ### Screenshots
@@ -77,10 +78,38 @@ Xcode → Settings → Accounts → Manage Certificates.
 If Accessibility still reads as denied right after you grant it, use **Restart Nexus** on the
 permission screen — macOS only hands out that permission when a process starts.
 
-### Hiding the real Dock
+### Dock Replacement Mode
 
-Nexus never touches your Dock settings. If you want the Dock out of the way, do it yourself:
-System Settings → Desktop & Dock → **Automatically hide and show the Dock**.
+Off by default. Turn it on in **Settings → Dock** (or during setup) and Nexus hides the macOS
+Dock while it runs: auto-hide on, a ~17-minute reveal delay so the Dock never slides in by
+accident, and the Dock parked on the edge Nexus is not using.
+
+Nothing is removed or patched. `Dock.app` keeps running, Mission Control and Spaces are
+untouched, and SIP stays on. Only four preferences change:
+
+```
+autohide  autohide-delay  autohide-time-modifier  orientation
+```
+
+Your values are captured before the first change and put back exactly — a key you never set is
+deleted on restore rather than written back with a plausible default.
+
+**The Dock comes back whenever Nexus is not running.** Quitting restores it, launching applies it
+again. That is also the uninstall story: quit Nexus, then delete it, and the Dock is already
+normal.
+
+If Nexus is killed outright (`SIGKILL`, a panic) no restore runs. Any of these fixes it:
+
+- Start Nexus again — it notices and restores on launch.
+- **Restore macOS Dock** in Settings → Dock, or in the menu-bar menu.
+- `⌥⌘D`, which macOS handles itself and Nexus never touches.
+- Or by hand:
+  ```sh
+  defaults delete com.apple.dock autohide-delay
+  defaults delete com.apple.dock autohide-time-modifier
+  defaults write com.apple.dock autohide -bool false
+  killall Dock
+  ```
 
 ## Development
 

@@ -24,6 +24,7 @@ final class Composition {
     let panels: PanelController
     let searchPanel: SearchPanelController
     let onboardingModel: OnboardingViewModel
+    let dockReplacement: DockReplacementController
 
     private var settingsWindow: AuxiliaryWindowController?
     private var onboardingWindow: AuxiliaryWindowController?
@@ -79,10 +80,15 @@ final class Composition {
             events: events
         )
         searchPanel = SearchPanelController(model: searchModel)
+        dockReplacement = DockReplacementController(
+            configuration: configuration,
+            dock: DockControlService()
+        )
         onboardingModel = OnboardingViewModel(
             configuration: configuration,
             permissions: permissions,
-            applications: applications
+            applications: applications,
+            dockReplacement: dockReplacement
         )
     }
 
@@ -109,6 +115,7 @@ final class Composition {
         observeConfiguration()
         applySearchConfiguration()
         registerHotKey()
+        dockReplacement.start()
 
         if !configuration.configuration.onboarding.hasCompleted {
             runOnboarding()
@@ -122,6 +129,7 @@ final class Composition {
             SettingsView(
                 configuration: configuration,
                 permissions: permissions,
+                dockReplacement: dockReplacement,
                 validateShortcut: { [weak self] in self?.validate($0) },
                 runOnboarding: { [weak self] in self?.runOnboarding() }
             )
@@ -210,6 +218,7 @@ final class Composition {
         let stream = events.events()
         var lastShortcut = configuration.configuration.search.shortcut
         var lastEnabled = configuration.configuration.general.globalShortcutEnabled
+        var lastPosition = configuration.configuration.appearance.position
         configurationTask = Task { [weak self] in
             for await event in stream {
                 guard let self else { return }
@@ -220,6 +229,10 @@ final class Composition {
                     lastShortcut = updated.search.shortcut
                     lastEnabled = updated.general.globalShortcutEnabled
                     self.registerHotKey()
+                }
+                if updated.appearance.position != lastPosition {
+                    lastPosition = updated.appearance.position
+                    self.dockReplacement.sidebarPositionChanged()
                 }
             }
         }
@@ -249,11 +262,15 @@ final class Composition {
             toggleSidebar: { [weak self] in self?.panels.toggleSidebar() },
             openSettings: { [weak self] in self?.showSettings() },
             runSetupAgain: { [weak self] in self?.runOnboarding() },
-            openSearch: { [weak self] in self?.searchPanel.show() }
+            openSearch: { [weak self] in self?.searchPanel.show() },
+            isDockHidden: { [weak self] in self?.dockReplacement.isDockHidden ?? false },
+            restoreDock: { [weak self] in self?.dockReplacement.restoreNow() }
         )
     }
 
     func shutDown() {
+        // Before anything else: the Dock comes back whenever Nexus is not running (D52).
+        dockReplacement.stop()
         permissionTask?.cancel()
         configurationTask?.cancel()
         hotKeys.stop()

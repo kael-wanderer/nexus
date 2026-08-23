@@ -251,7 +251,9 @@ public final class SidebarViewModel {
     }
 
     public func setExpanded(_ expanded: Bool) {
-        let next = behavior.hoverExpand ? expanded : false
+        // Hover-expand is vertical-only (D53): a horizontal bar growing taller on hover would
+        // shove every window on the screen.
+        let next = behavior.hoverExpand && appearance.position.isVertical ? expanded : false
         guard next != isExpanded else { return }
         isExpanded = next
         layoutDidChange?()

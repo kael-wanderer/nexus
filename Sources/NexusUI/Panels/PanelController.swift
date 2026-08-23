@@ -149,7 +149,7 @@ public final class PanelController {
             SidebarLayout.flyoutFrame(
                 size: size,
                 beside: sidebar.frame,
-                anchorFromTop: anchorOffset(for: identity),
+                anchor: anchorOffset(for: identity),
                 in: screen.visibleFrame,
                 position: model.appearance.position
             ),
@@ -160,7 +160,7 @@ public final class PanelController {
     private func anchorOffset(for identity: ApplicationIdentity) -> CGFloat {
         let counts = model.sectionRowCounts
         if let row = model.pinned.firstIndex(where: { $0.identity == identity }) {
-            return SidebarLayout.rowCentreFromTop(
+            return SidebarLayout.rowCentre(
                 sectionRowCounts: counts,
                 section: 0,
                 row: row,
@@ -168,14 +168,15 @@ public final class PanelController {
             )
         }
         if let row = model.running.firstIndex(where: { $0.identity == identity }) {
-            return SidebarLayout.rowCentreFromTop(
+            return SidebarLayout.rowCentre(
                 sectionRowCounts: counts,
                 section: model.pinned.isEmpty ? 0 : 1,
                 row: row,
                 appearance: model.appearance
             )
         }
-        return (sidebarPanel?.frame.height ?? 0) / 2
+        guard let panel = sidebarPanel else { return 0 }
+        return (model.appearance.position.isVertical ? panel.frame.height : panel.frame.width) / 2
     }
 
     public func toggleSidebar() {

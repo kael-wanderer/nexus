@@ -3,6 +3,23 @@ import Foundation
 public enum SidebarPosition: String, Codable, Sendable, CaseIterable {
     case left
     case right
+    case top
+    case bottom
+
+    /// Vertical edges stack rows top-to-bottom; horizontal edges lay them out left-to-right.
+    /// Every piece of layout maths branches on this and nothing else.
+    public var isVertical: Bool { self == .left || self == .right }
+
+    /// The edge the macOS Dock is parked on while Dock Replacement Mode is active. Sharing an
+    /// edge would put the Dock's hot corner underneath Nexus's own edge trigger.
+    public var opposite: SidebarPosition {
+        switch self {
+        case .left: .right
+        case .right: .left
+        case .top: .bottom
+        case .bottom: .top
+        }
+    }
 }
 
 public enum ClickBehavior: String, Codable, Sendable, CaseIterable {
@@ -120,6 +137,43 @@ public struct SearchConfiguration: Codable, Sendable, Equatable {
     public init() {}
 }
 
+/// The user's `com.apple.dock` settings as they were before Nexus touched them.
+///
+/// Every field is optional on purpose: a key that was never set has to be *deleted* on restore,
+/// not written back as `false` or `0`. Writing a value the user never had is a silent settings
+/// change, and it is the difference between "restored" and "close enough".
+public struct DockSnapshot: Codable, Sendable, Equatable {
+    public var autohide: Bool?
+    public var autohideDelay: Double?
+    public var autohideTimeModifier: Double?
+    public var orientation: String?
+    public var capturedAt: Date
+
+    public init(
+        autohide: Bool? = nil,
+        autohideDelay: Double? = nil,
+        autohideTimeModifier: Double? = nil,
+        orientation: String? = nil,
+        capturedAt: Date = Date()
+    ) {
+        self.autohide = autohide
+        self.autohideDelay = autohideDelay
+        self.autohideTimeModifier = autohideTimeModifier
+        self.orientation = orientation
+        self.capturedAt = capturedAt
+    }
+}
+
+public struct DockConfiguration: Codable, Sendable, Equatable {
+    /// What the user asked for.
+    public var replacementEnabled = false
+    /// Whether Nexus's settings are currently written to `com.apple.dock`. Diverges from
+    /// `replacementEnabled` only when a run ended without restoring — a crash, or `SIGKILL`.
+    public var applied = false
+    public var snapshot: DockSnapshot?
+    public init() {}
+}
+
 public struct OnboardingState: Codable, Sendable, Equatable {
     public var hasCompleted = false
     public var completedVersion = 0
@@ -137,6 +191,7 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
     public var pinnedApplications: [String] = []
     public var frecency: [String: FrecencyEntry] = [:]
     public var onboarding = OnboardingState()
+    public var dock = DockConfiguration()
 
     public init() {}
 
@@ -152,6 +207,7 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
         pinnedApplications = try container.decodeIfPresent([String].self, forKey: .pinnedApplications) ?? []
         frecency = try container.decodeIfPresent([String: FrecencyEntry].self, forKey: .frecency) ?? [:]
         onboarding = try container.decodeIfPresent(OnboardingState.self, forKey: .onboarding) ?? .init()
+        dock = try container.decodeIfPresent(DockConfiguration.self, forKey: .dock) ?? .init()
         appearance.clamp()
     }
 }

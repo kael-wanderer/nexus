@@ -2,7 +2,7 @@ import AppKit
 import NexusCore
 import SwiftUI
 
-/// Five steps, all skippable. Skipping everything yields Option+Space, no permissions, a
+/// Six steps, all skippable. Skipping everything yields Option+Space, no permissions, a
 /// left-hand sidebar and no pinned applications — a fully working launcher (§111.6).
 @MainActor
 @Observable
@@ -12,6 +12,7 @@ public final class OnboardingViewModel {
         case shortcut
         case permissions
         case sidebar
+        case dock
         case done
 
         var title: String {
@@ -20,6 +21,7 @@ public final class OnboardingViewModel {
             case .shortcut: String(localized: "Choose your search shortcut")
             case .permissions: String(localized: "Permissions")
             case .sidebar: String(localized: "Set up your sidebar")
+            case .dock: String(localized: "Replace the macOS Dock")
             case .done: String(localized: "You're set")
             }
         }
@@ -31,17 +33,20 @@ public final class OnboardingViewModel {
 
     @ObservationIgnored let configuration: ConfigurationController
     @ObservationIgnored let permissions: any PermissionChecking
+    @ObservationIgnored let dockReplacement: DockReplacementController
     @ObservationIgnored private let applications: any ApplicationServing
     @ObservationIgnored public var onFinish: (() -> Void)?
 
     public init(
         configuration: ConfigurationController,
         permissions: any PermissionChecking,
-        applications: any ApplicationServing
+        applications: any ApplicationServing,
+        dockReplacement: DockReplacementController
     ) {
         self.configuration = configuration
         self.permissions = permissions
         self.applications = applications
+        self.dockReplacement = dockReplacement
     }
 
     public func start() {
@@ -124,6 +129,15 @@ public struct OnboardingView: View {
         .accessibilityElement(children: .contain)
     }
 
+    private var positionName: String {
+        switch model.configuration.configuration.appearance.position {
+        case .left: String(localized: "left")
+        case .right: String(localized: "right")
+        case .top: String(localized: "top edge")
+        case .bottom: String(localized: "bottom edge")
+        }
+    }
+
     private var header: some View {
         HStack {
             Text(model.step.title)
@@ -187,11 +201,7 @@ public struct OnboardingView: View {
 
         case .sidebar:
             VStack(alignment: .leading, spacing: 14) {
-                Picker(String(localized: "Sidebar position"), selection: model.configuration.binding(\.appearance.position)) {
-                    Text("Left").tag(SidebarPosition.left)
-                    Text("Right").tag(SidebarPosition.right)
-                }
-                .pickerStyle(.segmented)
+                SidebarPositionPicker(configuration: model.configuration)
 
                 Text("Pin the applications you use most. You can change this any time by dragging apps onto the sidebar.")
                     .foregroundStyle(.secondary)
@@ -211,9 +221,23 @@ public struct OnboardingView: View {
                 }
             }
 
+        case .dock:
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Nexus can take the macOS Dock's place: the Dock hides while Nexus runs, and comes back when Nexus quits. Nothing is removed and no system files are touched.")
+                Toggle(isOn: Binding(
+                    get: { model.configuration.configuration.dock.replacementEnabled },
+                    set: { model.dockReplacement.setEnabled($0) }
+                )) {
+                    Text("Use Nexus as primary Dock")
+                }
+                Text("Your current Dock settings are saved first and put back exactly as they were. You can turn this off in Settings → Dock, and ⌥⌘D still works.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
         case .done:
             VStack(alignment: .leading, spacing: 12) {
-                Text("The sidebar is on your \(model.configuration.configuration.appearance.position == .left ? "left" : "right"), and \(model.configuration.configuration.search.shortcut.displayString) opens search.")
+                Text("The sidebar is on your \(positionName), and \(model.configuration.configuration.search.shortcut.displayString) opens search.")
                 Text("Nexus lives in the menu bar. Everything here is in Settings, and you can run this setup again from there.")
                     .foregroundStyle(.secondary)
             }

@@ -6,17 +6,20 @@ import SwiftUI
 public struct SettingsView: View {
     @Bindable var configuration: ConfigurationController
     let permissions: any PermissionChecking
+    let dockReplacement: DockReplacementController
     let validateShortcut: (NexusCore.KeyboardShortcut) -> String?
     let runOnboarding: () -> Void
 
     public init(
         configuration: ConfigurationController,
         permissions: any PermissionChecking,
+        dockReplacement: DockReplacementController,
         validateShortcut: @escaping (NexusCore.KeyboardShortcut) -> String?,
         runOnboarding: @escaping () -> Void
     ) {
         self.configuration = configuration
         self.permissions = permissions
+        self.dockReplacement = dockReplacement
         self.validateShortcut = validateShortcut
         self.runOnboarding = runOnboarding
     }
@@ -25,6 +28,8 @@ public struct SettingsView: View {
         TabView {
             GeneralPane(configuration: configuration, runOnboarding: runOnboarding)
                 .tabItem { Label(String(localized: "General"), systemImage: "gearshape") }
+            DockPane(configuration: configuration, dockReplacement: dockReplacement)
+                .tabItem { Label(String(localized: "Dock"), systemImage: "rectangle.bottomthird.inset.filled") }
             AppearancePane(configuration: configuration)
                 .tabItem { Label(String(localized: "Appearance"), systemImage: "paintbrush") }
             BehaviorPane(configuration: configuration)
@@ -44,27 +49,10 @@ struct GeneralPane: View {
     @Bindable var configuration: ConfigurationController
     let runOnboarding: () -> Void
 
-    @State private var loginState = LoginItemService.state
-    @State private var loginError: String?
-
     var body: some View {
         Form {
             Section {
-                Toggle(
-                    String(localized: "Launch Nexus at login"),
-                    isOn: Binding(
-                        get: { loginState == .enabled },
-                        set: { setLaunchAtLogin($0) }
-                    )
-                )
-                if loginState == .requiresApproval {
-                    Text("Approve Nexus in System Settings → General → Login Items.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let loginError {
-                    Text(loginError).font(.caption).foregroundStyle(.red)
-                }
+                LaunchAtLoginToggle(configuration: configuration)
 
                 Toggle(
                     String(localized: "Show Nexus in the menu bar"),
@@ -80,12 +68,40 @@ struct GeneralPane: View {
             }
         }
         .formStyle(.grouped)
-        // External changes (the user toggling the login item in System Settings) show up when
-        // this pane comes back into view.
-        .onAppear { loginState = LoginItemService.state }
     }
 
-    private func setLaunchAtLogin(_ enabled: Bool) {
+    private func binding(_ keyPath: WritableKeyPath<NexusConfiguration, Bool>) -> Binding<Bool> {
+        configuration.binding(keyPath)
+    }
+}
+
+/// Shown in two places — General, and Dock, where a launcher that is not running is not a Dock
+/// replacement — so it owns its own state rather than being duplicated.
+struct LaunchAtLoginToggle: View {
+    @Bindable var configuration: ConfigurationController
+
+    @State private var loginState = LoginItemService.state
+    @State private var loginError: String?
+
+    var body: some View {
+        Toggle(
+            String(localized: "Launch Nexus at login"),
+            isOn: Binding(get: { loginState == .enabled }, set: { setEnabled($0) })
+        )
+        if loginState == .requiresApproval {
+            Text("Approve Nexus in System Settings → General → Login Items.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        if let loginError {
+            Text(loginError).font(.caption).foregroundStyle(.red)
+        }
+        // External changes (the user toggling the login item in System Settings) show up when
+        // this pane comes back into view.
+        Color.clear.frame(height: 0).onAppear { loginState = LoginItemService.state }
+    }
+
+    private func setEnabled(_ enabled: Bool) {
         do {
             try LoginItemService.setEnabled(enabled)
             loginError = nil
@@ -95,9 +111,80 @@ struct GeneralPane: View {
         loginState = LoginItemService.state
         configuration.update { $0.general.launchAtLogin = loginState == .enabled }
     }
+}
 
-    private func binding(_ keyPath: WritableKeyPath<NexusConfiguration, Bool>) -> Binding<Bool> {
-        configuration.binding(keyPath)
+// MARK: - Dock
+
+/// Dock Replacement Mode (D52) and the position that decides which edge Nexus owns. Position
+/// lives here rather than in Appearance because this is the pane where it matters.
+struct DockPane: View {
+    @Bindable var configuration: ConfigurationController
+    let dockReplacement: DockReplacementController
+
+    @State private var isDockHidden = false
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(
+                    String(localized: "Use Nexus as primary Dock"),
+                    isOn: Binding(
+                        get: { configuration.configuration.dock.replacementEnabled },
+                        set: { enabled in
+                            dockReplacement.setEnabled(enabled)
+                            isDockHidden = dockReplacement.isDockHidden
+                        }
+                    )
+                )
+                Text("Hides the macOS Dock while Nexus is running and restores it when Nexus quits.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                SidebarPositionPicker(configuration: configuration)
+            }
+            Section {
+                LaunchAtLoginToggle(configuration: configuration)
+            }
+            Section {
+                LabeledContent(String(localized: "macOS Dock")) {
+                    Text(isDockHidden
+                        ? String(localized: "Hidden by Nexus")
+                        : String(localized: "Visible"))
+                    .foregroundStyle(.secondary)
+                }
+                // Deliberately independent of the toggle above: this is the button for the case
+                // where a previous run was killed and the flags no longer describe reality.
+                Button(String(localized: "Restore macOS Dock")) {
+                    dockReplacement.restoreNow()
+                    isDockHidden = dockReplacement.isDockHidden
+                }
+                Text("⌥⌘D also toggles the Dock, whatever Nexus thinks.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { isDockHidden = dockReplacement.isDockHidden }
+    }
+}
+
+/// The four edges, shared by Settings and onboarding.
+public struct SidebarPositionPicker: View {
+    @Bindable var configuration: ConfigurationController
+
+    public init(configuration: ConfigurationController) {
+        self.configuration = configuration
+    }
+
+    public var body: some View {
+        Picker(String(localized: "Position"), selection: configuration.binding(\.appearance.position)) {
+            Text("Left").tag(SidebarPosition.left)
+            Text("Right").tag(SidebarPosition.right)
+            Text("Top").tag(SidebarPosition.top)
+            Text("Bottom").tag(SidebarPosition.bottom)
+        }
+        .pickerStyle(.segmented)
     }
 }
 
@@ -109,12 +196,6 @@ struct AppearancePane: View {
     var body: some View {
         Form {
             Section {
-                Picker(String(localized: "Position"), selection: configuration.binding(\.appearance.position)) {
-                    Text("Left").tag(SidebarPosition.left)
-                    Text("Right").tag(SidebarPosition.right)
-                }
-                .pickerStyle(.segmented)
-
                 Picker(String(localized: "Display"), selection: displayBinding) {
                     Text("Main display").tag(DisplayPreferenceChoice.main)
                     Text("Display with the pointer").tag(DisplayPreferenceChoice.withMouse)
@@ -184,6 +265,11 @@ struct BehaviorPane: View {
                     }
                 }
                 Toggle(String(localized: "Expand on hover"), isOn: configuration.binding(\.behavior.hoverExpand))
+                if !configuration.configuration.appearance.position.isVertical {
+                    Text("Expanding is off while Nexus is on the top or bottom edge — growing taller on hover would shove every window on the screen.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Section {
                 Toggle(String(localized: "Show running applications"), isOn: configuration.binding(\.behavior.showRunningApplications))

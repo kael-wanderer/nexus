@@ -3,6 +3,28 @@
 All notable changes to Nexus. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project follows [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+- Sidebar on any screen edge: `top` and `bottom` join `left` and `right`. Horizontal bars lay
+  rows out along their width; hover-expand is vertical-only (D53).
+- Dock Replacement Mode (D51/D52): the macOS Dock hides while Nexus runs and is restored exactly
+  when it quits, with the Dock parked on the edge Nexus is not using (D54). Settings → Dock, one
+  onboarding step, a menu-bar status row and a Restore button that works whatever the flags say.
+- App icon.
+
+### Fixed
+- Clicking a running application whose windows are all closed now shows a window: activation goes
+  through LaunchServices, which sends the reopen event the Dock sends, instead of
+  `NSRunningApplication.activate()`, which only brings the process forward.
+- Closing the onboarding window counts as finishing it, so onboarding no longer reappears on
+  every launch.
+
+### Removed
+- The sidebar's drag-to-reorder, which never worked: the panel can never become key, so the row
+  interaction has to claim every mouse-down and SwiftUI never sees a drag start. Reordering is on
+  the context menu.
+
 ## [0.1.0] — 2026-08-22
 
 First MVP. Milestones 1–7 of [`ROADMAP.md`](ROADMAP.md).

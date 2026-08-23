@@ -11,11 +11,13 @@ public struct SidebarView: View {
         self.model = model
     }
 
+    private var isVertical: Bool { model.appearance.position.isVertical }
+
     public var body: some View {
         // The frame is clamped to the screen (SidebarLayout.frame), so with enough running
-        // applications the content is taller than the panel. Scrolling is what keeps the last
-        // rows reachable instead of clipped off the bottom.
-        ScrollView(.vertical) {
+        // applications the content is longer than the panel. Scrolling is what keeps the last
+        // rows reachable instead of clipped off the end.
+        ScrollView(isVertical ? .vertical : .horizontal) {
             content
         }
         .scrollIndicators(.never)
@@ -35,8 +37,16 @@ public struct SidebarView: View {
         .accessibilityLabel(String(localized: "Nexus sidebar"))
     }
 
+    /// The bar's axis, applied to every stack in it. `AnyLayout` swaps the axis without
+    /// duplicating the view tree.
+    private var axis: AnyLayout {
+        isVertical
+            ? AnyLayout(VStackLayout(spacing: SidebarLayout.separatorSpacing))
+            : AnyLayout(HStackLayout(spacing: SidebarLayout.separatorSpacing))
+    }
+
     private var content: some View {
-        VStack(spacing: SidebarLayout.separatorSpacing) {
+        axis {
             if model.showsPlaceholder {
                 placeholder
             }
@@ -57,7 +67,11 @@ public struct SidebarView: View {
     }
 
     private func section(_ items: [SidebarItem]) -> some View {
-        VStack(spacing: model.appearance.iconSpacing) {
+        let spacing = model.appearance.iconSpacing
+        let layout = isVertical
+            ? AnyLayout(VStackLayout(spacing: spacing))
+            : AnyLayout(HStackLayout(spacing: spacing))
+        return layout {
             ForEach(items) { item in
                 SidebarItemView(model: model, item: item, expanded: model.isExpanded)
             }
@@ -67,8 +81,11 @@ public struct SidebarView: View {
     private var separator: some View {
         Rectangle()
             .fill(.separator)
-            .frame(height: Design.separatorHeight)
-            .padding(.horizontal, 4)
+            .frame(
+                width: isVertical ? nil : Design.separatorHeight,
+                height: isVertical ? Design.separatorHeight : nil
+            )
+            .padding(isVertical ? .horizontal : .vertical, 4)
             .accessibilityHidden(true)
     }
 
@@ -78,6 +95,7 @@ public struct SidebarView: View {
             title: String(localized: "Search"),
             iconSize: model.appearance.iconSize,
             expanded: model.isExpanded,
+            isVertical: isVertical,
             hint: String(localized: "Opens the Nexus search palette")
         ) {
             model.openSearch?()
@@ -95,8 +113,11 @@ public struct SidebarView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(height: SidebarLayout.rowHeight(model.appearance))
-        .frame(maxWidth: .infinity)
+        .frame(
+            width: isVertical ? nil : SidebarLayout.rowHeight(model.appearance),
+            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+        )
+        .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
         .accessibilityLabel(String(localized: "No pinned applications"))
         .accessibilityHint(String(localized: "Drag an application here to pin it"))
     }
@@ -111,9 +132,13 @@ struct SidebarItemView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var iconSize: CGFloat { model.appearance.iconSize }
+    private var isVertical: Bool { model.appearance.position.isVertical }
 
     var body: some View {
-        HStack(spacing: 8) {
+        let layout = isVertical
+            ? AnyLayout(HStackLayout(spacing: 8))
+            : AnyLayout(VStackLayout(spacing: 2))
+        return layout {
             ZStack(alignment: .bottomTrailing) {
                 Image(nsImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize))
                     .resizable()
@@ -127,7 +152,7 @@ struct SidebarItemView: View {
                         .accessibilityHidden(true)
                 }
             }
-            if expanded {
+            if expanded, isVertical {
                 Text(item.name)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -135,9 +160,12 @@ struct SidebarItemView: View {
             }
             runningIndicator
         }
-        .padding(.horizontal, 4)
-        .frame(height: SidebarLayout.rowHeight(model.appearance))
-        .frame(maxWidth: .infinity)
+        .padding(isVertical ? .horizontal : .vertical, 4)
+        .frame(
+            width: isVertical ? nil : SidebarLayout.rowHeight(model.appearance),
+            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+        )
+        .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
         .background {
             RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
                 .fill(backgroundStyle)
@@ -244,6 +272,7 @@ struct SidebarGlyphRow: View {
     let title: String
     let iconSize: CGFloat
     let expanded: Bool
+    let isVertical: Bool
     let hint: String
     let action: () -> Void
 
@@ -251,18 +280,21 @@ struct SidebarGlyphRow: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 8) {
+        let layout = isVertical
+            ? AnyLayout(HStackLayout(spacing: 8))
+            : AnyLayout(VStackLayout(spacing: 2))
+        return layout {
             Image(systemName: systemImage)
                 .font(.system(size: iconSize * 0.5))
                 .frame(width: iconSize, height: iconSize)
-            if expanded {
+            if expanded, isVertical {
                 Text(title)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(.horizontal, 4)
-        .frame(height: iconSize + 8)
-        .frame(maxWidth: .infinity)
+        .padding(isVertical ? .horizontal : .vertical, 4)
+        .frame(width: isVertical ? nil : iconSize + 8, height: isVertical ? iconSize + 8 : nil)
+        .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
         .background {
             RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
                 .fill(isHovered ? AnyShapeStyle(.quinary) : AnyShapeStyle(.clear))

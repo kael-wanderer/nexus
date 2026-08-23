@@ -3,12 +3,16 @@ import NexusCore
 
 /// The menu-bar status item — the only chrome an `LSUIElement` app has.
 @MainActor
-final class StatusItemController {
+final class StatusItemController: NSObject, NSMenuDelegate {
     struct Actions {
         var toggleSidebar: (() -> Void)?
         var openSettings: (() -> Void)?
         var runSetupAgain: (() -> Void)?
         var openSearch: (() -> Void)?
+        /// Read live: Dock Replacement Mode is a visible change to the user's system, so the menu
+        /// bar — the one piece of chrome an `LSUIElement` app always has — says so.
+        var isDockHidden: (() -> Bool)?
+        var restoreDock: (() -> Void)?
     }
 
     private var statusItem: NSStatusItem?
@@ -16,6 +20,7 @@ final class StatusItemController {
 
     init(actions: Actions) {
         self.actions = actions
+        super.init()
     }
 
     var isVisible: Bool { statusItem != nil }
@@ -33,7 +38,9 @@ final class StatusItemController {
         )
         item.button?.image?.isTemplate = true
         item.button?.setAccessibilityLabel(String(localized: "Nexus"))
-        item.menu = buildMenu()
+        let menu = buildMenu()
+        menu.delegate = self
+        item.menu = menu
         statusItem = item
         Log.app.debug("Status item installed")
     }
@@ -44,8 +51,32 @@ final class StatusItemController {
         Log.app.debug("Status item removed")
     }
 
+    /// Rebuilt on every open: the Dock rows depend on live state.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        for item in buildMenu().items {
+            menu.addItem(item)
+        }
+    }
+
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
+        if let isDockHidden = actions.isDockHidden {
+            let hidden = isDockHidden()
+            let status = NSMenuItem(
+                title: hidden
+                    ? String(localized: "macOS Dock: Hidden by Nexus")
+                    : String(localized: "macOS Dock: Visible"),
+                action: nil,
+                keyEquivalent: ""
+            )
+            status.isEnabled = false
+            menu.addItem(status)
+            if hidden, actions.restoreDock != nil {
+                menu.addItem(actionItem(String(localized: "Restore macOS Dock"), #selector(restoreDock), ""))
+            }
+            menu.addItem(.separator())
+        }
         if actions.openSearch != nil {
             menu.addItem(actionItem(String(localized: "Search…"), #selector(openSearch), ""))
         }
@@ -74,5 +105,6 @@ final class StatusItemController {
     @objc private func openSettings() { actions.openSettings?() }
     @objc private func runSetupAgain() { actions.runSetupAgain?() }
     @objc private func openSearch() { actions.openSearch?() }
+    @objc private func restoreDock() { actions.restoreDock?() }
     @objc private func quit() { NSApp.terminate(nil) }
 }
