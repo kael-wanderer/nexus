@@ -586,9 +586,10 @@ final class AudioOutputMonitor: @unchecked Sendable {
     }
 
     static func executablePath(of pid: pid_t) -> String? {
-        var buffer = [CChar](repeating: 0, count: 4 * 1_024)
-        guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
-        return String(cString: buffer)
+        var buffer = [UInt8](repeating: 0, count: 4 * 1_024)
+        let length = proc_pidpath(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return nil }
+        return String(decoding: buffer[..<Int(length)], as: UTF8.self)
     }
 
     /// `nil` for a process whose parent is `launchd`, which owns nothing in particular.
