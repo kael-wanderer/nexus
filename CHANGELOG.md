@@ -22,7 +22,16 @@ this project follows [Semantic Versioning](https://semver.org).
   500 ms); moving to another row while one is open switches instantly. Beside a horizontal bar the
   thumbnails sit side by side. Off switch: `behavior.hoverPreview`.
 
+- Start menu (M11, off by default): a browsable grid of every launchable application with a filter
+  field, recents first, and Sleep / Restart / Shut Down / Log Out. `general.showStartMenu` adds a
+  launcher row at the leading end of the bar; `appearance.startMenuCorner` picks which corner it
+  opens from.
+
 ### Fixed
+- Configuration sections decoded strictly, so adding a field reset the whole section on upgrade;
+  every section now decodes field by field (D67).
+- The application index listed background agents, helpers and input methods — 454 bundles where
+  132 are launchable (D68).
 - Window thumbnails were captured and cached but never seen: the flyout panel keeps the frame it
   had when it opened, so an image arriving afterwards was drawn outside it (D65).
 - Window-count badges disagreed with the window list: they counted a browser's find bar and

@@ -485,3 +485,27 @@ Same lesson as D48, in the one place it had survived: `os.Logger.debug` is memor
 capturable window" and "preview unavailable" were invisible in exactly the situation they exist
 for. The "window not found in `SCShareableContent`" branch had no logging at all.
 
+## 2026-08-23 — Milestone 11, start menu
+
+**D67. Every configuration section decodes tolerantly, not just the root.**
+A synthesised `Codable` treats a missing key as an error, so adding one field to
+`AppearanceConfiguration` made the *whole section* fail to decode and fall back to defaults — an
+upgrade would silently reset the user's width, position and opacity. Caught by the existing
+clamping test the moment `startMenuCorner` was added, which means M10's `hoverPreview` had already
+shipped the same trap for `BehaviorConfiguration`. `General`, `Appearance`, `Behavior` and
+`Search` now decode field by field with `decodeIfPresent`, and a regression test loads a payload
+written before those fields existed.
+
+**D68. The application index lists what a person can launch, not every bundle on the disk.**
+Spotlight returns 454 bundles here; the start menu made that visible by showing
+`ABAssistantService`, `AddressBookManager` and `Ainu Input Method` in a grid. Bundles declaring
+`LSUIElement` or `LSBackgroundOnly`, helpers nested inside another `.app`, input methods and the
+`CoreServices` scaffolding are filtered out — 132 remain. The palette gets the same filter, since
+nobody was searching for those either.
+
+**D69. The start menu's height is computed, not measured.**
+A `LazyVGrid` inside a `ScrollView` reports no intrinsic height, so `fittingSize` measured the
+field and the action row alone and the panel opened as a 106 pt sliver. The height comes from the
+row count instead. The panel also has to be told when the index finishes building, since it opens
+before the first build completes — `ApplicationIndex.onIndexed`.
+

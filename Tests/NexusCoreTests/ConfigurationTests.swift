@@ -92,6 +92,42 @@ struct ConfigurationTests {
         #expect(configuration.appearance == AppearanceConfiguration())
     }
 
+    /// A synthesised `Codable` treats a missing key as an error, so a field added in a later
+    /// version would take every other field in its section down with it — the settings would
+    /// silently reset on the first launch after an upgrade (D67).
+    @Test("A configuration written before a field existed keeps the fields it does have")
+    func toleratesMissingKeys() throws {
+        let defaults = makeDefaults()
+        let raw = Data("""
+        {"version":1,
+         "appearance":{"position":"right","width":100,"iconSize":48,"iconSpacing":8,"cornerRadius":16,"opacity":1,"display":{"main":{}},"perDisplay":{}},
+         "behavior":{"autoHide":true,"autoHideDelay":0.8,"hoverExpand":false,"showRunningApplications":false,"showWindowCount":false,"showFavorites":true,"clickBehavior":"showWindowList"},
+         "general":{"launchAtLogin":true,"showInMenuBar":false,"globalShortcutEnabled":false},
+         "search":{"shortcut":{"keyCode":49,"modifiers":256},"searchApplications":true,"searchWindows":true,"searchFiles":false,"searchActions":true,"maximumResults":12}}
+        """.utf8)
+        defaults.set(raw, forKey: ConfigurationStore.defaultKey)
+
+        let configuration = ConfigurationStore(defaults: defaults).load()
+
+        // Stored values survive…
+        #expect(configuration.appearance.position == .right)
+        #expect(configuration.appearance.width == 100)
+        #expect(configuration.behavior.autoHide)
+        #expect(configuration.behavior.clickBehavior == .showWindowList)
+        #expect(configuration.general.launchAtLogin)
+        #expect(configuration.general.showInMenuBar == false)
+        #expect(configuration.search.maximumResults == 12)
+        #expect(configuration.search.searchFiles == false)
+
+        // …and the fields that did not exist yet take their defaults.
+        #expect(configuration.appearance.startMenuCorner == .bottomLeading)
+        #expect(configuration.behavior.hoverPreview)
+        #expect(configuration.behavior.hoverPreviewDelay == 0.5)
+        #expect(configuration.general.showStartMenu == false)
+        #expect(configuration.dock.replacementEnabled == false)
+        #expect(configuration.runningApplicationOrder.isEmpty)
+    }
+
     @Test("Out-of-range appearance values are clamped, not trusted")
     func clamping() throws {
         let defaults = makeDefaults()

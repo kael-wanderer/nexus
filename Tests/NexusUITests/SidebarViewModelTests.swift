@@ -379,6 +379,27 @@ struct SidebarViewModelTests {
         #expect(shown.isEmpty)
     }
 
+    @Test("The start menu row appears only when it is switched on and wired up")
+    func startMenuRow() async {
+        let (model, _, configuration) = makeModel([makeApplication("a", name: "A")], pinned: ["a"])
+        await model.refresh()
+
+        // Not wired: the setting alone must not add a row that does nothing.
+        configuration.update { $0.general.showStartMenu = true }
+        #expect(model.showsStartMenuRow == false)
+        #expect(model.sectionRowCounts == [1, 0, 1])   // pinned, running (none), utility
+
+        model.openStartMenu = {}
+        #expect(model.showsStartMenuRow)
+        #expect(model.sectionRowCounts == [1, 1, 0, 1])
+        // The launcher takes section 0, so the flyout anchors shift with it.
+        #expect(model.pinnedSectionIndex == 1)
+
+        configuration.update { $0.general.showStartMenu = false }
+        #expect(model.showsStartMenuRow == false)
+        #expect(model.pinnedSectionIndex == 0)
+    }
+
     @Test("Hover expand is suppressed when the behaviour is disabled")
     func hoverExpandDisabled() async {
         let (model, _, configuration) = makeModel()

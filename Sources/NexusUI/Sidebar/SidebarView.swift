@@ -47,6 +47,10 @@ public struct SidebarView: View {
 
     private var content: some View {
         axis {
+            if model.showsStartMenuRow {
+                startMenuRow
+                separator
+            }
             if model.showsPlaceholder {
                 placeholder
             }
@@ -88,6 +92,19 @@ public struct SidebarView: View {
             )
             .padding(isVertical ? .horizontal : .vertical, 4)
             .accessibilityHidden(true)
+    }
+
+    private var startMenuRow: some View {
+        SidebarGlyphRow(
+            systemImage: "square.grid.2x2",
+            title: String(localized: "Applications"),
+            iconSize: model.appearance.iconSize,
+            expanded: model.isExpanded,
+            isVertical: isVertical,
+            hint: String(localized: "Opens the start menu")
+        ) {
+            model.openStartMenu?()
+        }
     }
 
     /// Trash and Search. Always present — neither depends on any application being there.

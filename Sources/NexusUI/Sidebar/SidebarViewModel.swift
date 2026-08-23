@@ -35,6 +35,7 @@ public final class SidebarViewModel {
     /// `@Observable`, so SwiftUI still re-renders when these change.
     public var appearance: AppearanceConfiguration { configuration.configuration.appearance }
     public var behavior: BehaviorConfiguration { configuration.configuration.behavior }
+    public var general: GeneralConfiguration { configuration.configuration.general }
 
     /// Hover-expanded (names visible). Never true when `behavior.hoverExpand` is off.
     public var isExpanded = false
@@ -76,6 +77,9 @@ public final class SidebarViewModel {
     @ObservationIgnored public var layoutDidChange: (() -> Void)?
     /// Injected by the composition root at Milestone 5; the search row is hidden until then.
     @ObservationIgnored public var openSearch: (() -> Void)?
+    /// Injected at Milestone 11; the launcher row is hidden until then, and stays hidden unless
+    /// `general.showStartMenu` is on.
+    @ObservationIgnored public var openStartMenu: (() -> Void)?
     /// Injected at Milestone 4; shows the window flyout for an application.
     @ObservationIgnored public var showWindows: ((ApplicationIdentity) -> Void)?
     /// Starts the flyout's grace period — the pointer left a row, but it may be on its way to the
@@ -137,11 +141,20 @@ public final class SidebarViewModel {
     /// The utility section — Trash, then Search — is always present: the Trash row does not
     /// depend on anything being injected, so this section never has fewer than one row.
     public var sectionRowCounts: [Int] {
-        var counts = [pinned.count]
+        var counts: [Int] = []
+        if showsStartMenuRow { counts.append(1) }
+        counts.append(pinned.count)
         if behavior.showRunningApplications { counts.append(running.count) }
         counts.append(openSearch == nil ? 1 : 2)
         return counts
     }
+
+    public var showsStartMenuRow: Bool { general.showStartMenu && openStartMenu != nil }
+
+    /// Section indices for the flyout anchor. `SidebarLayout` skips empty sections, so these are
+    /// counted the same way.
+    public var pinnedSectionIndex: Int { showsStartMenuRow ? 1 : 0 }
+    public var runningSectionIndex: Int { pinnedSectionIndex + (pinned.isEmpty ? 0 : 1) }
 
     public var showsPlaceholder: Bool {
         pinned.isEmpty && (running.isEmpty || !behavior.showRunningApplications)

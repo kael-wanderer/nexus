@@ -39,6 +39,9 @@ public final class ApplicationIndex {
     }
 
     public var isUsingDirectoryFallback: Bool { usedFallback }
+    /// Called on the main actor when a build finishes. The start menu opens before the first
+    /// build can complete, so it needs telling rather than polling.
+    public var onIndexed: (() -> Void)?
 
     public func start() {
         let stream = events.events()
@@ -85,6 +88,7 @@ public final class ApplicationIndex {
             }
             self.snapshot.write(Self.applications(from: urls))
             Log.search.notice("Application index: \(self.snapshot.read().count, privacy: .public) applications")
+            self.onIndexed?()
         }
     }
 
@@ -109,12 +113,38 @@ public final class ApplicationIndex {
         return found
     }
 
+    /// Spotlight returns every application bundle on the disk, most of which nobody launches:
+    /// agents that declare `LSUIElement` or `LSBackgroundOnly`, helpers nested inside another
+    /// bundle, input methods, and the `CoreServices` scaffolding behind "About This Mac" (D68).
+    static func isLaunchable(_ url: URL, _ bundle: Bundle) -> Bool {
+        if bundle.object(forInfoDictionaryKey: "LSUIElement") as? Bool == true { return false }
+        if bundle.object(forInfoDictionaryKey: "LSBackgroundOnly") as? Bool == true { return false }
+        // "1"/"YES" appear as strings in older bundles.
+        if let raw = bundle.object(forInfoDictionaryKey: "LSUIElement") as? String, raw != "0" {
+            return false
+        }
+        let path = url.path
+        // A helper inside another application, e.g. Foo.app/Contents/…/Foo Helper.app.
+        if path.contains(".app/Contents/") { return false }
+        let excludedPrefixes = [
+            "/System/Library/CoreServices",
+            "/System/Library/PrivateFrameworks",
+            "/System/Library/Frameworks",
+            "/System/Library/Input Methods",
+            "/Library/Input Methods",
+            "/System/Library/Assistant",
+            "/System/iOSSupport",
+        ]
+        return !excludedPrefixes.contains { path.hasPrefix($0) }
+    }
+
     static func applications(from urls: [URL]) -> [NexusApplication] {
         var seen = Set<String>()
         var applications: [NexusApplication] = []
         for url in urls {
             guard let bundle = Bundle(url: url),
                   let identifier = bundle.bundleIdentifier,
+                  Self.isLaunchable(url, bundle),
                   seen.insert(identifier).inserted
             else { continue }
             let name = (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)

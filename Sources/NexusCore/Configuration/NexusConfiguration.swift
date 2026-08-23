@@ -22,6 +22,14 @@ public enum SidebarPosition: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// Which corner the start menu opens from.
+public enum StartMenuCorner: String, Codable, Sendable, CaseIterable {
+    case bottomLeading
+    case bottomTrailing
+    case topLeading
+    case topTrailing
+}
+
 public enum ClickBehavior: String, Codable, Sendable, CaseIterable {
     case activateOrLaunch
     case showWindowList
@@ -85,7 +93,20 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
     public var launchAtLogin = false
     public var showInMenuBar = true
     public var globalShortcutEnabled = true
+    /// An addition, not a replacement for the palette — off until asked for (M11).
+    public var showStartMenu = false
     public init() {}
+
+    /// Tolerant like `NexusConfiguration`'s: a synthesised decoder treats a missing key as an
+    /// error, so adding a field would silently reset every other field in the section on the
+    /// first launch after an upgrade (D67).
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        showInMenuBar = try container.decodeIfPresent(Bool.self, forKey: .showInMenuBar) ?? true
+        globalShortcutEnabled = try container.decodeIfPresent(Bool.self, forKey: .globalShortcutEnabled) ?? true
+        showStartMenu = try container.decodeIfPresent(Bool.self, forKey: .showStartMenu) ?? false
+    }
 }
 
 public struct AppearanceConfiguration: Codable, Sendable, Equatable {
@@ -97,6 +118,7 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
     public var opacity: Double = 1.0         // 0.3...1.0
     public var display: DisplayPreference = .main
     public var perDisplay: [String: DisplayOverride] = [:]
+    public var startMenuCorner: StartMenuCorner = .bottomLeading
     public init() {}
 
     public static let widthRange: ClosedRange<Double> = 44...120
@@ -104,6 +126,20 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
     public static let iconSpacingRange: ClosedRange<Double> = 0...24
     public static let cornerRadiusRange: ClosedRange<Double> = 0...32
     public static let opacityRange: ClosedRange<Double> = 0.3...1.0
+
+    /// Tolerant decode: a key added in a later version must not reset the rest (D67).
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        position = try container.decodeIfPresent(SidebarPosition.self, forKey: .position) ?? .left
+        width = try container.decodeIfPresent(Double.self, forKey: .width) ?? 64
+        iconSize = try container.decodeIfPresent(Double.self, forKey: .iconSize) ?? 40
+        iconSpacing = try container.decodeIfPresent(Double.self, forKey: .iconSpacing) ?? 8
+        cornerRadius = try container.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 16
+        opacity = try container.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
+        display = try container.decodeIfPresent(DisplayPreference.self, forKey: .display) ?? .main
+        perDisplay = try container.decodeIfPresent([String: DisplayOverride].self, forKey: .perDisplay) ?? [:]
+        startMenuCorner = try container.decodeIfPresent(StartMenuCorner.self, forKey: .startMenuCorner) ?? .bottomLeading
+    }
 
     /// Values arriving from a decoded file or a future migration are clamped rather than trusted.
     public mutating func clamp() {
@@ -133,6 +169,21 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
 
     public static let hoverPreviewDelayRange: ClosedRange<Double> = 0.2...1.5
 
+    /// Tolerant decode: a key added in a later version must not reset the rest (D67).
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        autoHide = try container.decodeIfPresent(Bool.self, forKey: .autoHide) ?? false
+        autoHideDelay = try container.decodeIfPresent(Double.self, forKey: .autoHideDelay) ?? 0.4
+        hoverExpand = try container.decodeIfPresent(Bool.self, forKey: .hoverExpand) ?? true
+        hoverPreview = try container.decodeIfPresent(Bool.self, forKey: .hoverPreview) ?? true
+        hoverPreviewDelay = try container.decodeIfPresent(Double.self, forKey: .hoverPreviewDelay) ?? 0.5
+        showRunningApplications = try container.decodeIfPresent(Bool.self, forKey: .showRunningApplications) ?? true
+        showWindowCount = try container.decodeIfPresent(Bool.self, forKey: .showWindowCount) ?? true
+        showFavorites = try container.decodeIfPresent(Bool.self, forKey: .showFavorites) ?? true
+        clickBehavior = try container.decodeIfPresent(ClickBehavior.self, forKey: .clickBehavior) ?? .activateOrLaunch
+        reduceMotionOverride = try container.decodeIfPresent(Bool.self, forKey: .reduceMotionOverride)
+    }
+
     public mutating func clamp() {
         autoHideDelay = autoHideDelay.clamped(to: 0.1...5)
         hoverPreviewDelay = hoverPreviewDelay.clamped(to: Self.hoverPreviewDelayRange)
@@ -147,6 +198,17 @@ public struct SearchConfiguration: Codable, Sendable, Equatable {
     public var searchActions = true
     public var maximumResults = 20
     public init() {}
+
+    /// Tolerant decode: a key added in a later version must not reset the rest (D67).
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        shortcut = try container.decodeIfPresent(KeyboardShortcut.self, forKey: .shortcut) ?? .optionSpace
+        searchApplications = try container.decodeIfPresent(Bool.self, forKey: .searchApplications) ?? true
+        searchWindows = try container.decodeIfPresent(Bool.self, forKey: .searchWindows) ?? true
+        searchFiles = try container.decodeIfPresent(Bool.self, forKey: .searchFiles) ?? true
+        searchActions = try container.decodeIfPresent(Bool.self, forKey: .searchActions) ?? true
+        maximumResults = try container.decodeIfPresent(Int.self, forKey: .maximumResults) ?? 20
+    }
 }
 
 /// The user's `com.apple.dock` settings as they were before Nexus touched them.

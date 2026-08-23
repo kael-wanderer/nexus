@@ -64,6 +64,26 @@ struct GeneralPane: View {
                 )
             }
             Section {
+                Toggle(
+                    String(localized: "Show the start menu button"),
+                    isOn: binding(\.general.showStartMenu)
+                )
+                if configuration.configuration.general.showStartMenu {
+                    Picker(
+                        String(localized: "Opens from"),
+                        selection: configuration.binding(\.appearance.startMenuCorner)
+                    ) {
+                        Text("Bottom left").tag(StartMenuCorner.bottomLeading)
+                        Text("Bottom right").tag(StartMenuCorner.bottomTrailing)
+                        Text("Top left").tag(StartMenuCorner.topLeading)
+                        Text("Top right").tag(StartMenuCorner.topTrailing)
+                    }
+                }
+                Text("A browsable grid of everything installed, for the applications you cannot name from memory.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Button(String(localized: "Run Setup Again…"), action: runOnboarding)
             }
         }

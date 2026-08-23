@@ -177,7 +177,7 @@ public final class PanelController {
         if let row = model.pinned.firstIndex(where: { $0.identity == identity }) {
             return SidebarLayout.rowCentre(
                 sectionRowCounts: counts,
-                section: 0,
+                section: model.pinnedSectionIndex,
                 row: row,
                 appearance: model.appearance
             )
@@ -185,7 +185,7 @@ public final class PanelController {
         if let row = model.running.firstIndex(where: { $0.identity == identity }) {
             return SidebarLayout.rowCentre(
                 sectionRowCounts: counts,
-                section: model.pinned.isEmpty ? 0 : 1,
+                section: model.runningSectionIndex,
                 row: row,
                 appearance: model.appearance
             )

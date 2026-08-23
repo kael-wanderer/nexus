@@ -23,6 +23,8 @@ final class Composition {
     let searchModel: SearchViewModel
     let panels: PanelController
     let searchPanel: SearchPanelController
+    let startMenuModel: StartMenuViewModel
+    let startMenu: StartMenuPanelController
     let onboardingModel: OnboardingViewModel
     let dockReplacement: DockReplacementController
 
@@ -80,6 +82,12 @@ final class Composition {
             events: events
         )
         searchPanel = SearchPanelController(model: searchModel)
+        startMenuModel = StartMenuViewModel(
+            index: applicationIndex.snapshot,
+            configuration: configuration,
+            launcher: applications
+        )
+        startMenu = StartMenuPanelController(model: startMenuModel, configuration: configuration)
         dockReplacement = DockReplacementController(
             configuration: configuration,
             dock: DockControlService()
@@ -112,6 +120,8 @@ final class Composition {
             Task { [windows] in try? await windows.activate(identity) }
         }
         sidebarModel.openSearch = { [weak self] in self?.searchPanel.show() }
+        sidebarModel.openStartMenu = { [weak self] in self?.showStartMenu() }
+        applicationIndex.onIndexed = { [weak self] in self?.startMenuModel.indexChanged() }
 
         searchModel.frontmostApplication = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
         searchModel.onExecute = { [weak self] result, secondary in self?.execute(result, secondary: secondary) }
@@ -121,6 +131,7 @@ final class Composition {
         flyoutModel.start()
         panels.start()
         searchPanel.start()
+        startMenu.start()
         applicationMonitor.start()
         windowMonitor.start()
         applicationIndex.start()
@@ -254,6 +265,7 @@ final class Composition {
         var lastShortcut = configuration.configuration.search.shortcut
         var lastEnabled = configuration.configuration.general.globalShortcutEnabled
         var lastPosition = configuration.configuration.appearance.position
+        var lastShowStartMenu = configuration.configuration.general.showStartMenu
         configurationTask = Task { [weak self] in
             for await event in stream {
                 guard let self else { return }
@@ -268,6 +280,10 @@ final class Composition {
                 if updated.appearance.position != lastPosition {
                     lastPosition = updated.appearance.position
                     self.dockReplacement.sidebarPositionChanged()
+                }
+                if updated.general.showStartMenu != lastShowStartMenu {
+                    lastShowStartMenu = updated.general.showStartMenu
+                    self.sidebarModel.configurationChanged()
                 }
             }
         }
@@ -294,6 +310,11 @@ final class Composition {
         }
     }
 
+    func showStartMenu() {
+        applicationIndex.ensureBuilt()
+        startMenu.toggle()
+    }
+
     func statusItemActions() -> StatusItemController.Actions {
         StatusItemController.Actions(
             toggleSidebar: { [weak self] in self?.panels.toggleSidebar() },
@@ -313,6 +334,7 @@ final class Composition {
         hotKeys.stop()
         settingsWindow?.stop()
         onboardingWindow?.stop()
+        startMenu.stop()
         searchPanel.stop()
         applicationIndex.stop()
         windowMonitor.stop()
