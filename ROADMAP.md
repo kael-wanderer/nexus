@@ -402,7 +402,8 @@ Spec: `docs/design/search-scope.md`.
   `appearance.mediaContent`.
 - One view spanning four rows' extent, so the layout maths stays row-based (D82).
 - A narrow vertical bar stays compact; hover-expanding it makes it wide.
-- Popovers close on a click outside (D81).
+- Popovers close on a click outside (D81) — and the player's own popover is gone, since the row shows
+  everything it did (D85).
 
 **Permissions:** none new.
 

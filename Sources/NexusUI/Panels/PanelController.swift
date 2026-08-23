@@ -9,7 +9,6 @@ public final class PanelController {
     private let model: SidebarViewModel
     private let flyoutModel: WindowFlyoutViewModel
     private let groupModel: GroupPopoverViewModel
-    private let nowPlayingModel: NowPlayingPopoverViewModel
     private let permissions: any PermissionChecking
     private let configuration: ConfigurationController
     private let events: EventBus
@@ -22,9 +21,6 @@ public final class PanelController {
     private var groupPanel: NonActivatingPanel?
     private var groupHosting: NSView?
     private var groupHideTask: Task<Void, Never>?
-    private var nowPlayingPanel: NonActivatingPanel?
-    private var nowPlayingHosting: NSView?
-    private var nowPlayingHideTask: Task<Void, Never>?
     /// Clicks elsewhere close the popovers. A non-activating panel never loses key status — it never
     /// had any — so nothing else would (D81).
     private var outsideClickMonitor: Any?
@@ -45,7 +41,6 @@ public final class PanelController {
         model: SidebarViewModel,
         flyoutModel: WindowFlyoutViewModel,
         groupModel: GroupPopoverViewModel,
-        nowPlayingModel: NowPlayingPopoverViewModel,
         permissions: any PermissionChecking,
         configuration: ConfigurationController,
         events: EventBus
@@ -53,7 +48,6 @@ public final class PanelController {
         self.model = model
         self.flyoutModel = flyoutModel
         self.groupModel = groupModel
-        self.nowPlayingModel = nowPlayingModel
         self.permissions = permissions
         self.configuration = configuration
         self.events = events
@@ -91,15 +85,6 @@ public final class PanelController {
         groupHosting = groupHostingView
         groupPanel = NonActivatingPanel(contentView: groupHostingView)
 
-        model.showNowPlaying = { [weak self] playing in self?.showNowPlaying(playing) }
-        model.hideNowPlaying = { [weak self] in self?.nowPlayingModel.hide() }
-        nowPlayingModel.onDismiss = { [weak self] in self?.hideNowPlayingPanel() }
-        let nowPlayingHostingView = FirstMouseHostingView(
-            rootView: NowPlayingPopoverView(model: nowPlayingModel)
-                .onHover { [weak self] hovering in self?.nowPlayingHoverChanged(hovering) }
-        )
-        nowPlayingHosting = nowPlayingHostingView
-        nowPlayingPanel = NonActivatingPanel(contentView: nowPlayingHostingView)
 
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -134,32 +119,12 @@ public final class PanelController {
         eventTask?.cancel()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         groupHideTask?.cancel()
-        nowPlayingHideTask?.cancel()
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
         sidebarPanel?.orderOut(nil)
         edgePanel?.orderOut(nil)
         flyoutPanel?.orderOut(nil)
         groupPanel?.orderOut(nil)
-        nowPlayingPanel?.orderOut(nil)
-    }
-
-    // MARK: - Now playing
-
-    private func showNowPlaying(_ playing: NowPlaying) {
-        nowPlayingHideTask?.cancel()
-        hideFlyout()
-        nowPlayingModel.show(playing, position: model.nowPlayingPosition)
-        layoutNowPlaying()
-        nowPlayingPanel?.orderFrontRegardless()
-        installOutsideClickMonitor()
-    }
-
-    private func hideNowPlayingPanel() {
-        nowPlayingHideTask?.cancel()
-        nowPlayingHideTask = nil
-        nowPlayingPanel?.orderOut(nil)
-        removeOutsideClickMonitorIfIdle()
     }
 
     // MARK: - Dismissing the popovers
@@ -180,10 +145,6 @@ public final class PanelController {
         // The bar itself is not "outside": clicking the media row is what opened this.
         if let sidebar = sidebarPanel, sidebar.frame.contains(point) { return }
 
-        if nowPlayingModel.isShowing,
-           nowPlayingPanel?.frame.contains(point) != true {
-            nowPlayingModel.hide()
-        }
         if groupModel.group != nil, groupPanel?.frame.contains(point) != true {
             groupModel.hide()
         }
@@ -191,63 +152,11 @@ public final class PanelController {
     }
 
     private func removeOutsideClickMonitorIfIdle() {
-        guard !nowPlayingModel.isShowing, groupModel.group == nil else { return }
+        guard groupModel.group == nil else { return }
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
     }
 
-    private func nowPlayingHoverChanged(_ hovering: Bool) {
-        guard !hovering else {
-            nowPlayingHideTask?.cancel()
-            nowPlayingHideTask = nil
-            return
-        }
-        nowPlayingHideTask?.cancel()
-        nowPlayingHideTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(400))
-            guard !Task.isCancelled else { return }
-            self?.nowPlayingModel.hide()
-        }
-    }
-
-    /// Keeps an open flyout in step with the track, and follows the row when the bar moves.
-    public func nowPlayingChanged() {
-        nowPlayingModel.update(model.nowPlaying, position: model.nowPlayingPosition)
-        guard nowPlayingModel.isShowing else { return }
-        layoutNowPlaying()
-    }
-
-    private func layoutNowPlaying() {
-        guard let panel = nowPlayingPanel,
-              let hosting = nowPlayingHosting,
-              let sidebar = sidebarPanel,
-              let screen = targetScreen,
-              nowPlayingModel.isShowing
-        else { return }
-
-        hosting.layoutSubtreeIfNeeded()
-        let margin = SidebarLayout.screenMargin * 2
-        let fitting = hosting.fittingSize
-        let size = CGSize(
-            width: min(fitting.width, screen.visibleFrame.width - margin),
-            height: min(fitting.height, screen.visibleFrame.height - margin)
-        )
-        panel.setFrame(
-            SidebarLayout.flyoutFrame(
-                size: size,
-                beside: sidebar.frame,
-                anchor: anchorOffset(forRow: Self.nowPlayingRowID),
-                in: screen.visibleFrame,
-                position: model.appearance.position
-            ),
-            display: true
-        )
-    }
-
-    /// The now-playing row is not an application, so it has no bundle identifier to anchor on. It
-    /// is the first row of the tail, which `anchorOffset` finds by falling through to the last
-    /// section.
-    static let nowPlayingRowID = "com.congbui.nexus.now-playing"
 
     // MARK: - Group popover
 
@@ -398,16 +307,6 @@ public final class PanelController {
     /// group is the group's row, not one of its own.
     private func anchorOffset(forRow id: String) -> CGFloat {
         let counts = model.sectionRowCounts
-        // The now-playing row is not an application: it is the first row of the tail.
-        if id == Self.nowPlayingRowID {
-            let sections = counts.filter { $0 > 0 }
-            return SidebarLayout.rowCentre(
-                sectionRowCounts: counts,
-                section: max(0, sections.count - 1),
-                row: 0,
-                appearance: model.appearance
-            )
-        }
         if let row = model.pinned.firstIndex(where: { row in
             row.id == id || row.group?.items.contains { $0.id == id } == true
         }) {
@@ -473,7 +372,6 @@ public final class PanelController {
         updateEdgePanel()
         onBarFrameChange?()
         if groupModel.group != nil { layoutGroup() }
-        if nowPlayingModel.isShowing { layoutNowPlaying() }
     }
 
     /// What Reserved Space needs to know: where the bar is, and on which screen. `nil` whenever

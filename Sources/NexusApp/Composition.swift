@@ -21,7 +21,6 @@ final class Composition {
     let sidebarModel: SidebarViewModel
     let flyoutModel: WindowFlyoutViewModel
     let groupModel: GroupPopoverViewModel
-    let nowPlayingModel: NowPlayingPopoverViewModel
     let nowPlaying: NowPlayingService
     let searchModel: SearchViewModel
     let panels: PanelController
@@ -80,13 +79,11 @@ final class Composition {
             index: applicationIndex.snapshot
         )
         groupModel = GroupPopoverViewModel()
-        nowPlayingModel = NowPlayingPopoverViewModel()
         nowPlaying = NowPlayingService()
         panels = PanelController(
             model: sidebarModel,
             flyoutModel: flyoutModel,
             groupModel: groupModel,
-            nowPlayingModel: nowPlayingModel,
             permissions: permissions,
             configuration: configuration,
             events: events
@@ -153,13 +150,6 @@ final class Composition {
         // Now playing (M15): the metadata is pushed by the players that publish it, the controls
         // are media keys, and the flyout follows the track.
         sidebarModel.mediaCommand = { [weak self] key in self?.nowPlaying.send(key) }
-        nowPlayingModel.artwork = { [weak self] size in
-            self?.sidebarModel.nowPlayingArtwork(size: size) ?? NSImage()
-        }
-        nowPlayingModel.toggle = { [weak self] in self?.nowPlaying.toggle() }
-        nowPlayingModel.next = { [weak self] in self?.nowPlaying.next() }
-        nowPlayingModel.previous = { [weak self] in self?.nowPlaying.previous() }
-        nowPlayingModel.seek = { [weak self] seconds in self?.nowPlaying.seek(to: seconds) }
         sidebarModel.setPlayerVisible = { [weak self] visible in
             self?.nowPlaying.setPlayerVisible(visible)
         }
@@ -215,7 +205,6 @@ final class Composition {
                 players: nowPlaying.audioPlayers,
                 position: nowPlaying.position
             )
-            panels.nowPlayingChanged()
         }
         nowPlaying.start()
         sidebarModel.nowPlayingChanged(

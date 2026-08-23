@@ -75,6 +75,12 @@ this project follows [Semantic Versioning](https://semver.org).
   title). A left or right bar stays compact unless hover has expanded it, because a 56 pt scrubber
   cannot be dragged (D82).
 
+### Removed
+- The media player's popover. The wide row shows artwork, title, timeline and buttons itself, so the
+  popover was a second copy of all four, one hover away — and it took a panel, a grace period, a
+  click monitor and a re-layout per track with it. The full title now lives in the row's context
+  menu, which is where a compact bar needs it (D85).
+
 ### Fixed
 - The media player's buttons did nothing for VLC, and pausing deleted the player entirely: the row
   existed only while CoreAudio reported sound, and the transport went out as a media key, which

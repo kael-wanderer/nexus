@@ -709,3 +709,18 @@ The row is 72 points tall and the scrubber with its clocks needs about 40, so th
 `mediaContent` still chooses what the middle is *for* — a scrubber with a name over it, or the track
 and artist alone — but the progress mode no longer hides what is playing.
 
+**D85. The media player has no popover.**
+It had one because for a while it *was* the player: two tiles in the bar could not hold a scrubber,
+so the controls lived a hover away. The wide row (D82) put artwork, title, timeline and buttons on
+the row itself, which made the popover a second copy of the same four things — and a hover between
+you and the buttons you were looking at.
+
+So it is gone, along with a panel, a 400 ms hover-out grace period, a re-layout on every track
+change, a click monitor to dismiss it, and an anchor sentinel in `PanelController` for a row that is
+not an application. Nothing opens when the pointer crosses the player now.
+
+The one thing it held that the row cannot is a full, untruncated title, which is real on a compact
+bar where the row is 64 points wide. That moved into the row's context menu as a disabled header —
+right-click the player and it says what is playing. The group popover and the window flyout keep
+their panels: those show things that genuinely do not fit in a bar.
+

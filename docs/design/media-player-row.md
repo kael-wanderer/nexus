@@ -26,15 +26,14 @@ vertical bar (left/right)          horizontal bar (top/bottom)
 └──────────────┘
 ```
 
-- **Collapsed** (a narrow bar, no hover): artwork with the waveform badge, exactly as now. The row
-  is one tile wide, because that is all a 64 pt bar has.
-- **Expanded** (hover-expand on a vertical bar, or a horizontal bar with room): title, three
-  buttons, and the timeline inline. No flyout involved.
-- **Hover on a collapsed row**: the same player as a popover — because a single tile cannot hold
-  three buttons and a scrubber. This is the flyout that exists today, with the timeline added, and
-  it opens *immediately* rather than after the preview delay: it is a control, not a preview.
+- **Compact** (a narrow vertical bar): artwork with the waveform badge and a progress line along its
+  bottom edge, then the three buttons as a row of their own. Two tiles, because that is what a 64 pt
+  bar has.
+- **Wide** (a horizontal bar, or a hover-expanded vertical one): the player icon, the track name, the
+  timeline with its clocks and the three buttons, all on one row.
 
-No window previews, ever. The row is not an application.
+**Nothing opens on hover.** Not window previews — the row is not an application — and, since D85,
+not a popover either. Everything the player has is on the row.
 
 ## The timeline
 
@@ -124,9 +123,9 @@ wide player is **one view spanning four rows' worth of extent**, so `sectionExte
   64 pt bar give a scrubber 56 points long, which is 43 seconds per point on a 40-minute film.
   Hover-expanding a vertical bar makes it wide, since the bar is 220 points then.
 
-The inline scrubber is coarser than the popover's — 200 points across a 40-minute film is about
-twelve seconds per point — so the popover stays for precision, and now closes on a click outside
-rather than only when the pointer leaves (D81).
+The inline scrubber runs about twelve seconds per point on a 40-minute film. That is the resolution
+the bar has, and since D85 it is the only one: coarse for frame-accurate seeking, fine for "back a
+bit", and the player's own window is where anyone doing the former is already looking.
 
 ## Tests
 
@@ -152,4 +151,19 @@ player, and is it playing".
 
 Verified live: clicking play in the bar takes VLC from `playing: false` to `true`; clicking again
 pauses it and the row stays, with its title, its position, and a play button.
+
+## The popover, and why it went (D85)
+
+The popover was the player until the wide row existed. Then it was a second copy of the same four
+things — artwork, title, timeline, buttons — one hover away from the first, and the row it belonged
+to no longer needed it: everything fits on the row itself.
+
+What it uniquely held was a **two-line, untruncated title**. That moved into the row's context menu
+as a disabled header, which is where a compact bar — 64 points wide, artwork and a progress line and
+nothing else — now shows what is playing.
+
+What it cost, beyond the code: a panel, a hover-out grace period, a re-layout on every track change,
+a global click monitor to dismiss it, and an anchor sentinel in `PanelController` for a row that is
+not an application. All of that is gone; the group popover and the window flyout keep the machinery
+they actually need.
 

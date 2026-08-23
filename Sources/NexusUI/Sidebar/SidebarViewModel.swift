@@ -165,8 +165,6 @@ public final class SidebarViewModel {
     /// Transport controls and the now-playing flyout. Injected at Milestone 15; without them the
     /// row is absent whatever the setting says.
     @ObservationIgnored public var mediaCommand: ((MediaKey) -> Void)?
-    @ObservationIgnored public var showNowPlaying: ((NowPlaying) -> Void)?
-    @ObservationIgnored public var hideNowPlaying: (() -> Void)?
     /// Tells the service whether anybody is looking at the player, since that is what gates reading
     /// its position at all (M16).
     @ObservationIgnored public var setPlayerVisible: ((Bool) -> Void)?
@@ -785,7 +783,6 @@ public final class SidebarViewModel {
             // Nexus allows itself (M16).
             setPlayerVisible?(showsNowPlayingRow)
         }
-        if !showsNowPlayingRow { hideNowPlaying?() }
     }
 
     public func seekPlayback(to seconds: Double) { seekPlayer?(seconds) }
@@ -793,14 +790,6 @@ public final class SidebarViewModel {
     public func togglePlayback() { mediaCommand?(.play) }
     public func nextTrack() { mediaCommand?(.next) }
     public func previousTrack() { mediaCommand?(.previous) }
-
-    public func nowPlayingHoverChanged(_ hovering: Bool) {
-        guard hovering else {
-            scheduleFlyoutHide?()
-            return
-        }
-        showNowPlaying?(nowPlaying)
-    }
 
     /// Artwork, or the player's own icon. Neither Music nor Spotify puts artwork in the
     /// notification, so in practice this is the icon — the one image macOS will hand over for
