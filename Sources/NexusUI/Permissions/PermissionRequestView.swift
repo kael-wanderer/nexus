@@ -62,7 +62,7 @@ public struct PermissionRequestView: View {
                         }
                     }
                 }
-                if didOpenSettings, permission == .accessibility {
+                if didOpenSettings {
                     alreadyGrantedRemedy
                 }
             }
@@ -80,9 +80,10 @@ public struct PermissionRequestView: View {
         }
     }
 
-    /// macOS hands a process its Accessibility trust at launch. If the switch is already on in
-    /// System Settings but this process still reads as untrusted, a restart is the only fix —
-    /// so say so, and offer to do it.
+    /// macOS hands a process both of these at launch — Accessibility trust and screen-capture
+    /// access are read once and cached for the life of the process. If the switch is already on in
+    /// System Settings but this process still reads as denied, a restart is the only fix — so say
+    /// so, and offer to do it.
     private var alreadyGrantedRemedy: some View {
         VStack(alignment: .leading, spacing: 6) {
             Divider()
