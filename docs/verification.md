@@ -103,3 +103,19 @@ mean the grants those tools need were off. The build installs and runs; the sect
 ordering, the setting and the restore path are unit-tested (8 tests). What has not been seen is a
 real window being minimized and a row appearing for it. That, and M21's Finder drag, are the two
 things to check first in the next session with the permissions back.
+
+## Milestone 23, and what the machine would and would not answer — 2026-08-23, 18:10
+
+| Check | Result |
+|---|---|
+| Both hotkeys register on the real machine | Pass, from the log of the installed build: `Global shortcut registered for search (key 49, modifiers 2048)` and `Global shortcut registered for focusBar (key 99, modifiers 4096)`. So `⌃F3` is not owned by anything else here, and the per-slot registration works outside the tests |
+| The build starts clean with everything of M21–M23 in it | Pass: `Nexus launched in 994 ms`, `Sidebar rows: 5 pinned, 17 running` |
+| System Settings panes are real | Pass, in the test suite rather than by hand: the suite reads `/System/Library/ExtensionKit/Extensions` on the machine it runs on and requires Displays and Keyboard to be among the panes it finds |
+| Keyboard mode end to end, the Finder drag (M21), minimising a window (M22) | **Not verified.** `screencapture` returns the desktop picture with no windows, an `AXUIElement` walk of Nexus returns only the application element, and Nexus publishes no AX windows at all — the signature of a locked or screen-savered Mac, with System Settings frontmost since 17:00. Driving synthetic keys and drags into that would prove nothing |
+
+The three pending checks, for whoever is next at the keyboard:
+
+1. Drag a folder onto the bar and click it (M21).
+2. Minimise a window and look before the Trash; click the row to restore it (M22).
+3. Press `⌃F3`, walk with the arrows, press Return, then press Escape and type into whatever was
+   in front — no click in between (M23).
