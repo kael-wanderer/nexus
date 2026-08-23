@@ -119,9 +119,14 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
     public var display: DisplayPreference = .main
     public var perDisplay: [String: DisplayOverride] = [:]
     public var startMenuCorner: StartMenuCorner = .bottomLeading
+    /// How many rows each section of the bar shows before it scrolls inside itself (M14). Counted
+    /// in rows, so a group counts once — which is what makes groups worth having.
+    public var pinnedLimit = 10
+    public var runningLimit = 5
     public init() {}
 
     public static let widthRange: ClosedRange<Double> = 44...120
+    public static let rowLimitRange: ClosedRange<Int> = 1...40
     public static let iconSizeRange: ClosedRange<Double> = 24...96
     public static let iconSpacingRange: ClosedRange<Double> = 0...24
     public static let cornerRadiusRange: ClosedRange<Double> = 0...32
@@ -139,6 +144,8 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
         display = try container.decodeIfPresent(DisplayPreference.self, forKey: .display) ?? .main
         perDisplay = try container.decodeIfPresent([String: DisplayOverride].self, forKey: .perDisplay) ?? [:]
         startMenuCorner = try container.decodeIfPresent(StartMenuCorner.self, forKey: .startMenuCorner) ?? .bottomLeading
+        pinnedLimit = try container.decodeIfPresent(Int.self, forKey: .pinnedLimit) ?? 10
+        runningLimit = try container.decodeIfPresent(Int.self, forKey: .runningLimit) ?? 5
     }
 
     /// Values arriving from a decoded file or a future migration are clamped rather than trusted.
@@ -148,6 +155,8 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
         iconSpacing = iconSpacing.clamped(to: Self.iconSpacingRange)
         cornerRadius = cornerRadius.clamped(to: Self.cornerRadiusRange)
         opacity = opacity.clamped(to: Self.opacityRange)
+        pinnedLimit = min(max(pinnedLimit, Self.rowLimitRange.lowerBound), Self.rowLimitRange.upperBound)
+        runningLimit = min(max(runningLimit, Self.rowLimitRange.lowerBound), Self.rowLimitRange.upperBound)
     }
 }
 

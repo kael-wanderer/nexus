@@ -313,8 +313,13 @@ public final class PanelController {
     public func reframe(animated: Bool) {
         guard let panel = sidebarPanel, let screen = targetScreen, !isSuppressed else { return }
         let appearance = model.appearance
+        // The bar's zones depend on how much screen there is along its own axis (M14), which only
+        // this knows.
+        let visible = screen.visibleFrame
+        model.availableExtent = (appearance.position.isVertical ? visible.height : visible.width)
+            - SidebarLayout.screenMargin * 2
         let size = SidebarLayout.size(
-            sectionRowCounts: model.sectionRowCounts,
+            zones: model.zones,
             appearance: appearance,
             expanded: model.isExpanded
         )

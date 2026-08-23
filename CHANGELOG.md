@@ -40,7 +40,14 @@ this project follows [Semantic Versioning](https://semver.org).
   list of bundle identifiers. A v1 dock migrates to the same dock in the same order, and the v1
   key is still written so a downgrade keeps working (D72).
 
+- Bar zones (M14): a fixed head (start menu), a scrolling middle (pinned, then running) and a
+  fixed tail (Trash, Search). Row budgets per section — `appearance.pinnedLimit` (10) and
+  `appearance.runningLimit` (5), Settings → Appearance — with a two-row floor for running so a full
+  dock never hides what is open. Overflow scrolls inside its own section (D73).
+
 ### Fixed
+- With enough applications running, Trash and Search scrolled off the end of the bar: everything
+  was in one scroll view, clamped to the screen. They now live in a zone that cannot scroll (D73).
 - The start menu drew a tile with no caption for any bundle shipping an empty `CFBundleName`; an
   empty name now falls through to the file name like a missing one.
 - "Show windows on hover" read as the window list rather than the previews it controls, and the

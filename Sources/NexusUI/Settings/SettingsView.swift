@@ -228,6 +228,29 @@ struct AppearancePane: View {
                 slider(String(localized: "Corner radius"), \.appearance.cornerRadius, AppearanceConfiguration.cornerRadiusRange, step: 1)
                 slider(String(localized: "Opacity"), \.appearance.opacity, AppearanceConfiguration.opacityRange, step: 0.05)
             }
+            Section {
+                Stepper(
+                    value: configuration.binding(\.appearance.pinnedLimit),
+                    in: AppearanceConfiguration.rowLimitRange
+                ) {
+                    LabeledContent(
+                        String(localized: "Pinned rows"),
+                        value: "\(configuration.configuration.appearance.pinnedLimit)"
+                    )
+                }
+                Stepper(
+                    value: configuration.binding(\.appearance.runningLimit),
+                    in: AppearanceConfiguration.rowLimitRange
+                ) {
+                    LabeledContent(
+                        String(localized: "Running rows"),
+                        value: "\(configuration.configuration.appearance.runningLimit)"
+                    )
+                }
+                Text("Each section scrolls inside its own rows. Trash and Search always stay in view.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }

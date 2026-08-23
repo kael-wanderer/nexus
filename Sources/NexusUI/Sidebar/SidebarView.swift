@@ -14,16 +14,11 @@ public struct SidebarView: View {
     private var isVertical: Bool { model.appearance.position.isVertical }
 
     public var body: some View {
-        // The frame is clamped to the screen (SidebarLayout.frame), so with enough running
-        // applications the content is longer than the panel. Scrolling is what keeps the last
-        // rows reachable instead of clipped off the end.
-        ScrollView(isVertical ? .vertical : .horizontal) {
-            content
-        }
-        .scrollIndicators(.never)
-        .scrollBounceBehavior(.basedOnSize)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(VisualEffectBackground())
+        // Three zones, and only the middle one scrolls (M14): with thirty applications running,
+        // Trash and Search used to scroll off the end of the bar and have to be hunted for.
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(VisualEffectBackground())
         .clipShape(RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous)
@@ -46,7 +41,8 @@ public struct SidebarView: View {
     }
 
     private var content: some View {
-        axis {
+        let zones = model.zones
+        return axis {
             if model.showsStartMenuRow {
                 startMenuRow
                 separator
@@ -55,17 +51,34 @@ public struct SidebarView: View {
                 placeholder
             }
             if !model.pinned.isEmpty {
-                pinnedSection
+                scrolling(extent: zones.pinnedExtent) { pinnedSection }
             }
             if model.behavior.showRunningApplications, !model.running.isEmpty {
                 if !model.pinned.isEmpty { separator }
-                section(model.running)
+                scrolling(extent: zones.runningExtent) { section(model.running) }
             }
             if !model.pinned.isEmpty || !model.running.isEmpty { separator }
             utilitySection
         }
         .padding(SidebarLayout.outerPadding)
         .frame(maxWidth: .infinity)
+    }
+
+    /// One section of the middle zone: it shows `extent` worth of rows and scrolls the rest inside
+    /// itself, so a long list never pushes the zone below it off the bar.
+    private func scrolling<Content: View>(
+        extent: CGFloat,
+        @ViewBuilder _ content: () -> Content
+    ) -> some View {
+        ScrollView(isVertical ? .vertical : .horizontal) {
+            content()
+        }
+        .scrollIndicators(.never)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(
+            width: isVertical ? nil : extent,
+            height: isVertical ? extent : nil
+        )
     }
 
     /// The pinned section draws groups as well as applications (M13).

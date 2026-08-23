@@ -47,7 +47,9 @@ struct SidebarPopulationTests {
             try await Task.sleep(for: .milliseconds(10))
         }
         #expect(model.running.count == 25)
-        #expect(model.sectionRowCounts == [0, 25, 1])
+        // Every one of them is known; the bar draws `runningLimit` of them and scrolls the rest
+        // inside that section rather than pushing Trash and Search off the end (M14).
+        #expect(model.sectionRowCounts == [0, 5, 1])
     }
 
     @Test("Applications already running at launch are not swallowed by the pinned filter")

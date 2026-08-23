@@ -50,6 +50,96 @@ public enum SidebarLayout {
             + CGFloat(separators) * (Design.separatorHeight + separatorSpacing * 2)
     }
 
+    // MARK: - Zones
+
+    /// How much of the bar each zone gets (M14). The head (the launcher) and the tail (now playing,
+    /// Trash, Search) keep their rows whatever happens; only the middle scrolls, and each of its
+    /// two sections scrolls inside its own extent rather than pushing the tail off the screen.
+    public struct BarZones: Equatable, Sendable {
+        /// Rows actually shown, which is the smaller of the section's count, its limit, and what
+        /// the screen has room for.
+        public var pinnedRows: Int
+        public var runningRows: Int
+        /// Extent along the bar's axis for each scrolling section.
+        public var pinnedExtent: CGFloat
+        public var runningExtent: CGFloat
+        /// The whole bar, head and tail and separators included.
+        public var total: CGFloat
+    }
+
+    /// Rows the running section is never squeezed below while anything is running: a dock full of
+    /// pins must not hide the fact that other applications are open.
+    public static let runningFloor = 2
+
+    /// Extent of one section, rows plus the gaps between them.
+    public static func sectionExtent(rows: Int, appearance: AppearanceConfiguration) -> CGFloat {
+        guard rows > 0 else { return 0 }
+        return CGFloat(rows) * rowHeight(appearance)
+            + CGFloat(rows - 1) * CGFloat(appearance.iconSpacing)
+    }
+
+    /// How many whole rows fit in `extent`. Half a row is worse than none: it reads as a clipped
+    /// icon rather than as something to scroll.
+    public static func rows(fitting extent: CGFloat, appearance: AppearanceConfiguration) -> Int {
+        let row = rowHeight(appearance)
+        let spacing = CGFloat(appearance.iconSpacing)
+        guard extent >= row else { return 0 }
+        return Int(((extent + spacing) / (row + spacing)).rounded(.down))
+    }
+
+    private static var separatorExtent: CGFloat { Design.separatorHeight + separatorSpacing * 2 }
+
+    public static func zones(
+        headRows: Int,
+        pinnedRows: Int,
+        runningRows: Int,
+        tailRows: Int,
+        appearance: AppearanceConfiguration,
+        available: CGFloat
+    ) -> BarZones {
+        let sectionsPresent = [headRows, pinnedRows, runningRows, tailRows].filter { $0 > 0 }.count
+        let fixed = outerPadding * 2
+            + sectionExtent(rows: headRows, appearance: appearance)
+            + sectionExtent(rows: tailRows, appearance: appearance)
+            + CGFloat(max(0, sectionsPresent - 1)) * separatorExtent
+        let budget = max(0, available - fixed)
+
+        var pinned = min(pinnedRows, appearance.pinnedLimit)
+        var running = min(runningRows, appearance.runningLimit)
+
+        if sectionExtent(rows: pinned, appearance: appearance)
+            + sectionExtent(rows: running, appearance: appearance) > budget {
+            // Running keeps its floor first, then pinned takes what is left, then running takes
+            // whatever pinned did not need.
+            let floor = min(running, runningFloor)
+            let forPinned = budget - sectionExtent(rows: floor, appearance: appearance)
+            pinned = min(pinned, max(0, rows(fitting: forPinned, appearance: appearance)))
+            let forRunning = budget - sectionExtent(rows: pinned, appearance: appearance)
+            running = min(running, max(floor, rows(fitting: forRunning, appearance: appearance)))
+        }
+
+        let pinnedExtent = sectionExtent(rows: pinned, appearance: appearance)
+        let runningExtent = sectionExtent(rows: running, appearance: appearance)
+        return BarZones(
+            pinnedRows: pinned,
+            runningRows: running,
+            pinnedExtent: pinnedExtent,
+            runningExtent: runningExtent,
+            total: min(available, fixed + pinnedExtent + runningExtent)
+        )
+    }
+
+    public static func size(
+        zones: BarZones,
+        appearance: AppearanceConfiguration,
+        expanded: Bool
+    ) -> CGSize {
+        let thickness = width(appearance, expanded: expanded)
+        return appearance.position.isVertical
+            ? CGSize(width: thickness, height: zones.total)
+            : CGSize(width: zones.total, height: thickness)
+    }
+
     public static func size(
         sectionRowCounts: [Int],
         appearance: AppearanceConfiguration,

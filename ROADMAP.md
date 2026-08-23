@@ -311,6 +311,8 @@ Spec: `docs/design/app-groups.md`.
 
 ## Milestone 14 — Bar zones  ← post-MVP
 
+**Shipped** 2026-08-23.
+
 **Scope**
 - The bar becomes a fixed head (start menu), a scrolling middle (pinned, then running) and a fixed
   tail (now playing, Trash, Search). Only the middle scrolls.

@@ -62,6 +62,20 @@ groups for the applications you keep, and the start menu or the palette for the 
 - The panel is still one non-activating panel; zones are layout, not new windows.
 - Reserved space (M12) re-sweeps whenever the bar's frame changes, which a zone change is.
 
+## What shipped
+
+As specified. Two notes:
+
+- The limits live in `appearance`, not `behavior`, next to icon size and spacing — they are about
+  how much bar there is, not about what it does. Settings → Appearance, two steppers.
+- `sectionRowCounts` now reports *visible* rows rather than every row a section holds, because it
+  is what the flyout anchor measures against (`SidebarLayout.rowCentre`). A capped section's rows
+  are the ones on screen, so an anchor can never point past the panel.
+
+Verified live with 24 applications running: the bar went from 962 pt (everything scrolling, Trash
+and Search off the end) to 466 pt — head 48, middle 272, tail 104, separators — and scrolling the
+middle moved the applications while Trash and Search stayed where they were.
+
 ## Tests
 
 - With 30 running applications the tail rows are inside the panel's frame, not past it.

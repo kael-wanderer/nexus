@@ -549,3 +549,20 @@ payload, a capacity change and a drag all end up in the same state. The stored v
 `pinnedApplications` is still written beside the entries so a downgrade finds its dock; nothing
 reads it.
 
+**D73. The bar has three zones, and only the middle one scrolls.**
+Everything used to live in one `ScrollView` clamped to the screen, so past about two dozen rows
+Trash and Search scrolled off the end and had to be hunted for. They are not rows like the others:
+the launcher is a fixed head, Trash and Search (and later now-playing) are a fixed tail, and the
+applications are a scrolling middle between them.
+
+The middle gets a row budget per section — `appearance.pinnedLimit` (10) and
+`appearance.runningLimit` (5) — resolved after the head and tail have taken their space, never
+before. When the screen cannot hold both budgets, running keeps a floor of two rows and pinned
+takes what is left: a dock full of pins must not hide the fact that other applications are open.
+Overflow scrolls inside its own section, so nothing becomes unreachable, and both limits count a
+group as one row — which is what makes groups worth having.
+
+Limits rather than unbounded scrolling because scrolling to reach Search was the complaint. A bar
+that grows without bound is a list; the overflow already has better answers than length — groups
+for the applications you keep, the palette and the start menu for the ones you do not.
+
