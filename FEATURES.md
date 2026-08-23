@@ -19,7 +19,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 6 | Launch applications | M2 | None | |
 | 7 | Quit applications | M3 | None | `NSRunningApplication.terminate()`; force-quit in context menu |
 | 8 | Pin applications | M2 | None | Persisted as ordered bundle identifiers |
-| 9 | Reorder applications | M2, M9 | None | Drag a row onto another — the rows move live under the drag and the order is stored on drop (D59) — or the context menu: Move Up / Move Down / Move to End |
+| 9 | Reorder applications | M2, M9 | None | Drag any row onto any other — pinned or running — and the rows move live under the drag; the order is stored on drop (D59, D63). Dragging across the separator pins or unpins. Context menu: Move Up / Move Down / Move to End |
 | 10 | Window grouping | M4 | **Accessibility** | Flyout listing an app's windows |
 | 11 | Activate windows | M4 | **Accessibility** | `AXRaise` + `NSRunningApplication.activate()` |
 | 12 | Window count | M3 | None | `CGWindowListCopyWindowInfo` — count only, no titles |

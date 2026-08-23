@@ -189,6 +189,9 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
     public var behavior = BehaviorConfiguration()
     public var search = SearchConfiguration()
     public var pinnedApplications: [String] = []
+    /// User-chosen order for the running-but-unpinned section. Only the applications the user has
+    /// actually moved appear here; everything else stays alphabetical, after them.
+    public var runningApplicationOrder: [String] = []
     public var frecency: [String: FrecencyEntry] = [:]
     public var onboarding = OnboardingState()
     public var dock = DockConfiguration()
@@ -205,6 +208,7 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
         behavior = try container.decodeIfPresent(BehaviorConfiguration.self, forKey: .behavior) ?? .init()
         search = try container.decodeIfPresent(SearchConfiguration.self, forKey: .search) ?? .init()
         pinnedApplications = try container.decodeIfPresent([String].self, forKey: .pinnedApplications) ?? []
+        runningApplicationOrder = try container.decodeIfPresent([String].self, forKey: .runningApplicationOrder) ?? []
         frecency = try container.decodeIfPresent([String: FrecencyEntry].self, forKey: .frecency) ?? [:]
         onboarding = try container.decodeIfPresent(OnboardingState.self, forKey: .onboarding) ?? .init()
         dock = try container.decodeIfPresent(DockConfiguration.self, forKey: .dock) ?? .init()

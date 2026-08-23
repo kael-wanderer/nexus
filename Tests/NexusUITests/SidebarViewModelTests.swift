@@ -166,6 +166,64 @@ struct SidebarViewModelTests {
         #expect(model.running.map(\.id) == ["new"])
     }
 
+    @Test("Two running applications can be reordered against each other")
+    func dragWithinRunning() async {
+        let (model, _, configuration) = makeModel(
+            [
+                makeApplication("chatgpt", name: "ChatGPT", running: true),
+                makeApplication("claude", name: "Claude", running: true),
+            ]
+        )
+        await model.refresh()
+        #expect(model.running.map(\.id) == ["chatgpt", "claude"])
+
+        model.beginDrag("claude")
+        model.dragMoved(over: "chatgpt")
+        #expect(model.running.map(\.id) == ["claude", "chatgpt"])
+
+        model.endDrag(commit: true)
+        #expect(configuration.configuration.runningApplicationOrder == ["claude", "chatgpt"])
+        #expect(configuration.configuration.pinnedApplications.isEmpty)
+        #expect(model.running.map(\.id) == ["claude", "chatgpt"])
+    }
+
+    @Test("An application nobody has moved keeps its alphabetical place")
+    func alphabeticalFallback() async {
+        let (model, _, _) = makeModel(
+            [
+                makeApplication("b", name: "Bravo", running: true),
+                makeApplication("a", name: "Alpha", running: true),
+                makeApplication("c", name: "Charlie", running: true),
+            ]
+        )
+        await model.refresh()
+        model.beginDrag("c")
+        model.dragMoved(over: "a")
+        model.endDrag(commit: true)
+        // Charlie was moved to the front; Alpha and Bravo keep their alphabetical order behind it.
+        #expect(model.running.map(\.id) == ["c", "a", "b"])
+    }
+
+    @Test("Dragging a pinned row into the running section unpins it")
+    func dragPinnedOut() async {
+        let (model, _, configuration) = makeModel(
+            [
+                makeApplication("a", name: "A", running: true),
+                makeApplication("live", name: "Live", running: true),
+            ],
+            pinned: ["a"]
+        )
+        await model.refresh()
+
+        model.beginDrag("a")
+        model.dragMoved(over: "live")
+        #expect(model.pinned.isEmpty)
+
+        model.endDrag(commit: true)
+        #expect(configuration.configuration.pinnedApplications.isEmpty)
+        #expect(model.running.map(\.id) == ["a", "live"])
+    }
+
     @Test("A cancelled drag leaves the stored order untouched")
     func dragCancelled() async {
         let (model, _, configuration) = makeModel(

@@ -26,6 +26,9 @@ this project follows [Semantic Versioning](https://semver.org).
   subrole is no longer treated as a window (D62).
 - Dragging a running application into the pinned section showed no live preview; only already
   pinned rows moved under the drag (D59).
+- Dragging one running application onto another did nothing at all: the running section had no
+  user order, only an alphabetical one. It now has both — a stored order for the applications you
+  have moved, alphabetical for the rest — and a drag across the separator pins or unpins (D63).
 - Drag-to-reorder is back, as an AppKit dragging session (D56): drag a row onto another to move
   it, or drag a running application onto the pinned rows to pin it in that slot. The rows move
   live under the drag and the new order is stored only when the drop lands (D59).

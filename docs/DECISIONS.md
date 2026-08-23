@@ -455,3 +455,12 @@ a list of identifiers that may include an application that is not pinned yet; it
 running section as the drag reaches the pinned one, and the drop is what pins it. A cancelled drag
 puts it back.
 
+**D63. The running section has a user order too, and a drag can cross the separator.**
+Reordering only worked when the drop landed on a *pinned* row, so dragging one running
+application onto another — the common case, "put Claude left of ChatGPT" — did nothing, which is
+what "drag still does not work" meant. The running section now has its own stored order
+(`runningApplicationOrder`), holding only the applications the user has actually moved; everything
+else keeps its alphabetical place behind them, so the section does not shuffle itself when an
+application launches. A drag lands in whichever section the row under the pointer belongs to,
+which makes dragging across the separator pin or unpin — the same gesture the Dock uses.
+

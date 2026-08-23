@@ -44,9 +44,10 @@ public final class SidebarViewModel {
 
     /// The row currently being dragged, so it can be drawn as a gap (D59).
     public private(set) var draggingIdentifier: String?
-    /// Where the pinned rows would land if the drag were dropped now. Never written to the
-    /// configuration until it is.
-    private var previewOrder: [String]?
+    /// Where the rows would land if the drag were dropped now — one list per section. Never
+    /// written to the configuration until the drop lands.
+    private var previewPinned: [String]?
+    private var previewRunning: [String]?
 
     /// Whether the counts are the exact Accessibility ones. A badge that cannot be trusted is
     /// worse than no badge, so without Accessibility none is drawn (D61).
@@ -68,7 +69,7 @@ public final class SidebarViewModel {
     /// Every application the sidebar knows about, by bundle identifier, and the running ones in
     /// display order. The two row lists are composed from these.
     @ObservationIgnored private var items: [String: SidebarItem] = [:]
-    @ObservationIgnored private var runningOrder: [String] = []
+    @ObservationIgnored private var alphabeticalRunning: [String] = []
 
     /// Called whenever the number of rows or the appearance changes, so the panel can reframe.
     @ObservationIgnored public var layoutDidChange: (() -> Void)?
@@ -156,7 +157,7 @@ public final class SidebarViewModel {
         }
 
         items = resolved
-        runningOrder = runningApplications
+        alphabeticalRunning = runningApplications
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             .map(\.identity.bundleIdentifier)
         rebuildRows()
@@ -166,7 +167,20 @@ public final class SidebarViewModel {
     /// is in flight. A running application being dragged into the section appears here before it
     /// is pinned, which is what lets the rows move under the drag (D59).
     private var pinnedIdentifiers: [String] {
-        previewOrder ?? configuration.configuration.pinnedApplications
+        previewPinned ?? configuration.configuration.pinnedApplications
+    }
+
+    /// The running section's order: the applications the user has dragged, in the order they put
+    /// them, then everything else alphabetically. An application nobody has moved keeps its
+    /// alphabetical place, so the section does not shuffle itself around.
+    private var runningIdentifiers: [String] {
+        if let previewRunning { return previewRunning }
+        let stored = configuration.configuration.runningApplicationOrder
+        let pinnedSet = Set(configuration.configuration.pinnedApplications)
+        let known = Set(alphabeticalRunning)
+        let moved = stored.filter { known.contains($0) && !pinnedSet.contains($0) }
+        let rest = alphabeticalRunning.filter { !moved.contains($0) && !pinnedSet.contains($0) }
+        return moved + rest
     }
 
     /// Composes the two row lists from the resolved items. Synchronous on purpose: a drag has to
@@ -180,7 +194,7 @@ public final class SidebarViewModel {
             item.isPinned = true
             resolvedPinned.append(item)
         }
-        let resolvedRunning = runningOrder
+        let resolvedRunning = runningIdentifiers
             .filter { !pinnedSet.contains($0) }
             .compactMap { items[$0] }
 
@@ -252,39 +266,67 @@ public final class SidebarViewModel {
     public func beginDrag(_ identifier: String) {
         guard items[identifier] != nil else { return }
         draggingIdentifier = identifier
-        previewOrder = configuration.configuration.pinnedApplications
+        previewPinned = pinnedIdentifiers
+        previewRunning = runningIdentifiers
     }
 
-    /// The drag is over `target`: show what dropping here would do.
+    /// The drag is over `target`: show what dropping here would do. The row lands in whichever
+    /// section `target` belongs to, so dragging across the separator pins or unpins it.
     public func dragMoved(over target: String) {
         guard let dragged = draggingIdentifier,
               dragged != target,
-              var order = previewOrder,
-              let to = order.firstIndex(of: target)
+              var pinnedOrder = previewPinned,
+              var runningOrder = previewRunning
         else { return }
-        if let from = order.firstIndex(of: dragged) {
-            order.remove(at: from)
-            order.insert(dragged, at: to)
+
+        let intoPinned: Bool
+        let insertion: Int
+        if let index = pinnedOrder.firstIndex(of: target) {
+            intoPinned = true
+            insertion = index
+        } else if let index = runningOrder.firstIndex(of: target) {
+            intoPinned = false
+            insertion = index
         } else {
-            // A running application joining the pinned section for the first time.
-            order.insert(dragged, at: to)
+            return
         }
-        guard order != previewOrder else { return }
-        previewOrder = order
+
+        pinnedOrder.removeAll { $0 == dragged }
+        runningOrder.removeAll { $0 == dragged }
+        let clamped = min(insertion, intoPinned ? pinnedOrder.count : runningOrder.count)
+        if intoPinned {
+            pinnedOrder.insert(dragged, at: clamped)
+        } else {
+            runningOrder.insert(dragged, at: clamped)
+        }
+
+        guard pinnedOrder != previewPinned || runningOrder != previewRunning else { return }
+        previewPinned = pinnedOrder
+        previewRunning = runningOrder
         rebuildRows()
     }
 
     /// The drag ended. A cancelled drag — dropped outside, or on nothing — must leave the stored
     /// order exactly as it was.
     public func endDrag(commit: Bool) {
-        let order = previewOrder
+        let pinnedOrder = previewPinned
+        let runningOrder = previewRunning
         draggingIdentifier = nil
-        previewOrder = nil
-        guard commit, let order, order != configuration.configuration.pinnedApplications else {
+        previewPinned = nil
+        previewRunning = nil
+        guard commit, let pinnedOrder, let runningOrder else {
             rebuildRows()
             return
         }
-        configuration.update { $0.pinnedApplications = order }
+        let stored = configuration.configuration
+        guard pinnedOrder != stored.pinnedApplications || runningOrder != runningIdentifiers else {
+            rebuildRows()
+            return
+        }
+        configuration.update {
+            $0.pinnedApplications = pinnedOrder
+            $0.runningApplicationOrder = runningOrder
+        }
         rebuildRows()
     }
 
