@@ -33,7 +33,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Minimized windows** | The windows you minimise get rows of their own before the Trash — newest first, at most three — and a click puts one back. *(Accessibility)* |
 | **Folder stacks** | Drag a folder from Finder onto the bar. Clicking it shows what is inside on a grid — folders first, a file opens in its own application, a subfolder opens in Finder. |
 | **Reserved space** | Optional: windows that overlap the bar are moved off it, full-screen windows left alone. *(Accessibility)* |
-| **Search** | A command palette on a global shortcut, centred like Spotlight — or opened from a search box in the bar, beside it. Applications, windows, files and actions, ranked by match quality, provider weight and frecency, with one scope filter — `⌃1`…`⌃6` or `⇥` — for applications, files or folders only. |
+| **Search** | A command palette on a global shortcut, centred like Spotlight — or opened from a search box in the bar, beside it. Applications, windows, files and actions, ranked by match quality, provider weight and frecency, with one scope filter — `⌃1`…`⌃6` or `⇥` — for applications, files, folders, or System Settings panes and actions. |
 | **Dock replacement** | Optional: the macOS Dock hides while Nexus runs and comes back when it quits. Your Dock settings are saved first and restored exactly. |
 | **Settings** | General, Dock, Appearance, Behavior, Search, Permissions. Everything applies live. |
 | **Onboarding** | Six skippable steps. Skipping all of them still leaves a working launcher. |

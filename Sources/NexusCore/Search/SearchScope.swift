@@ -20,7 +20,7 @@ public enum SearchScope: String, Sendable, Hashable, Codable, CaseIterable {
         case .filesAndFolders: String(localized: "Files & Folders")
         case .files: String(localized: "Files")
         case .folders: String(localized: "Folders")
-        case .settings: String(localized: "Settings")
+        case .settings: String(localized: "Settings & Actions")
         }
     }
 
@@ -38,6 +38,9 @@ public enum SearchScope: String, Sendable, Hashable, Codable, CaseIterable {
     /// The providers this scope lets run. Windows are only reachable from `.everything`: a window
     /// is not a kind of thing anybody goes looking for by category, it is the application you
     /// already named.
+    ///
+    /// `.settings` is the action provider, which is where both halves of "things you do rather
+    /// than open" live: the built-in actions, and the panes of System Settings.
     public var providers: Set<SearchProviderID> {
         switch self {
         case .everything: Set(SearchProviderID.allCases)

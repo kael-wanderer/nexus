@@ -38,7 +38,7 @@ One filter, applied before ranking:
 | Files & folders | Both |
 | Files | Files, no folders |
 | Folders | Folders only |
-| Settings | Nexus's actions and the ones that open System Settings |
+| Settings & Actions | The built-in actions, and every pane of System Settings |
 
 - **Chosen with the keyboard**: `⌃1`…`⌃6` while the palette is open, and `⇥` / `⇧⇥` cycle. Not
   `⌘1`…`⌘6` — those already run the numbered result, and each row draws that badge (D87). The
@@ -60,9 +60,24 @@ nobody a keystroke.
 Scope also answers a question the provider toggles could not: those switch a provider off for
 everybody, forever. A scope is for this search.
 
-**Not built:** a Settings scope that enumerates System Settings panes. Today it reaches the action
-provider, which includes the actions that open System Settings; indexing panes is a new provider,
-and nothing has asked for one yet.
+**Settings & Actions** reaches the action provider, and that provider now has both halves of
+"things you do rather than open": the built-in actions, and every pane of System Settings.
+
+The panes are not a Spotlight query. System Settings has been a set of ExtensionKit extensions
+since macOS 13, and the panes on the sealed system volume are not indexed — asking Spotlight for
+`public.prefpane` returns nothing at all on this machine. `/System/Library/ExtensionKit/Extensions`
+is, so each `.appex` there is read once for the two things worth having: the legacy identifier that
+`x-apple.systempreferences:` takes, and a name. Extensions whose own `Info.plist` says they do not
+accept that URL scheme are skipped, because a result that does nothing is worse than no result.
+
+Naming them takes one rule. The extension's display name is usually right — Displays, Keyboard,
+Screen Time — and sometimes it is the developer's bundle name, `AccessibilitySettingsExtension` or
+`MouseExtension`. Where the extension names a legacy `.prefPane`, that pane's `CFBundleName` wins,
+because it is the string System Preferences used to draw; otherwise the bundle name is tidied —
+trailing `Extension` dropped, `DateAndTime` split back into words.
+
+The scope is called **Settings & Actions** rather than Settings for the same reason: it holds both,
+and a filter that says one thing and shows another is worse than a longer name.
 
 ## Rules it inherits
 
@@ -79,3 +94,8 @@ and nothing has asked for one yet.
 - The box opens the palette beside itself on all four edges, clamped on screen; the global shortcut
   centres it whatever the setting says.
 - The box costs the tail three slots and the icon one, and a narrow vertical bar keeps the icon.
+- A pane's name comes from its legacy `.prefPane` where there is one, and from a tidied bundle name
+  where there is not; an extension that does not take the URL scheme is not a result.
+- The real `/System/Library/ExtensionKit/Extensions` yields panes, including Displays and Keyboard —
+  a test against the machine it runs on, so a macOS change that moves the directory is a failure
+  rather than an empty scope.

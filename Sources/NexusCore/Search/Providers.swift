@@ -152,24 +152,42 @@ public struct ActionSearchProvider: SearchProvider {
     public let category = SearchCategory.action
 
     private let runningApplications: @Sendable () -> [(name: String, bundleIdentifier: String)]
+    /// The panes of System Settings, injected so tests do not read the machine's own copy of
+    /// macOS. Read once and cached by `SettingsPaneIndex`.
+    private let settingsPanes: @Sendable () -> [SettingsPane]
 
     public init(
-        runningApplications: @escaping @Sendable () -> [(name: String, bundleIdentifier: String)]
+        runningApplications: @escaping @Sendable () -> [(name: String, bundleIdentifier: String)],
+        settingsPanes: @escaping @Sendable () -> [SettingsPane] = { SettingsPaneIndex.shared }
     ) {
         self.runningApplications = runningApplications
+        self.settingsPanes = settingsPanes
     }
 
     public func results(for query: SearchQuery, context: SearchContext) async -> [SearchResult] {
-        var candidates: [(id: String, title: String, symbol: String, action: NexusActionDescriptor)] =
-            BuiltInAction.allCases.map {
-                ("action:\($0.rawValue)", $0.title, $0.symbol, .runBuiltInAction($0))
-            }
+        typealias Candidate = (
+            id: String, title: String, subtitle: String, symbol: String, action: NexusActionDescriptor
+        )
+        let actionSubtitle = String(localized: "Action")
+        var candidates: [Candidate] = BuiltInAction.allCases.map {
+            ("action:\($0.rawValue)", $0.title, actionSubtitle, $0.symbol, .runBuiltInAction($0))
+        }
         for application in runningApplications() {
             candidates.append((
                 "action:quit:\(application.bundleIdentifier)",
                 String(localized: "Quit \(application.name)"),
+                actionSubtitle,
                 "xmark.circle",
                 .quitApplication(application.bundleIdentifier)
+            ))
+        }
+        // A pane of System Settings is a thing you go looking for by name — "displays", "sound" —
+        // and opening one is what the Settings scope always claimed to do (M19, finished).
+        let settingsSubtitle = String(localized: "System Settings")
+        for pane in settingsPanes() {
+            guard let url = pane.url else { continue }
+            candidates.append((
+                "settings:\(pane.id)", pane.name, settingsSubtitle, "gearshape", .openURL(url)
             ))
         }
 
@@ -179,7 +197,7 @@ public struct ActionSearchProvider: SearchProvider {
             return SearchResult(
                 id: candidate.id,
                 title: candidate.title,
-                subtitle: String(localized: "Action"),
+                subtitle: candidate.subtitle,
                 icon: .symbol(candidate.symbol),
                 category: .action,
                 score: Ranking.score(

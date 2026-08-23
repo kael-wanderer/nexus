@@ -6,6 +6,10 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- The Settings scope searches System Settings (D98): every pane — Displays, Keyboard, Screen Time —
+  is a result that opens it, read from `/System/Library/ExtensionKit/Extensions` because Spotlight
+  does not index the panes on the system volume at all. The scope is renamed **Settings & Actions**,
+  which is what it holds.
 - Minimized windows in the bar (M22): a fourth part of the fixed tail, before Trash, holding the
   windows you have minimized — newest first, at most three, the owning application's icon with the
   window title when the bar is expanded. Clicking one restores it and brings its application

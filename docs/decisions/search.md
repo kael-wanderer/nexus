@@ -131,3 +131,27 @@ keystroke goes; the effect a user sees is a field that grows into a result list.
 
 `opensAtBar` is gone rather than migrated: it was one commit old, and the placement is now decided
 by *which surface asked* rather than by a setting.
+
+## D98. System Settings panes are read from the extension directory, not asked of Spotlight.
+
+The Settings scope shipped in M19 pointing at the action provider, which knew about Nexus's own
+actions and nothing about System Settings. Finishing it needed a list of panes, and the obvious
+source does not work: System Settings has been a set of ExtensionKit extensions since macOS 13, and
+the panes on the sealed system volume are not Spotlight-indexed —
+`kMDItemContentType == 'com.apple.systempreference.prefpane'` returns **nothing** on this machine.
+
+`/System/Library/ExtensionKit/Extensions` is the list. Each `.appex` carries
+`EXAppExtensionAttributes.SettingsExtensionAttributes`, which names the legacy identifier that
+`x-apple.systempreferences:` opens and says whether the extension accepts that scheme at all — the
+ones that do not are skipped, since a search result that does nothing is worse than no result. Read
+once and cached: the set changes when macOS is updated, and the process does not outlive an update
+(§65).
+
+Names take one rule, because the extensions' own are uneven: `Displays` and `Screen Time` are right,
+`AccessibilitySettingsExtension` and `MouseExtension` are not. Where the extension names a legacy
+`.prefPane`, that pane's `CFBundleName` wins — it is the string System Preferences drew — and
+otherwise the bundle name is tidied: a trailing `Extension` dropped, `DateAndTime` split back into
+words.
+
+The scope is now called **Settings & Actions**. It reaches one provider holding both, and a filter
+whose name promises one of the two things it returns is a small lie told six times a day.
