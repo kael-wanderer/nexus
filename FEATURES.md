@@ -48,7 +48,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | Show Desktop | — | — | **Not in MVP** — no such bundle exists on macOS 14+; the alternatives need Accessibility or AppleScript (D28) |
 | Lock Screen | M5 | None | `SACLockScreenImmediate` (login framework) |
 | Start menu | M11 | None (Automation for the system actions) | Browsable grid from the application index, filter field, recents first, Sleep / Restart / Shut Down / Log Out. Off by default; corner configurable |
-| Bar zones | M14 | None | Fixed head and tail, scrolling middle, a row budget per section (`pinnedLimit` 10, `runningLimit` 5) and a two-row floor for running applications (D73) |
+| Bar zones | M14 | None | Fixed head and tail, scrolling middle. Capacity measured from the edge — height for a side bar, width for a top or bottom one — with optional ceilings and a two-row floor for running applications (D73, D74) |
 | Application groups | M13 | None | Drag one icon onto another and hold; 2×2 tile, popover on click, auto-named from `LSApplicationCategoryType`, capacity 9 or 16. Brings configuration version 2 and the first migration (D71, D72) |
 | Reserved space | M12 | Accessibility | Windows overlapping the bar are moved off it — pushed if they fit, resized only if they do not. Full-screen exempt; an application that puts a window back wins after four tries. Off by default. macOS reserves space for no third party, so this moves windows rather than making the space unavailable (D70) |
 | Trash | M9 | None | Always-present row before Search, drawn with the macOS Trash icons and showing full vs empty (counted with `stat`, no Full Disk Access — D58). Click opens it; the context menu opens or empties it, asking first |

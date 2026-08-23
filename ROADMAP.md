@@ -316,9 +316,10 @@ Spec: `docs/design/app-groups.md`.
 **Scope**
 - The bar becomes a fixed head (start menu), a scrolling middle (pinned, then running) and a fixed
   tail (now playing, Trash, Search). Only the middle scrolls.
-- Row budgets: `appearance.pinnedLimit` (default 10) and `appearance.runningLimit` (default 5),
-  with a two-row floor for running so a full dock never hides what is open. Overflow scrolls inside
-  its own section.
+- Capacity is measured from the edge — a side bar has the screen's height, a main one its width —
+  so the bar grows until it runs out and only then scrolls. `appearance.pinnedLimit` and
+  `appearance.runningLimit` are optional ceilings (0 = fit the screen), with a two-row floor for
+  running so a full dock never hides what is open.
 
 **Permissions:** none new.
 

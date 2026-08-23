@@ -121,12 +121,17 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
     public var startMenuCorner: StartMenuCorner = .bottomLeading
     /// How many rows each section of the bar shows before it scrolls inside itself (M14). Counted
     /// in rows, so a group counts once — which is what makes groups worth having.
-    public var pinnedLimit = 10
-    public var runningLimit = 5
+    ///
+    /// **Zero means "as many as the screen holds"**, which is the default: the bar grows until it
+    /// runs out of edge and only then scrolls. A number is a ceiling on top of that, never a
+    /// promise — the screen still wins.
+    public var pinnedLimit = 0
+    public var runningLimit = 0
     public init() {}
 
     public static let widthRange: ClosedRange<Double> = 44...120
-    public static let rowLimitRange: ClosedRange<Int> = 1...40
+    /// Zero is "fit the screen"; anything else is a ceiling.
+    public static let rowLimitRange: ClosedRange<Int> = 0...40
     public static let iconSizeRange: ClosedRange<Double> = 24...96
     public static let iconSpacingRange: ClosedRange<Double> = 0...24
     public static let cornerRadiusRange: ClosedRange<Double> = 0...32
@@ -144,8 +149,8 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
         display = try container.decodeIfPresent(DisplayPreference.self, forKey: .display) ?? .main
         perDisplay = try container.decodeIfPresent([String: DisplayOverride].self, forKey: .perDisplay) ?? [:]
         startMenuCorner = try container.decodeIfPresent(StartMenuCorner.self, forKey: .startMenuCorner) ?? .bottomLeading
-        pinnedLimit = try container.decodeIfPresent(Int.self, forKey: .pinnedLimit) ?? 10
-        runningLimit = try container.decodeIfPresent(Int.self, forKey: .runningLimit) ?? 5
+        pinnedLimit = try container.decodeIfPresent(Int.self, forKey: .pinnedLimit) ?? 0
+        runningLimit = try container.decodeIfPresent(Int.self, forKey: .runningLimit) ?? 0
     }
 
     /// Values arriving from a decoded file or a future migration are clamped rather than trusted.
@@ -274,8 +279,8 @@ public struct OnboardingState: Codable, Sendable, Equatable {
 }
 
 public struct NexusConfiguration: Codable, Sendable, Equatable {
-    /// 2 since Milestone 13: the pinned list holds groups as well as applications.
-    public static let currentVersion = 2
+    /// 3 since Milestone 14: the bar's row limits mean "a ceiling", with zero for "fit the screen".
+    public static let currentVersion = 3
 
     public var version: Int = currentVersion
     public var general = GeneralConfiguration()

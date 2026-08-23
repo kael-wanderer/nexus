@@ -26,7 +26,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Windows** | An application's windows are in its context menu, frontmost ticked. Hovering an icon opens a flyout with live titles and optional thumbnails; **Show All Windows** opens the same flyout from the menu. *(Accessibility)* |
 | **Trash** | Always in the bar, before Search, with the macOS Trash icon showing full or empty. Click opens it; the context menu empties it, after asking. |
 | **Start menu** | Optional launcher button and a browsable grid of everything installed, with a filter field and Sleep / Restart / Shut Down / Log Out. Off by default. |
-| **Always in reach** | Trash and Search sit in a zone that never scrolls; the applications between them get a row budget and scroll inside it. |
+| **Always in reach** | Trash and Search sit in a zone that never scrolls. The applications between them fill the edge — as many rows as the screen holds — and scroll only once it is full. |
 | **Groups** | Drag one icon onto another and hold to make a folder. Auto-named from the applications' own category, renameable, 9 or 16 per group. |
 | **Reserved space** | Optional: windows that overlap the bar are moved off it, full-screen windows left alone. *(Accessibility)* |
 | **Search** | A command palette on a global shortcut. Applications, windows, files and actions, ranked by match quality, provider weight and frecency. |

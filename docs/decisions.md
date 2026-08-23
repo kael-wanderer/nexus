@@ -566,3 +566,24 @@ Limits rather than unbounded scrolling because scrolling to reach Search was the
 that grows without bound is a list; the overflow already has better answers than length — groups
 for the applications you keep, the palette and the start menu for the ones you do not.
 
+**D74. The bar's length is measured, not configured.**
+Milestone 14 first shipped fixed budgets — ten pinned rows, five running — and they were wrong
+within the hour: a bar with half the screen empty still scrolled to reach an application. The
+number of rows an edge holds is not a preference, it is a measurement, and it differs per edge and
+per display. A left or right bar has the screen's height to spend; a top or bottom bar has its
+width. On 1920 × 1080 that is a different dock.
+
+So capacity is computed — `slots = wholeRows(usable − head − tail − separators − padding)` — and the
+two settings become ceilings on top of it, with **0** meaning "as many as fit" as the default. A row
+that is switched off gives its slot back, which is what makes turning off the now-playing row worth
+something. Scrolling begins where the screen ends, and not before.
+
+Configuration version 3 exists only to reset the two values version 2 wrote: they were defaults
+nobody chose, and keeping them would preserve the bug. A ceiling set deliberately after this point
+is stored against the new meaning and survives.
+
+One implementation note worth keeping: `rows(fitting:)` is called on every layout pass now, so it
+has to survive being asked about an extent that is not a real screen. It was first written to trust
+its input and trapped converting an infinite extent to `Int` — the model passes a large finite
+extent before the first reframe, and the function caps its own answer.
+

@@ -87,6 +87,9 @@ struct PinnedEntriesMigrationTests {
         #expect(store.outcomeOfLastLoad == .migrated(from: 1))
         #expect(configuration.pinnedApplications == ["com.apple.Safari", "com.apple.Terminal", "com.apple.Music"])
         #expect(configuration.pinnedEntries.allSatisfy { $0.group == nil })
+        // Version 3 runs on top of it: the row limits arrive as "fit the screen".
+        #expect(configuration.appearance.pinnedLimit == 0)
+        #expect(configuration.appearance.runningLimit == 0)
         // Nothing else about the dock changed.
         #expect(configuration.appearance.position == .right)
         #expect(configuration.appearance.width == 72)
@@ -107,17 +110,17 @@ struct PinnedEntriesMigrationTests {
         let json = try JSONSerialization.jsonObject(
             with: defaults.data(forKey: ConfigurationStore.defaultKey)!
         ) as! [String: Any]
-        #expect(json["version"] as? Int == 2)
+        #expect(json["version"] as? Int == NexusConfiguration.currentVersion)
         #expect(
             json["pinnedApplications"] as? [String]
                 == ["com.apple.Safari", "com.apple.Terminal", "com.apple.dt.Xcode"]
         )
     }
 
-    @Test("A version 2 payload with only the old key still finds its dock")
+    @Test("A current-version payload with only the old key still finds its dock")
     func legacyKeyOnly() {
         let defaults = makeDefaults()
-        let raw = Data(#"{"version":2,"pinnedApplications":["com.apple.Finder"]}"#.utf8)
+        let raw = Data(#"{"version":3,"pinnedApplications":["com.apple.Finder"]}"#.utf8)
         defaults.set(raw, forKey: ConfigurationStore.defaultKey)
 
         let configuration = ConfigurationStore(defaults: defaults).load()
@@ -129,7 +132,7 @@ struct PinnedEntriesMigrationTests {
         let defaults = makeDefaults()
         let members = (1...12).map { "\"app.\($0)\"" }.joined(separator: ",")
         let raw = Data("""
-        {"version":2,"pinnedEntries":[
+        {"version":3,"pinnedEntries":[
           {"group":{"id":"\(UUID().uuidString)","name":"Big","applications":[\(members)]}},
           {"group":{"id":"\(UUID().uuidString)","name":"Empty","applications":[]}},
           {"application":"app.1"}
@@ -145,7 +148,7 @@ struct PinnedEntriesMigrationTests {
     @Test("An unusable group capacity falls back to nine rather than being trusted")
     func capacityClamped() {
         let defaults = makeDefaults()
-        let raw = Data(#"{"version":2,"behavior":{"groupCapacity":400}}"#.utf8)
+        let raw = Data(#"{"version":3,"behavior":{"groupCapacity":400}}"#.utf8)
         defaults.set(raw, forKey: ConfigurationStore.defaultKey)
         #expect(ConfigurationStore(defaults: defaults).load().behavior.groupCapacity == 9)
     }
@@ -184,3 +187,41 @@ struct ApplicationCategoryTests {
         #expect(tie == "Utilities")
     }
 }
+
+@Suite("Automatic row limits")
+struct AutomaticRowLimitsMigrationTests {
+    /// The version that shipped the limits wrote 10 and 5 as *the* number of rows. They now mean a
+    /// ceiling, and the bar is meant to fill the screen it has — so a stored pair from that build
+    /// is dropped rather than kept capping a half-empty bar.
+    @Test("A version 2 configuration comes back with both limits set to fit the screen")
+    func resetsShippedDefaults() {
+        let defaults = makeDefaults()
+        let raw = Data("""
+        {"version":2,
+         "appearance":{"position":"left","width":64,"iconSize":40,"iconSpacing":8,"cornerRadius":16,
+                       "opacity":1,"display":{"main":{}},"perDisplay":{},
+                       "pinnedLimit":10,"runningLimit":5}}
+        """.utf8)
+        defaults.set(raw, forKey: ConfigurationStore.defaultKey)
+
+        let store = ConfigurationStore(defaults: defaults)
+        let configuration = store.load()
+
+        #expect(store.outcomeOfLastLoad == .migrated(from: 2))
+        #expect(configuration.appearance.pinnedLimit == 0)
+        #expect(configuration.appearance.runningLimit == 0)
+        // Nothing else about appearance was touched.
+        #expect(configuration.appearance.iconSize == 40)
+    }
+
+    @Test("A ceiling set against the new meaning is kept")
+    func keepsDeliberateCeiling() throws {
+        let defaults = makeDefaults()
+        var configuration = NexusConfiguration()
+        configuration.appearance.runningLimit = 6
+        try ConfigurationStore(defaults: defaults).save(configuration)
+
+        #expect(ConfigurationStore(defaults: defaults).load().appearance.runningLimit == 6)
+    }
+}
+

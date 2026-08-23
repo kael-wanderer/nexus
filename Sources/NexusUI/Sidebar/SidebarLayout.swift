@@ -56,7 +56,7 @@ public enum SidebarLayout {
     /// Trash, Search) keep their rows whatever happens; only the middle scrolls, and each of its
     /// two sections scrolls inside its own extent rather than pushing the tail off the screen.
     public struct BarZones: Equatable, Sendable {
-        /// Rows actually shown, which is the smaller of the section's count, its limit, and what
+        /// Rows actually shown, which is the smaller of the section's count, its ceiling, and what
         /// the screen has room for.
         public var pinnedRows: Int
         public var runningRows: Int
@@ -65,6 +65,9 @@ public enum SidebarLayout {
         public var runningExtent: CGFloat
         /// The whole bar, head and tail and separators included.
         public var total: CGFloat
+        /// Application rows this edge of this screen can hold at all, once the head, the tail and
+        /// the separators have taken theirs. What the bar grows into before anything scrolls.
+        public var slots: Int
     }
 
     /// Rows the running section is never squeezed below while anything is running: a dock full of
@@ -78,13 +81,19 @@ public enum SidebarLayout {
             + CGFloat(rows - 1) * CGFloat(appearance.iconSpacing)
     }
 
+    /// No display holds more rows than this. The cap exists so the conversion below cannot trap on
+    /// an extent that is not a real screen — an infinite one, before the panel has been framed.
+    public static let maximumRows = 1_000
+
     /// How many whole rows fit in `extent`. Half a row is worse than none: it reads as a clipped
     /// icon rather than as something to scroll.
     public static func rows(fitting extent: CGFloat, appearance: AppearanceConfiguration) -> Int {
         let row = rowHeight(appearance)
         let spacing = CGFloat(appearance.iconSpacing)
         guard extent >= row else { return 0 }
-        return Int(((extent + spacing) / (row + spacing)).rounded(.down))
+        let count = (extent + spacing) / (row + spacing)
+        guard count < CGFloat(maximumRows) else { return maximumRows }
+        return Int(count.rounded(.down))
     }
 
     private static var separatorExtent: CGFloat { Design.separatorHeight + separatorSpacing * 2 }
@@ -104,18 +113,25 @@ public enum SidebarLayout {
             + CGFloat(max(0, sectionsPresent - 1)) * separatorExtent
         let budget = max(0, available - fixed)
 
-        var pinned = min(pinnedRows, appearance.pinnedLimit)
-        var running = min(runningRows, appearance.runningLimit)
+        // How many application rows this edge holds at all. Two sections cost slightly less than
+        // one of the same total length — the gap between rows is smaller than the separator that
+        // divides them — so counting as one section is the conservative answer.
+        let slots = rows(fitting: budget, appearance: appearance)
 
-        if sectionExtent(rows: pinned, appearance: appearance)
-            + sectionExtent(rows: running, appearance: appearance) > budget {
+        // Zero means "as many as fit": the bar grows into the screen it has, and a number is only
+        // a ceiling on top of that.
+        let pinnedCeiling = appearance.pinnedLimit > 0 ? min(appearance.pinnedLimit, slots) : slots
+        let runningCeiling = appearance.runningLimit > 0 ? min(appearance.runningLimit, slots) : slots
+
+        var pinned = min(pinnedRows, pinnedCeiling)
+        var running = min(runningRows, runningCeiling)
+
+        if pinned + running > slots {
             // Running keeps its floor first, then pinned takes what is left, then running takes
             // whatever pinned did not need.
             let floor = min(running, runningFloor)
-            let forPinned = budget - sectionExtent(rows: floor, appearance: appearance)
-            pinned = min(pinned, max(0, rows(fitting: forPinned, appearance: appearance)))
-            let forRunning = budget - sectionExtent(rows: pinned, appearance: appearance)
-            running = min(running, max(floor, rows(fitting: forRunning, appearance: appearance)))
+            pinned = min(pinned, max(0, slots - floor))
+            running = min(running, max(floor, slots - pinned))
         }
 
         let pinnedExtent = sectionExtent(rows: pinned, appearance: appearance)
@@ -125,7 +141,8 @@ public enum SidebarLayout {
             runningRows: running,
             pinnedExtent: pinnedExtent,
             runningExtent: runningExtent,
-            total: min(available, fixed + pinnedExtent + runningExtent)
+            total: min(available, fixed + pinnedExtent + runningExtent),
+            slots: slots
         )
     }
 

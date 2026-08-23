@@ -234,8 +234,8 @@ struct AppearancePane: View {
                     in: AppearanceConfiguration.rowLimitRange
                 ) {
                     LabeledContent(
-                        String(localized: "Pinned rows"),
-                        value: "\(configuration.configuration.appearance.pinnedLimit)"
+                        String(localized: "Most pinned rows"),
+                        value: Self.rowLimitLabel(configuration.configuration.appearance.pinnedLimit)
                     )
                 }
                 Stepper(
@@ -243,16 +243,21 @@ struct AppearancePane: View {
                     in: AppearanceConfiguration.rowLimitRange
                 ) {
                     LabeledContent(
-                        String(localized: "Running rows"),
-                        value: "\(configuration.configuration.appearance.runningLimit)"
+                        String(localized: "Most running rows"),
+                        value: Self.rowLimitLabel(configuration.configuration.appearance.runningLimit)
                     )
                 }
-                Text("Each section scrolls inside its own rows. Trash and Search always stay in view.")
+                Text("The bar grows until it runs out of screen, then each section scrolls inside itself. Trash and Search always stay in view.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Zero is not "no rows", it is "however many fit" — so it says so.
+    private static func rowLimitLabel(_ limit: Int) -> String {
+        limit == 0 ? String(localized: "Fit the screen") : "\(limit)"
     }
 
     private enum DisplayPreferenceChoice: Hashable { case main, withMouse }

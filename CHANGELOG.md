@@ -41,9 +41,10 @@ this project follows [Semantic Versioning](https://semver.org).
   key is still written so a downgrade keeps working (D72).
 
 - Bar zones (M14): a fixed head (start menu), a scrolling middle (pinned, then running) and a
-  fixed tail (Trash, Search). Row budgets per section — `appearance.pinnedLimit` (10) and
-  `appearance.runningLimit` (5), Settings → Appearance — with a two-row floor for running so a full
-  dock never hides what is open. Overflow scrolls inside its own section (D73).
+  fixed tail (Trash, Search). The middle grows until the edge runs out — capacity is measured from
+  the screen, and differs between a side edge (height) and a main one (width) — then each section
+  scrolls inside itself. `appearance.pinnedLimit` and `appearance.runningLimit` are optional
+  ceilings, 0 meaning "fit the screen" (D73, D74). Configuration version 3.
 
 ### Fixed
 - With enough applications running, Trash and Search scrolled off the end of the bar: everything

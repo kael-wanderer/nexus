@@ -34,7 +34,7 @@ struct BarZonesTests {
         #expect(zones.pinnedExtent == extent(4))
     }
 
-    @Test("A section past its limit is capped and scrolls inside itself")
+    @Test("A ceiling, when one is set, binds before the screen does")
     func capped() {
         var appearance = appearance
         appearance.pinnedLimit = 10
@@ -127,6 +127,50 @@ struct BarZonesTests {
         #expect(withoutRunning.pinnedRows > withRunning.pinnedRows)
     }
 
+    /// The complaint this replaced the fixed limits with: half the screen empty and the running
+    /// section still scrolling.
+    @Test("With no ceiling set the bar grows into the screen it has, then scrolls")
+    func growsToFitTheScreen() {
+        let short = SidebarLayout.zones(
+            headRows: 1, pinnedRows: 0, runningRows: 30, tailRows: 2,
+            appearance: appearance, available: 600
+        )
+        let tall = SidebarLayout.zones(
+            headRows: 1, pinnedRows: 0, runningRows: 30, tailRows: 2,
+            appearance: appearance, available: 1_400
+        )
+        // A taller edge shows more, and neither shows more than it holds.
+        #expect(tall.runningRows > short.runningRows)
+        #expect(short.runningRows == short.slots)
+        #expect(tall.runningRows == tall.slots)
+        #expect(short.total <= 600)
+        #expect(tall.total <= 1_400)
+
+        // Enough screen for everything: nothing scrolls, and the bar is no taller than it needs.
+        let huge = SidebarLayout.zones(
+            headRows: 1, pinnedRows: 0, runningRows: 30, tailRows: 2,
+            appearance: appearance, available: 4_000
+        )
+        #expect(huge.runningRows == 30)
+        #expect(huge.total < 4_000)
+    }
+
+    /// A left or right bar measures the screen's height; a top or bottom one measures its width.
+    /// On a 1920 × 1080 display that is a different number of icons, and the caller is what knows
+    /// which — the zones only ever see "available".
+    @Test("The same screen holds different numbers of rows on a side edge and on a main edge")
+    func edgeAxisChangesCapacity() {
+        let side = SidebarLayout.zones(
+            headRows: 1, pinnedRows: 0, runningRows: 40, tailRows: 2,
+            appearance: appearance, available: 1_080 - 25 - 16      // height, less menu bar
+        )
+        let main = SidebarLayout.zones(
+            headRows: 1, pinnedRows: 0, runningRows: 40, tailRows: 2,
+            appearance: appearance, available: 1_920 - 16           // width
+        )
+        #expect(main.slots > side.slots)
+    }
+
     @Test("Whole rows only: half a row reads as a clipped icon, not as something to scroll")
     func wholeRows() {
         #expect(SidebarLayout.rows(fitting: extent(3) + 20, appearance: appearance) == 3)
@@ -189,7 +233,11 @@ struct SidebarZoneTests {
 
         let zones = model.zones
         #expect(model.running.count == 30)
-        #expect(zones.runningRows <= 5)
+        // The bar grows into the screen it has and scrolls the remainder, rather than stopping at
+        // a number: three pins plus as many running rows as 900 pt holds.
+        #expect(zones.pinnedRows == 3)
+        #expect(zones.runningRows == zones.slots - 3)
+        #expect(zones.runningRows > 5)
         #expect(zones.total <= 900)
         // Tail rows counted, and counted last.
         #expect(model.sectionRowCounts.last == 2)

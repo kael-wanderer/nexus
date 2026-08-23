@@ -31,29 +31,44 @@ The bar becomes three parts, and only the middle one scrolls:
 The head and the tail keep their rows whatever else happens. The middle gets what is left of the
 screen and scrolls inside it.
 
-## Budgets
+## Budgets: the screen decides, not a number
 
-Two limits, both settings, both counting *rows* — a group is one row, which is the point of groups:
+The bar grows until it runs out of edge, and only then scrolls. What "runs out" means is measured,
+because it differs per edge and per display:
 
-- `appearance.pinnedLimit`, default **10**
-- `appearance.runningLimit`, default **5**
+- a **left or right** bar measures the screen's usable **height**
+- a **top or bottom** bar measures its usable **width**
 
-The middle's extent is `min(available, pinnedShown + runningShown)`, resolved in that order:
+On a 1920 × 1080 display those are wildly different numbers of icons, so the capacity is computed
+rather than configured:
 
-1. The tail and head are subtracted from the screen first. They are never squeezed.
-2. Running keeps a floor of **2 rows** whenever anything is running — the ask behind "always show
+```
+slots = wholeRows(usable − head − tail − separators − padding)
+```
+
+`slots` is every application row this edge of this screen can hold. The head (the launcher) and the
+tail (now playing, Trash, Search) are subtracted first and are never squeezed — a row that is
+turned off costs nothing, which is why switching the now-playing row off gives its slot back to the
+applications.
+
+The slots are then handed out:
+
+1. Running keeps a floor of **2 rows** whenever anything is running — the ask behind "always show
    1-2 unpinned apps". A dock full of pins must not hide the fact that other applications are open.
-3. Pinned takes what remains, up to `pinnedLimit`.
-4. Anything over either limit is still reachable: each section scrolls inside its own extent.
+2. Pinned takes what is left.
+3. Running takes whatever pinned did not need.
+4. Past that, each section scrolls **inside its own extent**. Overflow is reachable; the tail never
+   moves.
 
-So a person with fourteen pins and thirty applications running sees ten pins, two to five running
-rows, and can scroll either section. Nothing is hidden, nothing is hunted for.
+`appearance.pinnedLimit` and `appearance.runningLimit` are **ceilings on top of that**, not the
+number of rows: **0** means "as many as fit" and is the default. Set one to 8 and you will never see
+a ninth pinned row even on a tall screen; leave it at 0 and the bar uses the screen it has.
 
-## Why limits at all, rather than just scrolling
+## Why a ceiling exists at all
 
-Because scrolling to reach Search was the complaint. A bar that grows without bound turns into a
-list; a bar with a budget stays a bar, and the overflow has two better answers already built —
-groups for the applications you keep, and the start menu or the palette for the ones you do not.
+Because a person with sixty pins on a tall display may still want the running section visible
+without scrolling to it. The screen is the rule; the ceiling is for when you want less than the
+screen offers. It is never a way to get *more* than fits.
 
 ## Rules it inherits
 
@@ -64,22 +79,31 @@ groups for the applications you keep, and the start menu or the palette for the 
 
 ## What shipped
 
-As specified. Two notes:
+The zones as specified. The budgets shipped twice: first as fixed limits of 10 and 5, which was
+wrong — a bar with half the screen empty still scrolled — and then as the measured `slots` above,
+with the limits demoted to optional ceilings (D74). Configuration version 3 resets the two values
+the first version wrote, because they were defaults nobody chose.
+
+Two notes:
 
 - The limits live in `appearance`, not `behavior`, next to icon size and spacing — they are about
-  how much bar there is, not about what it does. Settings → Appearance, two steppers.
+  how much bar there is, not about what it does. Settings → Appearance, two steppers, where 0 reads
+  as "Fit the screen".
 - `sectionRowCounts` now reports *visible* rows rather than every row a section holds, because it
   is what the flyout anchor measures against (`SidebarLayout.rowCentre`). A capped section's rows
   are the ones on screen, so an anchor can never point past the panel.
 
-Verified live with 24 applications running: the bar went from 962 pt (everything scrolling, Trash
-and Search off the end) to 466 pt — head 48, middle 272, tail 104, separators — and scrolling the
-middle moved the applications while Trash and Search stayed where they were.
+Verified live, 24 applications running: before, 962 pt of everything-scrolls with Trash and Search
+off the end. After, the bar fills the edge — 1255 pt, which is exactly the fixed 207 plus five
+pinned rows and fourteen of nineteen running ones — and the remainder scrolls inside its section
+while the tail stays put.
 
 ## Tests
 
 - With 30 running applications the tail rows are inside the panel's frame, not past it.
-- The middle's extent shrinks to fit the screen before either limit is applied.
-- Running keeps its two-row floor when the pinned section is over its limit.
+- A taller edge shows more rows than a short one, and neither shows more than it holds.
+- The same display holds a different number of rows on a side edge than on a main one.
+- Running keeps its two-row floor when the pinned section wants everything.
+- A ceiling, when one is set, binds before the screen does.
 - Both limits count a group as one row.
-- Horizontal bars put head and tail at the leading and trailing ends.
+- `rows(fitting:)` survives an extent that is not a real screen.

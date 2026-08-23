@@ -224,7 +224,10 @@ public final class SidebarViewModel {
             runningRows: behavior.showRunningApplications ? running.count : 0,
             tailRows: tailRowCount,
             appearance: appearance,
-            available: availableExtent > 0 ? availableExtent : .greatestFiniteMagnitude
+            // Before the first reframe there is no screen to measure. A large finite extent means
+            // "everything fits" without pretending the screen is infinite, which no arithmetic
+            // survives.
+            available: availableExtent > 0 ? availableExtent : 100_000
         )
     }
 

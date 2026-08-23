@@ -44,7 +44,10 @@ public final class ConfigurationStore: ConfigurationStoring {
 
     /// Purely additive changes need no migration — every field decodes with a default. Only a
     /// change in the *shape* of stored data lands here.
-    public static let standardMigrations: [any ConfigurationMigration] = [PinnedEntriesMigration()]
+    public static let standardMigrations: [any ConfigurationMigration] = [
+        PinnedEntriesMigration(),
+        AutomaticRowLimitsMigration(),
+    ]
 
     public var outcomeOfLastLoad: ConfigurationLoadOutcome {
         lock.lock()
@@ -141,6 +144,26 @@ public struct PinnedEntriesMigration: ConfigurationMigration {
         guard json["pinnedEntries"] == nil else { return }
         let pinned = json["pinnedApplications"] as? [String] ?? []
         json["pinnedEntries"] = pinned.map { ["application": $0] }
+    }
+}
+
+/// Version 2 → 3 (M14): the row limits stop being the number of rows the bar shows and become a
+/// ceiling on it, with zero meaning "as many as the screen holds".
+///
+/// The values written by the version that shipped them are dropped rather than kept: they were
+/// defaults nobody chose (10 and 5), and keeping them would cap a bar with half the screen free —
+/// which is the bug this change exists to fix. A deliberate ceiling set after this point survives,
+/// because it is stored against the new meaning.
+public struct AutomaticRowLimitsMigration: ConfigurationMigration {
+    public let fromVersion = 2
+
+    public init() {}
+
+    public func migrate(_ json: inout [String: Any]) throws {
+        var appearance = json["appearance"] as? [String: Any] ?? [:]
+        appearance["pinnedLimit"] = 0
+        appearance["runningLimit"] = 0
+        json["appearance"] = appearance
     }
 }
 
