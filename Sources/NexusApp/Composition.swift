@@ -120,6 +120,11 @@ final class Composition {
         // from the first launch onwards.
         configuration.flush()
 
+        startMenuModel.setPinned = { [weak self] identifier, pinned in
+            guard let self else { return }
+            if pinned { sidebarModel.pin(identifier) } else { sidebarModel.unpin(identifier) }
+        }
+
         sidebarModel.refreshWindowCounts = { [weak self] in self?.refreshWindowCounts() }
         // The Dock's badges (D106). Accessibility-gated and AX-bound, so it is read off the main
         // thread on the events Nexus already has — never on a timer.

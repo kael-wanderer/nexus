@@ -19,9 +19,13 @@ public final class StartMenuViewModel {
     public private(set) var applications: [NexusApplication] = []
     public var selectedIndex = 0
 
-    /// How many recently used applications lead the list before the alphabetical remainder.
-    public static let recentCount = 8
-    public private(set) var recentCutoff = 0
+    /// How many pinned applications lead the list. The view draws those as their own section;
+    /// everything after them is the alphabetical remainder (M11).
+    public private(set) var pinnedCount = 0
+
+    /// While a query is on screen the list is one flat set of matches, so the pinned section — and
+    /// its header — steps aside rather than splitting the results in two.
+    public var isFiltering: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
 
     @ObservationIgnored private let index: ApplicationIndexSnapshot
     @ObservationIgnored private let configuration: ConfigurationController
@@ -29,6 +33,10 @@ public final class StartMenuViewModel {
 
     @ObservationIgnored public var onClose: (() -> Void)?
     @ObservationIgnored public var onContentChange: (() -> Void)?
+
+    /// Pinning is the sidebar's job — it knows about groups, and unpinning has to reach into them.
+    /// The start menu only says which way to flip it.
+    @ObservationIgnored public var setPinned: ((String, Bool) -> Void)?
 
     public init(
         index: ApplicationIndexSnapshot,
@@ -60,6 +68,7 @@ public final class StartMenuViewModel {
         isShowing = false
         query = ""
         applications = []
+        pinnedCount = 0
         selectedIndex = 0
     }
 
@@ -70,28 +79,26 @@ public final class StartMenuViewModel {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
 
         guard !trimmed.isEmpty else {
-            let frecency = Frecency(entries: configuration.configuration.frecency)
             let byIdentifier = Dictionary(
                 all.map { ($0.identity.bundleIdentifier, $0) },
                 uniquingKeysWith: { first, _ in first }
             )
-            let recents = frecency.recents(limit: Self.recentCount).compactMap { entry -> NexusApplication? in
-                guard entry.hasPrefix("app:") else { return nil }
-                return byIdentifier[String(entry.dropFirst(4))]
-            }
-            let recentIdentifiers = Set(recents.map(\.identity.bundleIdentifier))
+            // Dock order, not alphabetical: the pinned section is the bar, laid out flat, so the
+            // two read the same way round. Group members are in `pinnedApplications` too.
+            let pinned = configuration.configuration.pinnedApplications.compactMap { byIdentifier[$0] }
+            let pinnedIdentifiers = Set(pinned.map(\.identity.bundleIdentifier))
             let rest = all
-                .filter { !recentIdentifiers.contains($0.identity.bundleIdentifier) }
+                .filter { !pinnedIdentifiers.contains($0.identity.bundleIdentifier) }
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            recentCutoff = recents.count
-            applications = recents + rest
+            pinnedCount = pinned.count
+            applications = pinned + rest
             onContentChange?()
             return
         }
 
         // Filtering, not ranking: best match first, then alphabetical, so the grid stays stable
         // enough to aim at while you are still typing.
-        recentCutoff = 0
+        pinnedCount = 0
         var scored: [(application: NexusApplication, score: Double)] = []
         for application in all {
             guard let score = StringMatch.score(query: trimmed, candidate: application.name) else {
@@ -107,6 +114,21 @@ public final class StartMenuViewModel {
         }
         applications = scored.map(\.application)
         onContentChange?()
+    }
+
+    // MARK: - Pinning
+
+    public func isPinned(_ application: NexusApplication) -> Bool {
+        configuration.configuration.pinnedApplications.contains(application.identity.bundleIdentifier)
+    }
+
+    public func togglePin(_ application: NexusApplication) {
+        let identifier = application.identity.bundleIdentifier
+        setPinned?(identifier, !isPinned(application))
+        rebuild()
+        // The row that was under the pointer is now somewhere else in the list; keep the selection
+        // inside it rather than pointing past the end.
+        selectedIndex = min(selectedIndex, max(0, applications.count - 1))
     }
 
     // MARK: - Selection

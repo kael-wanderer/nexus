@@ -90,7 +90,11 @@ public final class StartMenuPanelController {
 
     private func resize() {
         guard let panel else { return }
-        let height = StartMenuView.height(forApplications: model.applications.count)
+        let height = StartMenuView.height(
+            pinned: model.pinnedCount,
+            others: model.applications.count - model.pinnedCount,
+            showsPinnedSection: !model.isFiltering
+        )
         guard abs(height - panel.frame.height) > 0.5 else { return }
         panel.setFrame(
             NSRect(

@@ -8,10 +8,12 @@ import Testing
 @MainActor
 private func makeStartMenu(
     _ applications: [NexusApplication],
-    frecency: [String: FrecencyEntry] = [:]
+    frecency: [String: FrecencyEntry] = [:],
+    pinned: [DockEntry] = []
 ) -> (StartMenuViewModel, ConfigurationController) {
     var initial = NexusConfiguration()
     initial.frecency = frecency
+    initial.pinnedEntries = pinned
     let configuration = ConfigurationController(
         store: InMemoryConfigurationStore(initial),
         events: EventBus(),
@@ -30,20 +32,85 @@ private func makeStartMenu(
 @MainActor
 @Suite("Start menu")
 struct StartMenuTests {
-    @Test("With no query the grid leads with recent applications, then everything else A–Z")
-    func recentsFirst() {
+    @Test("With no query the list leads with the pinned section, then everything else A–Z")
+    func pinnedFirst() {
         let (model, _) = makeStartMenu(
             [
                 makeApplication("a", name: "Alpha"),
                 makeApplication("b", name: "Bravo"),
                 makeApplication("c", name: "Charlie"),
             ],
-            frecency: ["app:c": FrecencyEntry(count: 5, lastUsed: Date())]
+            pinned: [.application("c")]
         )
         model.prepareForDisplay()
 
         #expect(model.applications.map(\.name) == ["Charlie", "Alpha", "Bravo"])
-        #expect(model.recentCutoff == 1)
+        #expect(model.pinnedCount == 1)
+    }
+
+    @Test("A query flattens the two sections into one list of matches")
+    func filteringDropsTheSections() {
+        let (model, _) = makeStartMenu(
+            [makeApplication("a", name: "Alpha"), makeApplication("c", name: "Charlie")],
+            pinned: [.application("c")]
+        )
+        model.prepareForDisplay()
+        #expect(model.pinnedCount == 1)
+        #expect(!model.isFiltering)
+
+        model.query = "a"
+        #expect(model.isFiltering)
+        #expect(model.pinnedCount == 0)
+    }
+
+    @Test("Pinning from the menu moves the application into the pinned section, and back out again")
+    func togglesPins() {
+        let (model, configuration) = makeStartMenu([
+            makeApplication("a", name: "Alpha"),
+            makeApplication("b", name: "Bravo"),
+        ])
+        model.setPinned = { identifier, pinned in
+            configuration.update { configuration in
+                if pinned {
+                    configuration.pinnedEntries.append(.application(identifier))
+                } else {
+                    configuration.pinnedEntries.removeAll { $0 == .application(identifier) }
+                }
+            }
+        }
+        model.prepareForDisplay()
+        #expect(model.pinnedCount == 0)
+
+        model.togglePin(makeApplication("b", name: "Bravo"))
+        #expect(model.applications.map(\.name) == ["Bravo", "Alpha"])
+        #expect(model.pinnedCount == 1)
+        #expect(model.isPinned(makeApplication("b", name: "Bravo")))
+
+        model.togglePin(makeApplication("b", name: "Bravo"))
+        #expect(model.applications.map(\.name) == ["Alpha", "Bravo"])
+        #expect(model.pinnedCount == 0)
+    }
+
+    @Test("Rows survive the list emptying under them, which is what closing the menu does")
+    func rowsSurviveReset() {
+        let applications = [makeApplication("a", name: "Alpha"), makeApplication("b", name: "Bravo")]
+
+        #expect(StartMenuView.entries(0..<2, in: applications).map(\.application.name) == ["Alpha", "Bravo"])
+        // `hide` resets the model while the view is still mounted; the same range then arrives
+        // against an empty list and must not trap.
+        #expect(StartMenuView.entries(0..<2, in: []).isEmpty)
+        #expect(StartMenuView.entries(1..<5, in: applications).map(\.index) == [1])
+    }
+
+    @Test("The panel grows a pinned section, and gives the space back when a query hides it")
+    func heightCoversBothSections() {
+        let unpinnedOnly = StartMenuView.height(pinned: 0, others: 8, showsPinnedSection: false)
+        let withEmptyPinned = StartMenuView.height(pinned: 0, others: 8, showsPinnedSection: true)
+        let withPins = StartMenuView.height(pinned: 4, others: 8, showsPinnedSection: true)
+
+        #expect(unpinnedOnly < withEmptyPinned)
+        #expect(withEmptyPinned < withPins)
+        #expect(withPins <= StartMenuView.maximumHeight)
     }
 
     @Test("Typing filters the grid and drops what does not match")
