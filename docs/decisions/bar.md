@@ -485,6 +485,13 @@ row's edge too, where a click outside the parent's bounds lands on nothing.
 hand-check, and `RemoveBadge` has a fixed size, because where it goes is arithmetic and arithmetic
 needs a number rather than whatever the symbol happens to measure.
 
+The clamp turned out to be half the fix. The badge still flashed with the whole of it inside the
+tile, because SwiftUI's `onHover` is occlusion-sensitive: the badge is an overlay drawn *above* the
+layer whose hover draws it, so the pointer arriving on the badge stopped hovering the tile — hid the
+badge — hovered the tile again — drew it again. Same loop, one layer up. The hover is therefore
+tracked *after* the badge overlay in the modifier chain, so the region that keeps the badge alive
+includes the badge itself. Order of modifiers is load-bearing here, and the tile's source says so.
+
 ## D111. Full screen means full screen: the bar steps aside, per display.
 
 The panels are `.fullScreenAuxiliary` (D3), which is what makes them show on every Space — and also

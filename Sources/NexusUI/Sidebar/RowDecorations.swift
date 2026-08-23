@@ -190,6 +190,20 @@ struct DockBadge: View {
 enum Poof {
     static func show(at screenPoint: NSPoint) {
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        // Through the protocol witness: the requirement carries no availability, which is what
+        // keeps the deliberate use of a deprecated-but-right API out of the warning count.
+        (Poof.self as PoofEffect.Type).poof(at: screenPoint)
+    }
+}
+
+@MainActor
+private protocol PoofEffect {
+    static func poof(at screenPoint: NSPoint)
+}
+
+extension Poof: PoofEffect {
+    @available(macOS, deprecated: 14.0)
+    fileprivate static func poof(at screenPoint: NSPoint) {
         NSAnimationEffect.disappearingItemDefault.show(
             centeredAt: screenPoint,
             size: NSSize(width: 32, height: 32)

@@ -47,6 +47,9 @@ this project follows [Semantic Versioning](https://semver.org).
   corner and hung over the tile's edge, so hovering the badge read as leaving the tile — which hid
   the badge, which put the pointer back over the tile. The badge is now kept wholly inside the row
   it decorates, which fixes the bar's edit-mode badges at the same time (D110).
+- The same badge flashed a second way even wholly inside the tile: `onHover` is occlusion-sensitive,
+  and the badge overlay occluded the very hover that drew it. The hover is now tracked after the
+  badge in the modifier chain, so pointing at the badge counts as hovering the tile (D110).
 - Grouping applications by dragging, which was "shaky and nearly impossible" (D103). The drag knew
   which row it was on and nothing about where in it, so it reordered the preview on every pointer
   update, which moved the rows under a still pointer, which restarted the 600 ms dwell timer that

@@ -290,11 +290,6 @@ struct GroupMemberTile: View {
                 .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))
         }
         .contentShape(Rectangle())
-        .onHover { hovering in
-            withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
-                isHovered = hovering
-            }
-        }
         // Dragging a member out of the popover and onto the bar takes it out of the group: the
         // payload is the bundle identifier, so the bar's rows treat it like any other drag.
         .nexusRow(
@@ -314,6 +309,14 @@ struct GroupMemberTile: View {
         // Taking an application out by dragging it onto the bar is precise work with nine or sixteen
         // tiles in front of you; the badge is the same answer iOS gives.
         .nexusRemoveBadge(isHovered) { remove() }
+        // Hover is tracked *after* the badge, deliberately (D110): the badge is a sibling overlay
+        // above the tile, so tracking the tile alone meant the badge occluded the hover that draws
+        // it — which hid it, which restored the hover, which drew it again.
+        .onHover { hovering in
+            withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
+                isHovered = hovering
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
         .accessibilityHint(
