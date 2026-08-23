@@ -6,7 +6,9 @@ public final class NonActivatingPanel: NSPanel {
     public override var canBecomeKey: Bool { false }
     public override var canBecomeMain: Bool { false }
 
-    public init(contentView: NSView) {
+    /// `title` is never drawn — the panel is borderless — but it is what VoiceOver announces when
+    /// it lands on the window, so every panel names itself.
+    public init(contentView: NSView, title: String = "Nexus") {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 64, height: 200),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -23,6 +25,7 @@ public final class NonActivatingPanel: NSPanel {
         hasShadow = true
         acceptsMouseMovedEvents = true
         isReleasedWhenClosed = false
+        self.title = title
         self.contentView = contentView
     }
 }

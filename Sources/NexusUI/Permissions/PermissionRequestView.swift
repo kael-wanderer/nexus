@@ -186,6 +186,7 @@ public struct FlatActionRow: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
     }
 
     private var fillStyle: AnyShapeStyle {

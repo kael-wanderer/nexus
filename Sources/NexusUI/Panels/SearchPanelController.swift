@@ -7,7 +7,7 @@ public final class SearchPanel: NSPanel {
     public override var canBecomeKey: Bool { true }
     public override var canBecomeMain: Bool { false }
 
-    public init(contentView: NSView) {
+    public init(contentView: NSView, title: String = "Nexus Search") {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: SearchPaletteView.width, height: 52),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -25,6 +25,7 @@ public final class SearchPanel: NSPanel {
         animationBehavior = .none
         hasShadow = true
         isReleasedWhenClosed = false
+        self.title = title
         self.contentView = contentView
     }
 }

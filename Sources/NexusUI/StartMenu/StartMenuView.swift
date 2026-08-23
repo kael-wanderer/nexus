@@ -138,6 +138,7 @@ struct StartMenuTile: View {
                 : String(localized: "Launches the application")
         )
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { action() }
     }
 }
 
@@ -165,5 +166,6 @@ struct SystemActionButton: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(action.title)
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { run() }
     }
 }

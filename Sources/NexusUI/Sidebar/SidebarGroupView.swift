@@ -70,6 +70,7 @@ struct SidebarGroupView: View {
         )
         .accessibilityHint(String(localized: "Opens the group"))
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { model.openGroup(group) }
     }
 
     private var tile: some View {

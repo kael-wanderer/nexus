@@ -60,6 +60,7 @@ struct NowPlayingRow: View {
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(String(localized: "Plays or pauses"))
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { model.togglePlayback() }
     }
 
     /// Deliberately not just the application's icon: the same application usually has a row of its
@@ -205,6 +206,7 @@ struct MiniTransportButton: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(label)
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
     }
 }
 

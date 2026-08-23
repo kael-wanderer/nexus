@@ -59,7 +59,10 @@ public final class PanelController {
         model.layoutDidChange = { [weak self] in self?.reframe(animated: false) }
         model.onHoverChange = { [weak self] hovering in self?.hoverChanged(hovering) }
 
-        let panel = NonActivatingPanel(contentView: FirstMouseHostingView(rootView: SidebarView(model: model)))
+        let panel = NonActivatingPanel(
+            contentView: FirstMouseHostingView(rootView: SidebarView(model: model)),
+            title: String(localized: "Nexus")
+        )
         sidebarPanel = panel
 
         let edge = EdgeTriggerPanel { [weak self] in self?.reveal() }
@@ -74,7 +77,10 @@ public final class PanelController {
                 .onHover { [weak self] hovering in self?.flyoutHoverChanged(hovering) }
         )
         flyoutHosting = flyoutHostingView
-        flyoutPanel = NonActivatingPanel(contentView: flyoutHostingView)
+        flyoutPanel = NonActivatingPanel(
+            contentView: flyoutHostingView,
+            title: String(localized: "Nexus windows")
+        )
 
         model.showGroup = { [weak self] group in self?.showGroup(group) }
         groupModel.onDismiss = { [weak self] in self?.hideGroup() }
@@ -83,7 +89,10 @@ public final class PanelController {
                 .onHover { [weak self] hovering in self?.groupHoverChanged(hovering) }
         )
         groupHosting = groupHostingView
-        groupPanel = NonActivatingPanel(contentView: groupHostingView)
+        groupPanel = NonActivatingPanel(
+            contentView: groupHostingView,
+            title: String(localized: "Nexus group")
+        )
 
 
         screenObserver = NotificationCenter.default.addObserver(

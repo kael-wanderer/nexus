@@ -761,3 +761,24 @@ The chip that shows the current scope is also the menu that changes it, so the w
 reachable with the mouse — and picking from that menu hands first responder back to the field
 without selecting what is in it, or the next keystroke would replace the query the scope was chosen
 for.
+
+**D88. Every row carries its own accessibility action.**
+
+The Definition of Done (§33) asks that Nexus be usable with the keyboard and by VoiceOver. The
+labels were there from the start — every row has a label, a value carrying its state, and a hint —
+and reading the bar worked. Pressing anything in it did not.
+
+The cause is the same one that shapes half of Nexus: these panels can never become key, so nothing
+in them is a SwiftUI `Button`. Rows are hit by `PanelRowInteraction` claiming the AppKit mouse-down,
+and `.accessibilityAddTraits(.isButton)` only *says* button — it adds no action, so `AXPress` from
+VoiceOver found nothing to perform and returned success having done nothing. Verified by pressing
+the start-menu row through the Accessibility API: `AXPress` reported success and no menu opened.
+
+So each row now adds `.accessibilityAction` next to its traits, doing exactly what its click does.
+It has to live at the call site: an action added inside the `nexusRow` modifier is discarded by the
+`.accessibilityElement(children: .ignore)` that every row applies outside it — which was tried
+first, and measured, before writing twelve lines instead of one.
+
+Two smaller things the same pass turned up: the panels had no `title`, so VoiceOver announced an
+unnamed window for the bar, the palette, the flyouts and the start menu; and a single-window
+application read as "running, 1 windows".

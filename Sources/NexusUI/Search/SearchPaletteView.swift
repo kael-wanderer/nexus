@@ -112,7 +112,8 @@ public struct SearchPaletteView: View {
                             SearchResultRow(
                                 result: result,
                                 isSelected: result.id == model.selectedID,
-                                positionLabel: positionLabel(for: result)
+                                positionLabel: positionLabel(for: result),
+                                activate: { model.click(result) }
                             )
                             .id(result.id)
                             .contentShape(Rectangle())
@@ -142,6 +143,9 @@ struct SearchResultRow: View {
     let result: SearchResult
     let isSelected: Bool
     let positionLabel: String?
+    /// The tap lives on the row's container, so the row carries the same action for VoiceOver,
+    /// which presses elements rather than clicking points (D88).
+    let activate: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -179,6 +183,7 @@ struct SearchResultRow: View {
         .accessibilityValue(result.subtitle ?? result.category.title)
         .accessibilityHint(String(localized: "Press Return to run this result"))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { activate() }
     }
 
     @ViewBuilder

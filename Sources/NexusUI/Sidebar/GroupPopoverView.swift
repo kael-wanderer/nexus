@@ -157,5 +157,6 @@ struct GroupMemberTile: View {
                 : String(localized: "Launches the application")
         )
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { launch() }
     }
 }

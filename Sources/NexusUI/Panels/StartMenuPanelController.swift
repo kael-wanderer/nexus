@@ -22,7 +22,10 @@ public final class StartMenuPanelController {
     }
 
     public func start() {
-        panel = SearchPanel(contentView: FirstMouseHostingView(rootView: StartMenuView(model: model)))
+        panel = SearchPanel(
+            contentView: FirstMouseHostingView(rootView: StartMenuView(model: model)),
+            title: String(localized: "Nexus start menu")
+        )
         model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
         model.onContentChange = { [weak self] in self?.resize() }
 

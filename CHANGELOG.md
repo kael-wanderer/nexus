@@ -85,6 +85,15 @@ this project follows [Semantic Versioning](https://semver.org).
   title). A left or right bar stays compact unless hover has expanded it, because a 56 pt scrubber
   cannot be dragged (D82).
 
+### Fixed
+- VoiceOver can now press what it reads (D88): every row adds an accessibility action beside its
+  traits, because a panel that cannot become key has no SwiftUI `Button` to inherit one from.
+  `AXPress` on the bar, the palette, the flyouts, the start menu and the group popover previously
+  reported success and did nothing.
+- Panels name themselves, so VoiceOver announces "Nexus", "Nexus Search", "Nexus windows",
+  "Nexus group" and "Nexus start menu" instead of an unnamed window.
+- An application with one window reads as "running, 1 window".
+
 ### Removed
 - The media player's popover. The wide row shows artwork, title, timeline and buttons itself, so the
   popover was a second copy of all four, one hover away — and it took a panel, a grace period, a

@@ -163,6 +163,7 @@ struct WindowRow: View {
         )
         .accessibilityHint(String(localized: "Brings this window to the front"))
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { model.activate(window) }
     }
 
     private var displayTitle: String {
@@ -228,6 +229,7 @@ struct WindowCard: View {
         )
         .accessibilityHint(String(localized: "Brings this window to the front"))
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { model.activate(window) }
     }
 
     private var displayTitle: String {

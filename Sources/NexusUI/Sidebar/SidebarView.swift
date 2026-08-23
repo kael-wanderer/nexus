@@ -316,6 +316,9 @@ struct SidebarItemView: View {
                 : String(localized: "Launches the application")
         )
         .accessibilityAddTraits(.isButton)
+        // The click is AppKit's, so the row needs its own action or VoiceOver can read it and
+        // not press it (D88).
+        .accessibilityAction { model.activateOrLaunch(item) }
     }
 
     private var runningIndicator: some View {
@@ -337,7 +340,10 @@ struct SidebarItemView: View {
 
     private var accessibilityValue: String {
         guard item.isRunning else { return String(localized: "not running") }
-        if item.windowCount > 0 {
+        if item.windowCount == 1 {
+            return String(localized: "running, 1 window")
+        }
+        if item.windowCount > 1 {
             return String(localized: "running, \(item.windowCount) windows")
         }
         return String(localized: "running")
@@ -465,5 +471,6 @@ struct SidebarGlyphRow: View {
         .accessibilityLabel(title)
         .accessibilityHint(hint)
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { action() }
     }
 }
