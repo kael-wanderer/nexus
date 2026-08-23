@@ -12,6 +12,8 @@ One file per feature.
 | [`reserved-space.md`](reserved-space.md) | Keeping other applications' windows off the bar, when macOS offers no way to reserve the space. |
 | [`bar-zones.md`](bar-zones.md) | What the bar always shows: a fixed head and tail, a scrolling middle, and a budget for each section. |
 | [`now-playing.md`](now-playing.md) | What is playing, and the transport controls — without the private framework that would break on the next update. |
+| [`media-player-row.md`](media-player-row.md) | The now-playing row as an actual player: inline controls, a draggable timeline, and no window previews. |
+| [`search-scope.md`](search-scope.md) | Opening the palette at the bar, and telling it what kind of thing to look for. |
 | [`app-groups.md`](app-groups.md) | Folders in the dock, and the configuration migration they bring with them. |
 
 New feature? New file here, named after the feature. Keep it to what is specific — the focus,
