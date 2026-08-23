@@ -19,7 +19,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 6 | Launch applications | M2 | None | |
 | 7 | Quit applications | M3 | None | `NSRunningApplication.terminate()`; force-quit in context menu |
 | 8 | Pin applications | M2 | None | Persisted as ordered bundle identifiers |
-| 9 | Reorder applications | M2 | None | Context menu: Move Up / Move Down / Move to End. Drag is unreliable inside a non-activating panel (D44) |
+| 9 | Reorder applications | M2, M9 | None | Drag a row onto another, or the context menu: Move Up / Move Down / Move to End. The drag is an AppKit session, not SwiftUI's (D56) |
 | 10 | Window grouping | M4 | **Accessibility** | Flyout listing an app's windows |
 | 11 | Activate windows | M4 | **Accessibility** | `AXRaise` + `NSRunningApplication.activate()` |
 | 12 | Window count | M3 | None | `CGWindowListCopyWindowInfo` — count only, no titles |
@@ -47,7 +47,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | Open System Settings | M5 | None | `x-apple.systempreferences:` URL |
 | Show Desktop | — | — | **Not in MVP** — no such bundle exists on macOS 14+; the alternatives need Accessibility or AppleScript (D28) |
 | Lock Screen | M5 | None | `SACLockScreenImmediate` (login framework) |
-| Empty Trash | — | — | **Not in MVP** — destructive, needs confirmation UX |
+| Trash | M9 | None | Always-present row before Search: click opens the Trash, context menu opens or empties it. Emptying asks first and goes through Finder. No full/empty icon state (D55) |
 
 No shell execution, no AppleScript, no `osascript` in the MVP. Those need Automation
 permission and belong to the automation engine (§46, out of scope).
@@ -60,7 +60,7 @@ permission and belong to the automation engine (§46, out of scope).
 |---|---|---|---|
 | Auto-hide | M2 | None | Edge-hover reveal, configurable delay |
 | Hover expand | M2 | None | Widened panel with names; must not steal focus |
-| Drag and drop | M2 (pin from Finder) | None | Dropping an `.app` onto the sidebar pins it. Row-level drag reorder superseded by the context menu (D44); dropping files onto an app icon remains out of the MVP |
+| Drag and drop | M2 (pin from Finder), M9 (reorder) | None | Dropping an `.app` onto the sidebar pins it. Dragging a row onto another reorders the pins, and dragging a running application onto them pins it in that slot. Dropping files onto an app icon remains out of scope |
 | Smooth animations | M2 → M7 | None | Reduce Motion honoured from the first animation written |
 | Custom icon size | M2 | None | |
 | Custom sidebar width | M2 | None | |

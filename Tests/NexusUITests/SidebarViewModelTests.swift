@@ -107,6 +107,31 @@ struct SidebarViewModelTests {
         #expect(configuration.configuration.pinnedApplications == ["a", "b"])
     }
 
+    @Test("Dropping a pinned row on another reorders them")
+    func dropReorders() async {
+        let (model, _, configuration) = makeModel([], pinned: ["a", "b", "c"])
+        model.dropPinned("c", on: "a")
+        #expect(configuration.configuration.pinnedApplications == ["c", "a", "b"])
+    }
+
+    @Test("Dropping a running application on a pinned one pins it in that slot")
+    func dropPins() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("new", name: "New", running: true)],
+            pinned: ["a", "b"]
+        )
+        model.dropPinned("new", on: "b")
+        #expect(configuration.configuration.pinnedApplications == ["a", "new", "b"])
+    }
+
+    @Test("A drop that lands on a row that is not pinned changes nothing")
+    func dropOnUnpinnedTarget() async {
+        let (model, _, configuration) = makeModel([], pinned: ["a", "b"])
+        model.dropPinned("a", on: "not-pinned")
+        model.dropPinned("a", on: "a")
+        #expect(configuration.configuration.pinnedApplications == ["a", "b"])
+    }
+
     @Test("Hover expand is suppressed when the behaviour is disabled")
     func hoverExpandDisabled() async {
         let (model, _, configuration) = makeModel()
@@ -126,10 +151,11 @@ struct SidebarViewModelTests {
             pinned: ["a"]
         )
         await model.refresh()
-        #expect(model.sectionRowCounts == [1, 1])
+        // The last section is the always-present utility row (Trash; Search is not injected here).
+        #expect(model.sectionRowCounts == [1, 1, 1])
 
         configuration.update { $0.behavior.showRunningApplications = false }
-        #expect(model.sectionRowCounts == [1])
+        #expect(model.sectionRowCounts == [1, 1])
     }
 
     @Test("Only .app bundles are accepted from a Finder drop")

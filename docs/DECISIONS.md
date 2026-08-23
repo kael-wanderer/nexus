@@ -383,3 +383,28 @@ Sharing an edge would put the Dock's hot zone under Nexus's own edge trigger, wh
 mouse flick arms a 1000-second timer. The Dock has no top edge, so a top or bottom sidebar sends
 it left rather than to the literal opposite.
 
+## 2026-08-23 — Milestone 9, Trash row and drag reorder
+
+**D55. The Trash row has no full/empty state.**
+Reading `~/.Trash` needs Full Disk Access — `kTCCServiceSystemPolicyAllFiles` for
+`com.congbui.nexus` is an explicit deny on this machine — and a failed read is indistinguishable
+from an empty Trash. The first build drew "empty" over a Trash holding 42 items. One icon that
+never claims to know beats an icon that is silently wrong whenever the grant is missing, and an
+icon is not worth asking for access to every file on the disk.
+
+**D56. Drag-to-reorder is an AppKit dragging session inside `PanelRowInteraction`, not SwiftUI.**
+Supersedes D44's "reorder by context menu only". The sidebar panel can never become key, so the
+row interaction has to claim every mouse-down for a plain click to work at all, which means
+SwiftUI never sees a drag start — `.draggable` was dead code. `mouseDragged` past the same 5 pt
+slop that already separates a click from a press starts an `NSDraggingSession` carrying a private
+pasteboard type (`com.congbui.nexus.sidebar-row`), so a text drag from another application can
+never reorder anything, and the source mask is `.move` only within Nexus. Dropping a running
+application onto a pinned row pins it in that slot. The context-menu items stay: they are the
+keyboard-reachable path.
+
+**D57. Empty Trash goes through Finder and asks first.**
+`tell application "Finder" to empty trash` keeps the "put back" bookkeeping and the locked-item
+rules that a hand-rolled `FileManager` delete would skip. It needs Automation access for Finder,
+requested on first use; a refusal leaves the Trash untouched and is logged. The confirmation
+alert is the one modal in the sidebar — the action cannot be undone.
+

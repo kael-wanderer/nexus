@@ -39,6 +39,7 @@ public final class SidebarViewModel {
     /// Hover-expanded (names visible). Never true when `behavior.hoverExpand` is off.
     public var isExpanded = false
 
+
     /// Window flyout target, set at Milestone 4.
     public var flyoutTarget: ApplicationIdentity?
 
@@ -100,10 +101,12 @@ public final class SidebarViewModel {
 
     // MARK: - Rows
 
+    /// The utility section — Trash, then Search — is always present: the Trash row does not
+    /// depend on anything being injected, so this section never has fewer than one row.
     public var sectionRowCounts: [Int] {
         var counts = [pinned.count]
         if behavior.showRunningApplications { counts.append(running.count) }
-        if openSearch != nil { counts.append(1) }
+        counts.append(openSearch == nil ? 1 : 2)
         return counts
     }
 
@@ -196,8 +199,17 @@ public final class SidebarViewModel {
         configuration.update { $0.pinnedApplications = order }
     }
 
-    /// Reorder by one slot. Drag inside a non-activating panel is unreliable, so the context
-    /// menu is the path that is guaranteed to work.
+    /// A row was dropped on `target`. Dropping an application that is not pinned yet pins it
+    /// first, which is how the running section becomes the pinned one by dragging.
+    public func dropPinned(_ identifier: String, on target: String) {
+        guard identifier != target,
+              configuration.configuration.pinnedApplications.contains(target)
+        else { return }
+        pin(identifier)
+        movePinned(identifier, before: target)
+    }
+
+    /// Reorder by one slot; the same operation the context menu offers.
     public func canMovePinned(_ identifier: String, by delta: Int) -> Bool {
         let order = configuration.configuration.pinnedApplications
         guard let index = order.firstIndex(of: identifier) else { return false }
@@ -220,6 +232,16 @@ public final class SidebarViewModel {
         order.remove(at: from)
         order.append(identifier)
         configuration.update { $0.pinnedApplications = order }
+    }
+
+    // MARK: - Trash
+
+    public func openTrash() {
+        TrashService.open()
+    }
+
+    public func emptyTrash() {
+        TrashService.empty()
     }
 
     /// Accepts a Finder drop of one or more `.app` bundles.

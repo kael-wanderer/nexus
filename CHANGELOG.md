@@ -11,7 +11,11 @@ this project follows [Semantic Versioning](https://semver.org).
 - Dock Replacement Mode (D51/D52): the macOS Dock hides while Nexus runs and is restored exactly
   when it quits, with the Dock parked on the edge Nexus is not using (D54). Settings → Dock, one
   onboarding step, a menu-bar status row and a Restore button that works whatever the flags say.
-- App icon.
+- App icon and a menu-bar template icon.
+- Trash row, always present, before Search: click opens it, the context menu opens or empties it
+  (through Finder, after a confirmation).
+- Drag-to-reorder is back, as an AppKit dragging session (D56): drag a row onto another to move
+  it, or drag a running application onto the pinned rows to pin it in that slot.
 
 ### Fixed
 - Clicking a running application whose windows are all closed now shows a window: activation goes
@@ -21,9 +25,8 @@ this project follows [Semantic Versioning](https://semver.org).
   every launch.
 
 ### Removed
-- The sidebar's drag-to-reorder, which never worked: the panel can never become key, so the row
-  interaction has to claim every mouse-down and SwiftUI never sees a drag start. Reordering is on
-  the context menu.
+- SwiftUI's `.draggable` on sidebar rows, which never fired — replaced by the AppKit session
+  above rather than left as dead code.
 
 ## [0.1.0] — 2026-08-22
 

@@ -47,7 +47,7 @@ struct SidebarPopulationTests {
             try await Task.sleep(for: .milliseconds(10))
         }
         #expect(model.running.count == 25)
-        #expect(model.sectionRowCounts == [0, 25])
+        #expect(model.sectionRowCounts == [0, 25, 1])
     }
 
     @Test("Applications already running at launch are not swallowed by the pinned filter")
@@ -74,17 +74,17 @@ struct SidebarPopulationTests {
         await model.refresh()
         #expect(model.running.count == 24 || model.running.count == 25)
         // The rows the panel actually lays out collapse to the pinned section alone.
-        #expect(model.sectionRowCounts == [model.pinned.count])
+        #expect(model.sectionRowCounts == [model.pinned.count, 1])
     }
 
     @Test("Turning the section back on restores the rows without a relaunch")
     func toggleBackOn() async {
         let (model, configuration) = makeSidebar(running: runningApps(4), showRunning: false)
         await model.refresh()
-        #expect(model.sectionRowCounts == [0])
+        #expect(model.sectionRowCounts == [0, 1])
 
         configuration.update { $0.behavior.showRunningApplications = true }
-        #expect(model.sectionRowCounts == [0, 4])
+        #expect(model.sectionRowCounts == [0, 4, 1])
     }
 
     @Test("A clean configuration shows running applications by default")

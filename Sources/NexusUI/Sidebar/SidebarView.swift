@@ -57,10 +57,8 @@ public struct SidebarView: View {
                 if !model.pinned.isEmpty { separator }
                 section(model.running)
             }
-            if model.openSearch != nil {
-                if !model.pinned.isEmpty || !model.running.isEmpty { separator }
-                searchRow
-            }
+            if !model.pinned.isEmpty || !model.running.isEmpty { separator }
+            utilitySection
         }
         .padding(SidebarLayout.outerPadding)
         .frame(maxWidth: .infinity)
@@ -87,6 +85,51 @@ public struct SidebarView: View {
             )
             .padding(isVertical ? .horizontal : .vertical, 4)
             .accessibilityHidden(true)
+    }
+
+    /// Trash and Search. Always present — neither depends on any application being there.
+    private var utilitySection: some View {
+        let spacing = model.appearance.iconSpacing
+        let layout = isVertical
+            ? AnyLayout(VStackLayout(spacing: spacing))
+            : AnyLayout(HStackLayout(spacing: spacing))
+        return layout {
+            trashRow
+            if model.openSearch != nil { searchRow }
+        }
+    }
+
+    private var trashRow: some View {
+        SidebarGlyphRow(
+            systemImage: "trash",
+            title: String(localized: "Trash"),
+            iconSize: model.appearance.iconSize,
+            expanded: model.isExpanded,
+            isVertical: isVertical,
+            hint: String(localized: "Opens the Trash in Finder"),
+            menu: {
+                [
+                    ClosureMenuItem(title: String(localized: "Open Trash")) { model.openTrash() },
+                    ClosureMenuItem(title: String(localized: "Empty Trash…")) { confirmEmptyTrash() },
+                ]
+            }
+        ) {
+            model.openTrash()
+        }
+    }
+
+    /// Emptying the Trash cannot be undone, so it asks first — the one confirmation in the
+    /// sidebar, and the reason the menu item carries an ellipsis.
+    private func confirmEmptyTrash() {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Empty the Trash?")
+        alert.informativeText = String(localized: "The items in the Trash will be deleted permanently.")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: String(localized: "Empty Trash"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        NSApp.activate()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        model.emptyTrash()
     }
 
     private var searchRow: some View {
@@ -176,11 +219,15 @@ struct SidebarItemView: View {
                 isHovered = hovering
             }
         }
-        // ponytail: no drag-to-reorder. A row cannot start a SwiftUI drag here — the panel never
-        // becomes key, so PanelRowInteraction has to claim every mouse-down for the click to work
-        // at all. Reordering is the Move Up / Move Down / Move to End menu items; add an AppKit
-        // dragging session in PanelRowInteraction if dragging is wanted.
-        .nexusRow(onClick: { model.activateOrLaunch(item) }, menu: { contextMenuItems() })
+        // The drag is AppKit's, not SwiftUI's: this panel can never become key, so
+        // PanelRowInteraction claims every mouse-down and SwiftUI's own drag gestures never fire.
+        .nexusRow(
+            onClick: { model.activateOrLaunch(item) },
+            menu: { contextMenuItems() },
+            dragPayload: item.id,
+            dragImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize),
+            onDrop: { dragged in model.dropPinned(dragged, on: item.id) }
+        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
         .accessibilityValue(accessibilityValue)
@@ -274,6 +321,7 @@ struct SidebarGlyphRow: View {
     let expanded: Bool
     let isVertical: Bool
     let hint: String
+    var menu: () -> [NSMenuItem] = { [] }
     let action: () -> Void
 
     @State private var isHovered = false
@@ -305,7 +353,7 @@ struct SidebarGlyphRow: View {
                 isHovered = hovering
             }
         }
-        .nexusRow(onClick: action)
+        .nexusRow(onClick: action, menu: menu)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityHint(hint)

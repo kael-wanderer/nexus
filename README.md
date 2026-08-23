@@ -22,8 +22,9 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | | |
 |---|---|
 | **Sidebar on any edge** | Left, right, top or bottom, configurable width, icon size, spacing, corner radius and opacity. Auto-hide with an edge-hover reveal, or always visible. |
-| **Applications** | Pin, unpin, reorder, launch, activate, quit and force quit. Running indicator and per-app window count. |
+| **Applications** | Pin, unpin, reorder by dragging one icon onto another, launch, activate, quit and force quit. Running indicator and per-app window count. |
 | **Windows** | Flyout listing an application's windows with live titles; click one to raise it. Optional thumbnails. *(Accessibility)* |
+| **Trash** | Always in the bar, before Search. Click opens it; the context menu empties it, after asking. |
 | **Search** | A command palette on a global shortcut. Applications, windows, files and actions, ranked by match quality, provider weight and frecency. |
 | **Dock replacement** | Optional: the macOS Dock hides while Nexus runs and comes back when it quits. Your Dock settings are saved first and restored exactly. |
 | **Settings** | General, Dock, Appearance, Behavior, Search, Permissions. Everything applies live. |

@@ -32,29 +32,66 @@ final class ClosureMenuItem: NSMenuItem {
 struct PanelRowInteraction: NSViewRepresentable {
     let onClick: (() -> Void)?
     let items: () -> [NSMenuItem]
+    /// What this row puts on the pasteboard when dragged. `nil` means the row cannot be dragged.
+    var dragPayload: String?
+    var dragImage: NSImage?
+    /// Another row's payload was dropped on this one.
+    var onDrop: ((String) -> Void)?
 
     func makeNSView(context: Context) -> NSView {
-        CatcherView(onClick: onClick, items: items)
+        CatcherView(onClick: onClick, items: items, dragPayload: dragPayload, dragImage: dragImage, onDrop: onDrop)
     }
 
     func updateNSView(_ view: NSView, context: Context) {
         guard let view = view as? CatcherView else { return }
         view.onClick = onClick
         view.items = items
+        view.dragPayload = dragPayload
+        view.dragImage = dragImage
+        view.onDrop = onDrop
     }
 
-    final class CatcherView: NSView {
+    final class CatcherView: NSView, NSDraggingSource {
         var onClick: (() -> Void)?
         var items: () -> [NSMenuItem]
+        var dragPayload: String?
+        var dragImage: NSImage?
+        var onDrop: ((String) -> Void)? {
+            didSet { registerDropTypes() }
+        }
+
         private var mouseDownLocation: NSPoint?
+        private var isDragging = false
 
         /// Squared distance, in points, a press may travel and still count as a click.
         private static let clickSlopSquared: CGFloat = 25
 
-        init(onClick: (() -> Void)?, items: @escaping () -> [NSMenuItem]) {
+        /// The pasteboard type for a row being dragged inside the sidebar. Private to Nexus, so a
+        /// stray text drag from another application can never reorder anything.
+        static let rowType = NSPasteboard.PasteboardType("com.congbui.nexus.sidebar-row")
+
+        init(
+            onClick: (() -> Void)?,
+            items: @escaping () -> [NSMenuItem],
+            dragPayload: String?,
+            dragImage: NSImage?,
+            onDrop: ((String) -> Void)?
+        ) {
             self.onClick = onClick
             self.items = items
+            self.dragPayload = dragPayload
+            self.dragImage = dragImage
+            self.onDrop = onDrop
             super.init(frame: .zero)
+            registerDropTypes()
+        }
+
+        private func registerDropTypes() {
+            if onDrop == nil {
+                unregisterDraggedTypes()
+            } else {
+                registerForDraggedTypes([Self.rowType])
+            }
         }
 
         @available(*, unavailable)
@@ -75,6 +112,69 @@ struct PanelRowInteraction: NSViewRepresentable {
 
         override func mouseDown(with event: NSEvent) {
             mouseDownLocation = event.locationInWindow
+        }
+
+        /// A press that travels far enough becomes a drag instead of a click. `mouseUp`'s slop
+        /// check then rejects the same gesture, so a drag never also activates the application.
+        override func mouseDragged(with event: NSEvent) {
+            guard !isDragging,
+                  let payload = dragPayload,
+                  let start = mouseDownLocation
+            else { return }
+            let dx = event.locationInWindow.x - start.x
+            let dy = event.locationInWindow.y - start.y
+            guard dx * dx + dy * dy > Self.clickSlopSquared else { return }
+
+            let item = NSPasteboardItem()
+            item.setString(payload, forType: Self.rowType)
+            let dragging = NSDraggingItem(pasteboardWriter: item)
+            let image = dragImage ?? NSImage(size: bounds.size)
+            dragging.setDraggingFrame(bounds, contents: image)
+            isDragging = true
+            beginDraggingSession(with: [dragging], event: event, source: self)
+        }
+
+        // MARK: - NSDraggingSource
+
+        func draggingSession(
+            _ session: NSDraggingSession,
+            sourceOperationMaskFor context: NSDraggingContext
+        ) -> NSDragOperation {
+            // Within the sidebar only: dragging a row onto the Finder must not move anything.
+            context == .withinApplication ? .move : []
+        }
+
+        func draggingSession(
+            _ session: NSDraggingSession,
+            endedAt screenPoint: NSPoint,
+            operation: NSDragOperation
+        ) {
+            isDragging = false
+            mouseDownLocation = nil
+        }
+
+        // MARK: - NSDraggingDestination
+
+        override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+            payload(from: sender) == nil ? [] : .move
+        }
+
+        override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+            payload(from: sender) == nil ? [] : .move
+        }
+
+        override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+            payload(from: sender) != nil
+        }
+
+        override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+            guard let payload = payload(from: sender), let onDrop else { return false }
+            onDrop(payload)
+            return true
+        }
+
+        private func payload(from sender: any NSDraggingInfo) -> String? {
+            sender.draggingPasteboard.string(forType: Self.rowType)
         }
 
         override func mouseUp(with event: NSEvent) {
@@ -99,8 +199,19 @@ extension View {
     /// Click and context-menu handling that works inside a panel that never becomes key.
     func nexusRow(
         onClick: (() -> Void)? = nil,
-        menu: @escaping () -> [NSMenuItem] = { [] }
+        menu: @escaping () -> [NSMenuItem] = { [] },
+        dragPayload: String? = nil,
+        dragImage: NSImage? = nil,
+        onDrop: ((String) -> Void)? = nil
     ) -> some View {
-        overlay(PanelRowInteraction(onClick: onClick, items: menu))
+        overlay(
+            PanelRowInteraction(
+                onClick: onClick,
+                items: menu,
+                dragPayload: dragPayload,
+                dragImage: dragImage,
+                onDrop: onDrop
+            )
+        )
     }
 }
