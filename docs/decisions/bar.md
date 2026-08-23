@@ -322,3 +322,68 @@ honours `width` when the number is larger than the icons need.
 `runModal()` re-centres as it starts. The move has to happen *inside* the modal loop — a block
 queued for `.modalPanel` runs once the alert is up — and it goes to the screen the pointer is on,
 which is the screen the click came from.
+
+## D103. Grouping is a place inside a row, not a pause on top of one.
+
+Hand-testing M13's grouping found it "shaky and nearly impossible", and the reason was that three
+mechanisms were fighting over the same gesture.
+
+`dragMoved(over:)` knew *which* row the drag was on and nothing about where in it, so every
+`draggingUpdated` reordered the preview to put the dragged row at the target's index. That moved the
+rows under a pointer that had not moved, which put a different row under it, which restarted the
+600 ms dwell timer that was the only way to ask for a group. The dwell rarely elapsed; when it did,
+it reset the preview to the stored order, so the bar visibly jumped back mid-drag.
+
+The fix is to make position the input. `CatcherView` now reports where in the row the drag is,
+normalised 0…1 from the row's top-left corner, and the model reads it along the bar's own axis. The
+middle 40 % of a row that can take the dragged application means **group**; either end means
+**insert here**, before or after depending on which end. 0.3…0.7 because a narrower band is a target
+you have to stop moving to hit, and a wider one leaves no room to reorder — and the band only exists
+at all on a row `canGroup` accepts, so a folder or a full group reorders across its whole length.
+
+Three consequences, each of which was its own report:
+
+- **Nothing moves while a group is being offered.** The preview is left exactly as it stands and the
+  target grows a ring. The dragged row is no longer hidden from the rows while it hovers either:
+  vanishing it shifted every row after it by one pitch, which is the same "different row under a
+  still pointer" problem in a different coat.
+- **The same intent is never acted on twice.** A `(target, zone)` pair that has just been applied is
+  ignored until one of the two changes. Without it, the fresh coordinates that arrive after every
+  preview change read as a new decision.
+- **Two running applications can group.** `canGroup` used to require the target to be in the dock,
+  so two loose icons could never become a folder — the one place everybody has learned to expect it.
+  A running target is pinned on the way, in the same write as the group.
+
+And the drop itself: a drag only committed if it landed exactly on a row's catcher. Let go in the gap
+between two rows, on the section padding, or past the last row and the operation came back empty,
+which reverted the whole drag — reported as "reordering a group silently reverts". The bar's own
+hosting view now registers the row pasteboard type, so anywhere inside the bar is a drop that commits
+the preview, and the rows' catchers still take the drops that land on a row because they sit deeper
+in the hierarchy. Outside the bar is still a cancel, which is the only thing dragging a row off the
+bar has ever meant.
+
+## D104. The group popover takes the keyboard to be typed into, and only then.
+
+Renaming a group used to be an `NSAlert` (D102) because the popover can never become key, and a text
+field nobody can type into is worse than a menu item. But the popover shows a folder's title exactly
+where iOS shows an editable one, so that is where people click — and an alert opening from it reads
+as the wrong answer to a click they have made a thousand times elsewhere.
+
+So the panel becomes key, on the same terms the bar's keyboard mode does (D99): **because the user
+asked**, by clicking the name, and it hands the keyboard straight back to whoever had it the moment
+the field closes. `acceptsKeyboardFocus` is the whole mechanism, it is set for the duration of the
+edit and nothing else sets it, and the no-focus-theft guarantee (D3) is untouched for every other
+click into the bar or the popover.
+
+Three details the implementation turns on:
+
+- **The field focuses itself.** The panel is made key in the same turn the SwiftUI branch holding the
+  field appears, so focusing it from outside finds nothing there yet. It takes first responder in
+  `viewDidMoveToWindow` instead, and selects what is in it.
+- **No row catcher over the field.** `nexusRow` overlays an `NSView`, which would swallow the click
+  that places the cursor. The title is a row *or* a field, never both.
+- **Clicking away commits.** Escape cancels, Return commits, and anything that takes the popover
+  away — a click outside, the pointer wandering off, the group being edited from elsewhere — commits
+  what was typed. A name typed and left alone is a name that was meant.
+
+The alert stays where it still fits: the row's own context menu, which has nowhere to put a field.

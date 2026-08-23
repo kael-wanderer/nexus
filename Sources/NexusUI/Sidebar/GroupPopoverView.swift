@@ -4,25 +4,56 @@ import SwiftUI
 
 /// What a group looks like when opened: its applications on a grid, beside the bar (M13).
 ///
-/// Like the window flyout, this panel can never become key — so it holds no text field, and
-/// renaming lives in the row's context menu instead of a header nobody could type into.
+/// The panel takes the keyboard while, and only while, the title is being edited (D104) — the same
+/// bargain the bar's keyboard mode makes: the user asked for it, by clicking the name.
 @MainActor
 @Observable
 public final class GroupPopoverViewModel {
     public private(set) var group: SidebarGroup?
 
+    /// Whether the title is being edited, and what has been typed into it so far.
+    public private(set) var isRenaming = false
+    public var draftName = ""
+
     /// Set by the composition root, so a click here does the same thing a click in the bar does.
     @ObservationIgnored public var launch: ((SidebarItem) -> Void)?
     @ObservationIgnored public var remove: ((SidebarItem) -> Void)?
-    /// Renaming, from the popover's own title. The alert belongs to the row's world, not this
-    /// panel's, so it is injected (M13, D102).
-    @ObservationIgnored public var rename: ((SidebarGroup) -> Void)?
+    /// Commits a new name. Injected, because the dock belongs to the bar's model, not to this one.
+    @ObservationIgnored public var rename: ((SidebarGroup, String) -> Void)?
+    /// Asks the panel for the keyboard, and gives it back. Set by `PanelController` (D104).
+    @ObservationIgnored public var setEditing: ((Bool) -> Void)?
     @ObservationIgnored public var onDismiss: (() -> Void)?
 
     public init() {}
 
     public func show(_ group: SidebarGroup) {
         self.group = group
+    }
+
+    // MARK: - Renaming
+
+    /// The title was clicked. The field appears with the name in it, selected.
+    public func beginRename() {
+        guard let group, !isRenaming else { return }
+        draftName = group.name
+        isRenaming = true
+        setEditing?(true)
+    }
+
+    /// Return, or anything that takes the popover away while the field is open: a name typed and
+    /// left alone is a name the user meant.
+    public func commitRename() {
+        guard isRenaming, let group else { return }
+        isRenaming = false
+        setEditing?(false)
+        rename?(group, draftName)
+    }
+
+    /// Escape: the name goes back to what it was.
+    public func cancelRename() {
+        guard isRenaming else { return }
+        isRenaming = false
+        setEditing?(false)
     }
 
     /// Called after every dock edit: the popover has to follow its group, or close if the group
@@ -38,6 +69,7 @@ public final class GroupPopoverViewModel {
 
     public func hide() {
         guard group != nil else { return }
+        commitRename()
         group = nil
         onDismiss?()
     }
@@ -100,27 +132,64 @@ public struct GroupPopoverView: View {
     }
 
     /// The group's name, as the thing you click to change it — the folder title on iOS, which is
-    /// where everybody now looks for a rename.
+    /// where everybody now looks for a rename (D104).
+    @ViewBuilder
     private func header(_ group: SidebarGroup) -> some View {
-        HStack(spacing: 6) {
-            Text(group.name)
-                .font(.headline)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Image(systemName: "pencil")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 0)
+        if model.isRenaming {
+            nameField
+        } else {
+            HStack(spacing: 6) {
+                Text(group.name)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Image(systemName: "pencil")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+            .nexusRow(onClick: { model.beginRename() })
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(group.name)
+            .accessibilityHint(String(localized: "Renames the group"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { model.beginRename() }
         }
+    }
+
+    /// The title as a field. No row catcher over it: the click has to reach the field, and the
+    /// panel is key for as long as the field is there, so it behaves like any other text field.
+    private var nameField: some View {
+        NativeSearchField(
+            text: $model.draftName,
+            placeholder: ApplicationCategory.fallbackName,
+            fontSize: NSFont.preferredFont(forTextStyle: .headline).pointSize,
+            onMove: { _ in },
+            onSubmit: { _ in model.commitRename() },
+            onCancel: { model.cancelRename() },
+            focusesItself: true
+        )
+        .frame(height: 20)
         .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .nexusRow(onClick: { model.rename?(group) })
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(group.name)
-        .accessibilityHint(String(localized: "Renames the group"))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { model.rename?(group) }
+        .padding(.vertical, 2)
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(.quaternary)
+        }
+        .accessibilityLabel(String(localized: "Group name"))
+    }
+}
+
+/// Where the icon sits inside its tile, so the remove badge can be drawn on the tile's own layer —
+/// above the click catcher — and still land on the icon's corner.
+private struct IconCorner: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
     }
 }
 
@@ -144,14 +213,7 @@ struct GroupMemberTile: View {
                     .offset(y: 5)
                     .opacity(item.isRunning ? 1 : 0)
             }
-            .overlay(alignment: .topLeading) {
-                // Taking an application out by dragging it onto the bar is precise work with nine
-                // or sixteen tiles in front of you. The badge is the same answer iOS gives.
-                if isHovered {
-                    RemoveBadge(action: remove)
-                        .offset(x: -8, y: -8)
-                }
-            }
+            .anchorPreference(key: IconCorner.self, value: .bounds) { $0 }
             Text(item.name)
                 .font(.caption2)
                 .lineLimit(2)
@@ -181,6 +243,21 @@ struct GroupMemberTile: View {
             dragPayload: item.id,
             dragImage: IconCache.shared.icon(for: item.bundleURL, size: 36)
         )
+        // After the tile's own catcher, deliberately: `nexusRow` overlays an `NSView` on whatever it
+        // is applied to, so a badge added before it sits *under* the tile's click catcher and the
+        // click launches the application instead of removing it. The topmost catcher wins, so the
+        // badge has to be the last thing on the tile.
+        .overlayPreferenceValue(IconCorner.self) { anchor in
+            // Taking an application out by dragging it onto the bar is precise work with nine or
+            // sixteen tiles in front of you. The badge is the same answer iOS gives.
+            if isHovered, let anchor {
+                GeometryReader { proxy in
+                    let icon = proxy[anchor]
+                    RemoveBadge(action: remove)
+                        .position(x: icon.minX, y: icon.minY)
+                }
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
         .accessibilityHint(

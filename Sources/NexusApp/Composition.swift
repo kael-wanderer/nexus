@@ -149,9 +149,11 @@ final class Composition {
         sidebarModel.rowsDidChange = { [weak self] in self?.panels.groupsChanged() }
         groupModel.launch = { [weak self] item in self?.sidebarModel.activateOrLaunch(item) }
         groupModel.remove = { [weak self] item in self?.sidebarModel.removeFromGroup(item.id) }
-        groupModel.rename = { [weak self] group in
-            guard let self else { return }
-            GroupRename.prompt(for: group, model: sidebarModel)
+        // Renaming happens in the popover's own title field now that the panel can be typed into
+        // while it is open (D104); the row's context menu still uses the alert, since a menu has
+        // nowhere to put a field.
+        groupModel.rename = { [weak self] group, name in
+            self?.sidebarModel.renameGroup(group.id, to: name)
         }
         // Opening what is in a stack is the system's business: a file goes to its default
         // application, a folder to Finder (M21).

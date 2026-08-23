@@ -136,3 +136,5 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D100** | A minimized window stops calling itself a standard window | [Windows](decisions/windows.md) |
 | **D101** | `⌃F3` is not ours to take, and keys belong to the window | [The bar](decisions/bar.md) |
 | **D102** | A horizontal bar's thickness is its icons' business, and an alert opens where the click was | [The bar](decisions/bar.md) |
+| **D103** | Grouping is a place inside a row, not a pause on top of one | [The bar](decisions/bar.md) |
+| **D104** | The group popover takes the keyboard to be typed into, and only then | [The bar](decisions/bar.md) |

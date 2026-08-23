@@ -33,6 +33,8 @@ public final class PanelController {
     private var groupPanel: NonActivatingPanel?
     private var groupHosting: NSView?
     private var groupHideTask: Task<Void, Never>?
+    /// Whoever had the keyboard before the group's name was clicked (D104).
+    private var groupReturnsTo: NSRunningApplication?
     private var folderPanel: NonActivatingPanel?
     private var folderHosting: NSView?
     private var folderHideTask: Task<Void, Never>?
@@ -93,6 +95,7 @@ public final class PanelController {
 
         model.showGroup = { [weak self] group in self?.showGroup(group) }
         groupModel.onDismiss = { [weak self] in self?.hideGroup() }
+        groupModel.setEditing = { [weak self] editing in self?.setGroupEditing(editing) }
         let groupHostingView = FirstMouseHostingView(
             rootView: GroupPopoverView(model: groupModel)
                 .onHover { [weak self] hovering in self?.groupHoverChanged(hovering) }
@@ -213,8 +216,34 @@ public final class PanelController {
     private func hideGroup() {
         groupHideTask?.cancel()
         groupHideTask = nil
+        setGroupEditing(false)
         groupPanel?.orderOut(nil)
         removeOutsideClickMonitorIfIdle()
+    }
+
+    /// The popover takes the keyboard to be typed into, and only then (D104). It is the same
+    /// bargain the bar's keyboard mode makes (D99): the user asked, explicitly, by clicking the
+    /// name, and whoever had the keyboard gets it straight back.
+    private func setGroupEditing(_ editing: Bool) {
+        guard let panel = groupPanel else { return }
+        guard editing else {
+            guard panel.acceptsKeyboardFocus else { return }
+            panel.acceptsKeyboardFocus = false
+            if let application = groupReturnsTo,
+               application.bundleIdentifier != Bundle.main.bundleIdentifier {
+                application.activate()
+            } else {
+                NSApp.deactivate()
+            }
+            groupReturnsTo = nil
+            return
+        }
+        groupHideTask?.cancel()
+        groupHideTask = nil
+        groupReturnsTo = NSApp.isActive ? nil : NSWorkspace.shared.frontmostApplication
+        panel.acceptsKeyboardFocus = true
+        NSApp.activate()
+        panel.makeKeyAndOrderFront(nil)
     }
 
     private func groupHoverChanged(_ hovering: Bool) {
@@ -227,8 +256,9 @@ public final class PanelController {
     }
 
     /// The same grace period the flyout gets: long enough to travel from the row to the popover.
+    /// A name being typed holds the popover open however far away the pointer has wandered.
     private func scheduleGroupHide() {
-        guard groupModel.group != nil else { return }
+        guard groupModel.group != nil, !groupModel.isRenaming else { return }
         groupHideTask?.cancel()
         groupHideTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(400))

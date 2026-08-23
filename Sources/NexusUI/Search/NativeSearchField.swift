@@ -14,9 +14,14 @@ struct NativeSearchField: NSViewRepresentable {
     /// `⇥` and `⇧⇥`. The field editor reports them as commands, so they never reach a key monitor
     /// and never move focus out of a palette that has exactly one control.
     var onCycleScope: ((Int) -> Void)?
+    /// Takes first responder as soon as it has a window, with what is in it selected. The palette's
+    /// panel exists before its field does, so `SearchPanelController` focuses it from outside; the
+    /// group popover's field is built by a SwiftUI branch that only appears once the title has been
+    /// clicked, so it has to do it itself (D104).
+    var focusesItself = false
 
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField(string: text)
+        let field = focusesItself ? SelfFocusingTextField(string: text) : NSTextField(string: text)
         field.delegate = context.coordinator
         field.isBordered = false
         field.drawsBackground = false
@@ -39,6 +44,17 @@ struct NativeSearchField: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    /// Focuses itself when it lands in a window. `@FocusState` cannot: the panel is made key in the
+    /// same turn the field is created, and SwiftUI's focus arrives before the window's does.
+    private final class SelfFocusingTextField: NSTextField {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window, window.firstResponder !== currentEditor() else { return }
+            window.makeFirstResponder(self)
+            currentEditor()?.selectAll(nil)
+        }
+    }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: NativeSearchField
