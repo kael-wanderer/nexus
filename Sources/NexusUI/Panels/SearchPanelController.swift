@@ -25,6 +25,8 @@ public final class SearchPanel: NSPanel {
         animationBehavior = .none
         hasShadow = true
         isReleasedWhenClosed = false
+        // Never hidden by `NSApp.hide(nil)` along with the rest of the application (D93).
+        canHide = false
         self.title = title
         self.contentView = contentView
     }

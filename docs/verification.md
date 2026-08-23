@@ -73,3 +73,11 @@ Replacement Mode on.
 Note on reading window geometry with two displays: `CGWindowListCopyWindowInfo` bounds include the
 panel's shadow, so a bar 8 pt above the screen edge reads as hanging 22 pt below it. The window's own
 frame is the truth — `{23, 8, 2513, 64}` for the numbers above.
+
+## After the two-monitor session — 2026-08-23
+
+| Check | Result |
+|---|---|
+| Closing Settings keeps both bars | Fixed and re-checked: bars still at `23,8` and `2583,8` after the window closes, focus back to Chrome, and the accessibility tree still lists 60 buttons (D93) |
+| A paused browser shows a play triangle | Measured first: paused, CoreAudio still reports Chrome's renderer as outputting, while the window title drops `Audio playing`. After the fix the button reads Play when paused and Pause when playing, on both bars (D92) |
+| The bar's Search part | Both styles live: an icon in one slot, or the box across three that opens the palette beside it |

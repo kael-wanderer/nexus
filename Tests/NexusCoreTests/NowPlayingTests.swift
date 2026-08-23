@@ -490,3 +490,52 @@ struct AudioOwnerTests {
         #expect(AudioOutputMonitor.parentProcess(of: 1) == nil)
     }
 }
+
+@MainActor
+@Suite("A browser's play state")
+struct BrowserPlayStateTests {
+    @Test("The marker is read case-insensitively, and muted still counts as playing")
+    func markers() {
+        #expect(MediaTitle.saysAudioIsPlaying("Video - YouTube - Audio playing - Google Chrome"))
+        #expect(MediaTitle.saysAudioIsPlaying("Video - YouTube - audio muted - Google Chrome"))
+        #expect(MediaTitle.saysAudioIsPlaying("Video - YouTube - Google Chrome") == false)
+    }
+
+    /// CoreAudio keeps reporting Chrome's renderer as sending output while the video sits paused —
+    /// measured, not assumed — so the row used to show a pause button on a paused video. Chrome's
+    /// window title is the only public thing that changes (D92).
+    @Test("Losing the marker pauses the row, even while the audio process still says it is playing")
+    func pausedBrowser() async {
+        let service = NowPlayingService()
+        var title = "A Video - YouTube - Audio playing - Google Chrome - Work"
+        service.windowTitle = { _ in title }
+
+        service.setAudioPlayers(["com.google.Chrome"])
+        await until { service.windowDerivedTitle != nil }
+        #expect(service.display.title == "A Video")
+        #expect(service.display.isPlaying)
+
+        // Paused: the marker goes, the audio process does not.
+        title = "A Video - YouTube - Google Chrome - Work"
+        service.refreshWindowTitle()
+        await until { service.windowSaysPlaying == false }
+        #expect(service.display.isPlaying == false)
+
+        // Playing again.
+        title = "A Video - YouTube - Audio playing - Google Chrome - Work"
+        service.refreshWindowTitle()
+        await until { service.windowSaysPlaying == true }
+        #expect(service.display.isPlaying)
+    }
+
+    @Test("An application that never publishes a marker is still judged by its audio")
+    func nonBrowser() async {
+        let service = NowPlayingService()
+        service.windowTitle = { _ in "Loki S01 - Newmoon21.mkv" }
+
+        service.setAudioPlayers(["org.videolan.vlc"])
+        await until { service.windowDerivedTitle != nil }
+        #expect(service.windowSaysPlaying == nil)
+        #expect(service.display.isPlaying)
+    }
+}

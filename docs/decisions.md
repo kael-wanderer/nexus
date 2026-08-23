@@ -858,3 +858,39 @@ offers three: the menu-bar display, the display with the pointer, every display.
 Not done: a per-display edge or width. `DisplayOverride` exists in the configuration and stays
 unused — revealing one bar reveals them all, and they share one edge, because a second bar is for
 reaching the same dock without crossing monitors.
+
+**D92. A browser's play state comes from its window title, because its audio never stops.**
+
+The row showed a pause button on a paused YouTube video. The reason is measured, not guessed: with
+the video paused, `kAudioProcessPropertyIsRunningOutput` still reports Chrome's renderer as sending
+output — the audio unit stays alive — so `!audioPlayers.isEmpty` says "playing" for as long as the
+tab exists.
+
+What does change is the window title. Chrome writes
+`<video> - YouTube - Audio playing - Google Chrome - <profile>` while a tab makes sound and drops
+`Audio playing` the moment it is paused. Nexus already reads that title for the track name, so the
+play state now comes from the same read: the marker means playing, `Audio muted` also means playing
+(the video runs, the volume does not), and the marker's *absence* means paused — but only for a
+player that has published one before, or an application that never does would read as permanently
+paused.
+
+Order of evidence, most reliable first: a scriptable player's own answer (`player state is playing`),
+then the window marker, then the sound itself. Chrome-family browsers publish the marker; Safari does
+not, and falls back to the last rung.
+
+**D93. Closing a window must not hide the application.**
+
+Closing Settings called `NSApp.hide(nil)`, so that an agent app with no windows left did not sit
+there "active". It hides *every* window the application owns, and a panel is a window: both bars
+vanished, the menu-bar item was the only sign Nexus was running, and the only way to get them back
+was to open Settings again — which is exactly how it was reported.
+
+Two changes, because one was not enough. The panels now set `canHide = false`, which is the property
+that exists for precisely this: a bar is not a document window and has no business disappearing
+because the application was hidden. And the close handler hands focus back the way the palette
+already does — by activating the application that had it before, falling back to `NSApp.deactivate()`
+— rather than hiding this one.
+
+The second half matters beyond the bars: an application flagged hidden publishes no windows to the
+accessibility tree, so `canHide = false` alone would have kept the bars on screen and left VoiceOver
+unable to find them (D88).

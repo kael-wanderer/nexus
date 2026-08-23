@@ -118,3 +118,19 @@ child. A helper has no bundle identifier — it is not an `NSRunningApplication`
 player takes two more steps: the outermost `.app` on the helper's executable path, then its parent
 process. Either one gives the application the row should show, and the row's title still comes from
 that application's window.
+
+## Whether it is playing (D92)
+
+Three sources, in order of how much they know:
+
+1. **A scriptable player's own answer** — `player state is playing` for Music and Spotify, `playing`
+   for VLC, read with the position (M16).
+2. **The browser's window title.** Chrome-family browsers put `Audio playing` in it while a tab
+   makes sound and take it out when it is paused; `Audio muted` also counts as playing, because the
+   video is running. Absence means paused only for a player that has published the marker before.
+3. **The sound itself**, which is the weakest evidence there is: a paused browser tab keeps its audio
+   unit alive, so CoreAudio goes on reporting the renderer as sending output. That was the bug — a
+   pause button on a paused video — and it is why the window title now outranks it.
+
+The transport button follows: one triangle to play, two bars to pause, and the double triangles
+either side never change.

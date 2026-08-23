@@ -97,6 +97,13 @@ this project follows [Semantic Versioning](https://semver.org).
   30-minute leak soak and the one item that still needs hardware: multi-monitor reconnect.
 
 ### Fixed
+- Closing the Settings window no longer takes the bars with it (D93): it called `NSApp.hide(nil)`,
+  which hides every window an application owns, panels included — leaving the menu-bar item as the
+  only sign Nexus was running. Panels now set `canHide = false`, and closing hands focus back by
+  activating the application that had it. The same flag was also hiding the bars from VoiceOver.
+- The player shows a play triangle when what is playing is paused (D92). A paused browser tab keeps
+  its audio unit alive, so CoreAudio still calls it a player; Chrome's window title does not, and
+  that is what the state now comes from.
 - A window title stops carrying the browser's furniture (D89): a title is cut at the *first*
   segment that is a site name, the application's name, or a browser's note about the tab, so
   Chrome's "… - YouTube - Audio playing - Google Chrome - <profile>" is just the video.

@@ -52,6 +52,17 @@ public enum MediaTitle {
 
     static let separators = [" — ", " – ", " - ", " | "]
 
+    /// The markers a Chrome-family browser puts in a window title while a tab is making sound.
+    /// "Muted" counts as playing: the video is running, the volume is not (D92).
+    static let audioMarkers = ["Audio playing", "Audio muted"]
+
+    /// Whether a window title says its application is playing something. `false` is only meaningful
+    /// for a browser that publishes these markers at all, which is why the caller remembers whether
+    /// it has ever seen one.
+    public static func saysAudioIsPlaying(_ title: String) -> Bool {
+        audioMarkers.contains { title.range(of: $0, options: .caseInsensitive) != nil }
+    }
+
     static let mediaExtensions: Set<String> = [
         "mkv", "mp4", "m4v", "mov", "avi", "webm", "flv", "wmv", "mpg", "mpeg",
         "mp3", "m4a", "flac", "wav", "aac", "ogg", "opus", "aiff", "alac",
@@ -221,6 +232,14 @@ public final class NowPlayingService {
     /// The title read from the playing application's window, when it publishes no metadata.
     public private(set) var windowDerivedTitle: String?
 
+    /// What that window title says about the play state, for a browser that says anything: `true`
+    /// while the marker is there, `false` once it has gone, `nil` for an application that never
+    /// published one (D92).
+    public private(set) var windowSaysPlaying: Bool?
+    /// Whether this player has ever published an audio marker. Without it, a missing marker means
+    /// "this application does not do that", not "paused".
+    @ObservationIgnored private var sawAudioMarker = false
+
     /// Where the player is, for the players that will say (M16). `nil` means no timeline, which is
     /// the honest answer for a browser tab.
     public private(set) var position: MediaPosition?
@@ -244,8 +263,10 @@ public final class NowPlayingService {
             title: windowDerivedTitle,
             artist: Self.applicationName(of: player),
             playerBundleIdentifier: player,
-            // Making sound is the evidence for a player that will not say; one that will, says.
-            isPlaying: scriptedIsPlaying ?? !audioPlayers.isEmpty
+            // In order: a scriptable player's own answer, then what a browser's window title says,
+            // and only then the sound itself — which a browser keeps making, in the sense that
+            // matters to CoreAudio, while the video sits paused (D92).
+            isPlaying: scriptedIsPlaying ?? windowSaysPlaying ?? !audioPlayers.isEmpty
         )
     }
 
@@ -321,6 +342,8 @@ public final class NowPlayingService {
                 position = nil
                 scriptedIsPlaying = nil
                 windowDerivedTitle = nil
+                windowSaysPlaying = nil
+                sawAudioMarker = false
             }
         } else if !AppleScriptMediaControl.canReportPosition(stickyPlayer ?? "") {
             // Nothing playing, and the last player cannot be asked whether it is merely paused.
@@ -328,6 +351,8 @@ public final class NowPlayingService {
             position = nil
             scriptedIsPlaying = nil
             windowDerivedTitle = nil
+            windowSaysPlaying = nil
+            sawAudioMarker = false
         }
         onChange?(current, isActive)
         refreshWindowTitle()
@@ -348,7 +373,7 @@ public final class NowPlayingService {
             let cleaned = raw.flatMap {
                 MediaTitle.clean($0, applicationName: Self.applicationName(of: player))
             }
-            self.setWindowTitle(cleaned)
+            self.setWindowTitle(cleaned, raw: raw)
         }
     }
 
@@ -359,10 +384,24 @@ public final class NowPlayingService {
         refreshWindowTitle()
     }
 
-    func setWindowTitle(_ title: String?) {
-        guard title != windowDerivedTitle else { return }
+    func setWindowTitle(_ title: String?, raw: String? = nil) {
+        let saysPlaying = playState(fromWindowTitle: raw)
+        guard title != windowDerivedTitle || saysPlaying != windowSaysPlaying else { return }
         windowDerivedTitle = title
+        windowSaysPlaying = saysPlaying
         onChange?(current, isActive)
+    }
+
+    /// A browser's window title is the only public evidence of its play state: Chrome takes
+    /// "Audio playing" out of the title the moment the video is paused, while CoreAudio goes on
+    /// reporting the renderer as sending output (D92).
+    private func playState(fromWindowTitle raw: String?) -> Bool? {
+        guard let raw else { return nil }
+        if MediaTitle.saysAudioIsPlaying(raw) {
+            sawAudioMarker = true
+            return true
+        }
+        return sawAudioMarker ? false : nil
     }
 
     // MARK: - Position

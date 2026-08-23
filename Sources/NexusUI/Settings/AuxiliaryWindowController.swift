@@ -10,6 +10,9 @@ public final class AuxiliaryWindowController: NSObject, NSWindowDelegate {
     private let title: String
     private let makeContent: () -> AnyView
     private var onClose: (() -> Void)?
+    /// Whoever was in front before this window took the focus, so closing can hand it back
+    /// without hiding the application (D93).
+    private var previousApplication: NSRunningApplication?
 
     public init(title: String, content: @escaping () -> some View) {
         self.title = title
@@ -21,6 +24,7 @@ public final class AuxiliaryWindowController: NSObject, NSWindowDelegate {
 
     public func show(onClose: (() -> Void)? = nil) {
         self.onClose = onClose
+        if !NSApp.isActive { previousApplication = NSWorkspace.shared.frontmostApplication }
         let window = self.window ?? makeWindow()
         self.window = window
         window.center()
@@ -57,7 +61,18 @@ public final class AuxiliaryWindowController: NSObject, NSWindowDelegate {
     public func windowWillClose(_ notification: Notification) {
         onClose?()
         onClose = nil
-        // An agent app that stays "active" with no visible window feels stuck; hand focus back.
-        NSApp.hide(nil)
+        // An agent app that stays "active" with no visible window feels stuck, so focus goes back
+        // where it came from — by activating that application, not by hiding this one.
+        //
+        // `NSApp.hide(nil)` was the first answer and it was wrong twice over (D93): it hid the bars
+        // along with the window, leaving the menu-bar item as the only sign Nexus was running; and
+        // an application flagged hidden publishes no windows to the accessibility tree, so
+        // VoiceOver lost the bar as well.
+        if let previousApplication, previousApplication.bundleIdentifier != Bundle.main.bundleIdentifier {
+            previousApplication.activate()
+        } else {
+            NSApp.deactivate()
+        }
+        previousApplication = nil
     }
 }

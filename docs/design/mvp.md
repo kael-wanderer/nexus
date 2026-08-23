@@ -531,7 +531,8 @@ Written with each view, not retrofitted at Milestone 7.
   VoiceOver's press does nothing at all (D88). Every row that can be clicked adds the action
   itself, at the call site, next to its traits.
 - Every panel sets a `title`, which is never drawn and is what VoiceOver announces on entering the
-  window.
+  window — and `canHide = false`, because an application flagged hidden publishes no windows at all
+  to the accessibility tree (D93).
 - The search palette is a proper combo-box/list relationship so VoiceOver announces the
   result count and the selected row as the user arrows.
 - `@Environment(\.accessibilityReduceMotion)` gates every animation, checked at the call site.

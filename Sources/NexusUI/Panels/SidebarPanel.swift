@@ -25,6 +25,10 @@ public final class NonActivatingPanel: NSPanel {
         hasShadow = true
         acceptsMouseMovedEvents = true
         isReleasedWhenClosed = false
+        // `NSApp.hide(nil)` — which closing the Settings window does, to hand focus back — hides
+        // every window the application owns, panels included. That left both bars gone with only
+        // the menu-bar item to prove Nexus was running, and nothing to bring them back (D93).
+        canHide = false
         self.title = title
         self.contentView = contentView
     }
@@ -52,6 +56,7 @@ public final class EdgeTriggerPanel: NSPanel {
         animationBehavior = .none
         isReleasedWhenClosed = false
         acceptsMouseMovedEvents = true
+        canHide = false
         contentView = EdgeTriggerView(onEnter: onEnter)
     }
 }
