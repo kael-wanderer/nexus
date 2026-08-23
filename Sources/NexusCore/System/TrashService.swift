@@ -11,6 +11,20 @@ public enum TrashService {
         URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".Trash")
     }
 
+
+    /// TEMPORARY probe (removed once the detection method is chosen).
+    public static func probe() {
+        let path = url.path
+        let listed = (try? FileManager.default.contentsOfDirectory(atPath: path))?.count
+        var status = stat()
+        let statOK = stat(path, &status) == 0
+        var child = stat()
+        let dsStore = stat(path + "/.DS_Store", &child) == 0
+        var missing = stat()
+        let bogus = stat(path + "/definitely-not-there", &missing) == 0
+        Log.system.notice("Trash probe: listed=\(String(describing: listed), privacy: .public) statOK=\(statOK, privacy: .public) nlink=\(status.st_nlink, privacy: .public) dsStore=\(dsStore, privacy: .public) bogus=\(bogus, privacy: .public)")
+    }
+
     public static func open() {
         NSWorkspace.shared.open(url)
     }

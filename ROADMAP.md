@@ -203,3 +203,25 @@ declining both leaves a fully usable launcher.
 - Skipping the onboarding step leaves the Dock untouched.
 
 Spec: `docs/DESIGN_M8_DOCK_REPLACEMENT.md`.
+
+## Milestone 9 — Dock parity  ← post-MVP
+
+**Scope**
+- Trash row uses the macOS Trash icons and shows full vs empty, detected with `stat` link counts
+  so no Full Disk Access is involved.
+- Drag reordering previews live: the dragged row fades, the others move under it, and the
+  configuration is written only when the drop lands.
+- An application's windows appear directly in its context menu, frontmost ticked; the thumbnail
+  flyout stays as "Show All Windows".
+
+**Permissions:** none new. Window titles in the menu need Accessibility, as they already do; the
+section is absent without it.
+
+**Acceptance criteria**
+- An empty Trash with a `.DS_Store` in it still draws the empty icon.
+- A drag that is cancelled or dropped outside the sidebar leaves the stored order untouched.
+- Right-clicking a two-window application offers both windows and raises the one clicked.
+- The context menu never waits on Accessibility; a row with no cached windows shows no section.
+
+Spec: `docs/DESIGN_M9_DOCK_PARITY.md`.
+

@@ -116,6 +116,7 @@ final class Composition {
         applySearchConfiguration()
         registerHotKey()
         dockReplacement.start()
+        TrashService.probe()
 
         if !configuration.configuration.onboarding.hasCompleted {
             runOnboarding()
