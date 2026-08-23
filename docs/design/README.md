@@ -10,6 +10,8 @@ One file per feature.
 | [`window-previews.md`](window-previews.md) | Hovering an application to see its windows — the half of Milestone 4 that never shipped. |
 | [`start-menu.md`](start-menu.md) | A browsable grid of everything installed, for when you cannot name what you want. |
 | [`reserved-space.md`](reserved-space.md) | Keeping other applications' windows off the bar, when macOS offers no way to reserve the space. |
+| [`bar-zones.md`](bar-zones.md) | What the bar always shows: a fixed head and tail, a scrolling middle, and a budget for each section. |
+| [`now-playing.md`](now-playing.md) | What is playing, and the transport controls — without the private framework that would break on the next update. |
 | [`app-groups.md`](app-groups.md) | Folders in the dock, and the configuration migration they bring with them. |
 
 New feature? New file here, named after the feature. Keep it to what is specific — the focus,

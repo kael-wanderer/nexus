@@ -309,3 +309,39 @@ Spec: `docs/design/reserved-space.md`.
 
 Spec: `docs/design/app-groups.md`.
 
+## Milestone 14 — Bar zones  ← post-MVP
+
+**Scope**
+- The bar becomes a fixed head (start menu), a scrolling middle (pinned, then running) and a fixed
+  tail (now playing, Trash, Search). Only the middle scrolls.
+- Row budgets: `appearance.pinnedLimit` (default 10) and `appearance.runningLimit` (default 5),
+  with a two-row floor for running so a full dock never hides what is open. Overflow scrolls inside
+  its own section.
+
+**Permissions:** none new.
+
+**Acceptance criteria**
+- With 30 applications running, Trash and Search are inside the panel and need no scrolling.
+- The middle shrinks to fit the screen before either limit applies.
+- A group counts as one row against the pinned limit.
+
+Spec: `docs/design/bar-zones.md`.
+
+## Milestone 15 — Now playing  ← post-MVP
+
+**Scope**
+- A row in the fixed tail: artwork, title and artist for Music and Spotify (distributed
+  notifications), transport controls for anything that owns media playback (media keys).
+- `general.showNowPlaying`, default off.
+
+**Permissions:** none new — media keys ride on the existing Accessibility grant; metadata arrives by
+public notification. `MediaRemote` is deliberately not used: private, and entitlement-gated since
+macOS 15.4.
+
+**Acceptance criteria**
+- A browser tab playing audio gets working controls and no invented title.
+- Nothing playing means no row, not an empty one.
+- The row survives 30 running applications, because it lives in the tail.
+
+Spec: `docs/design/now-playing.md`.
+
