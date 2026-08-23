@@ -396,7 +396,7 @@ struct GeneralConfiguration: Codable, Sendable, Equatable {
 struct AppearanceConfiguration: Codable, Sendable, Equatable {
     var position: SidebarPosition = .left          // .left | .right
     var width: Double = 64                          // 44...120
-    var iconSize: Double = 40                       // 24...96
+    var iconSize: Double = 64                       // 24...96, a Dock tile's own default (D79)
     var iconSpacing: Double = 8                     // 0...24
     var cornerRadius: Double = 16                   // 0...32
     var opacity: Double = 1.0                       // 0.3...1.0

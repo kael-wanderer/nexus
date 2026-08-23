@@ -207,7 +207,7 @@ Added to `NexusConfiguration` as `dock`. Defaults are off, so an existing config
 ```
 Dock Replacement
 
-  ☑ Use Nexus as primary Dock
+  ◉ Nexus is my Dock     ○ Nexus is a sidebar
       Hides the macOS Dock while Nexus is running and restores it when Nexus quits.
 
   Position   ( ) Left  ( ) Right  ( ) Top  (•) Bottom
@@ -277,3 +277,13 @@ Pure layout, no permissions, no Dock writes:
 
 Drag-to-reorder (`ponytail:` note already in `SidebarView`), per-display position overrides,
 Dock-style magnification, running-app indicators beyond the current dot, Spaces integration.
+
+## What the setting became (D78)
+
+The toggle in the sketch above shipped as a two-way choice, because it is one decision and the
+toggle read as a preference. *My Dock* hides the macOS Dock while Nexus runs; *A sidebar* leaves it
+alone. The stored field is unchanged (`dock.replacementEnabled`); what changed is that the pane says
+which of the two you are looking at, and what it means. Running Nexus along the bottom edge with the
+system Dock still there gives you two docks, which nobody chose on purpose — and until the choice
+was phrased as a choice, that was the default experience.
+

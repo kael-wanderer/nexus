@@ -31,6 +31,11 @@ The bar becomes three parts, and only the middle one scrolls:
 The head and the tail keep their rows whatever else happens. The middle gets what is left of the
 screen and scrolls inside it.
 
+The tail is not one part but three — now playing, Trash, Search — and each is drawn as its own
+section, so the separator the bar already puts between sections falls between them too. Six parts,
+six kinds of thing, and the zone maths counts one separator per fixed section rather than one for
+the tail as a whole (D77).
+
 ## Budgets: the screen decides, not a number
 
 The bar grows until it runs out of edge, and only then scrolls. What "runs out" means is measured,
