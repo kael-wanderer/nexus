@@ -16,6 +16,39 @@ struct DisplayServiceTests {
         #expect(identities.allSatisfy { !$0.uuid.isEmpty })
     }
 
+    /// A full-screen window covers its display whole; nothing else can, because AppKit will not put
+    /// an ordinary window over the menu bar (D111).
+    @Test("A display counts as full-screen only when a window covers it whole")
+    func fullScreenDetection() {
+        let display = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let other = CGRect(x: 1920, y: 0, width: 1440, height: 900)
+
+        #expect(DisplayService.isCovered(display, by: [display]))
+        // Half a point out on a scaled display is still full screen.
+        #expect(DisplayService.isCovered(display, by: [display.insetBy(dx: 0.5, dy: 0.5)]))
+        // A maximised window stops below the menu bar, so it never covers the display.
+        #expect(
+            DisplayService.isCovered(
+                display,
+                by: [CGRect(x: 0, y: 25, width: 1920, height: 1055)]
+            ) == false
+        )
+        // The second monitor's full-screen window is not this display's business.
+        #expect(DisplayService.isCovered(display, by: [other]) == false)
+        #expect(DisplayService.isCovered(other, by: [other, display]))
+        #expect(DisplayService.isCovered(display, by: []) == false)
+        #expect(DisplayService.isCovered(.zero, by: [display]) == false)
+    }
+
+    @Test("Hiding over full-screen apps is on by default and survives an older stored file")
+    func fullScreenPreference() throws {
+        #expect(NexusConfiguration().behavior.hideOverFullScreen)
+        let json = Data(#"{"autoHide":true}"#.utf8)
+        let behavior = try JSONDecoder().decode(BehaviorConfiguration.self, from: json)
+        #expect(behavior.autoHide)
+        #expect(behavior.hideOverFullScreen)
+    }
+
     @Test("The same screen resolves to the same identity twice")
     func stableAcrossReads() {
         guard let screen = NSScreen.main else { return }

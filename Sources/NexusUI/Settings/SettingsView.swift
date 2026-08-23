@@ -547,6 +547,15 @@ struct BarPane: View {
             }
             Section {
                 Toggle(
+                    String(localized: "Hide over full-screen apps"),
+                    isOn: configuration.binding(\.behavior.hideOverFullScreen)
+                )
+                Text("A display showing a full-screen window shows no bar, which is what the Dock does. Only that display: a bar on another monitor stays.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle(
                     String(localized: "Show folder preview on hover"),
                     isOn: configuration.binding(\.behavior.folderHoverPreview)
                 )

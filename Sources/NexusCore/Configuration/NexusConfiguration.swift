@@ -233,6 +233,9 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     public var suggestCategoryGroups = false
     /// A group may carry a colour and an emoji (D108). On — it costs nothing until one is picked.
     public var groupColorsAndEmoji = true
+    /// The bar steps aside on a display showing a full-screen space (D111). On: full screen means
+    /// full screen, which is what the real Dock does.
+    public var hideOverFullScreen = true
     public var clickBehavior: ClickBehavior = .activateOrLaunch
     public var reduceMotionOverride: Bool?
     public init() {}
@@ -256,6 +259,7 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         folderHoverPreview = try container.decodeIfPresent(Bool.self, forKey: .folderHoverPreview) ?? true
         suggestCategoryGroups = try container.decodeIfPresent(Bool.self, forKey: .suggestCategoryGroups) ?? false
         groupColorsAndEmoji = try container.decodeIfPresent(Bool.self, forKey: .groupColorsAndEmoji) ?? true
+        hideOverFullScreen = try container.decodeIfPresent(Bool.self, forKey: .hideOverFullScreen) ?? true
         clickBehavior = try container.decodeIfPresent(ClickBehavior.self, forKey: .clickBehavior) ?? .activateOrLaunch
         reduceMotionOverride = try container.decodeIfPresent(Bool.self, forKey: .reduceMotionOverride)
     }

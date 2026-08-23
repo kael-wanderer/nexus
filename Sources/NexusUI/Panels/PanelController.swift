@@ -53,6 +53,10 @@ public final class PanelController {
     private var isSuppressed = false
     /// Auto-hide state. Always true when auto-hide is off.
     private var isRevealed = true
+    /// Every display showing a full-screen space, whose bar steps aside (D111). Per display, so a
+    /// full-screen window on one monitor leaves the other monitor's bar alone.
+    private var fullScreenDisplays: Set<CGDirectDisplayID> = []
+    private var spaceObserver: (any NSObjectProtocol)?
 
     public init(
         model: SidebarViewModel,
@@ -129,6 +133,7 @@ public final class PanelController {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.events.publish(.displaysChanged)
+                self.updateFullScreenDisplays()
                 self.reframe(animated: false)
             }
         }
@@ -141,9 +146,20 @@ public final class PanelController {
             }
         }
 
+        // Entering or leaving a native full-screen space *is* a space change, so this is the whole
+        // trigger — no polling, and no window observer for something the window server announces
+        // (D111).
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.spaceChanged() }
+        }
+
         isRevealed = !configuration.configuration.behavior.autoHide
+        updateFullScreenDisplays()
         reframe(animated: false)
-        for bar in bars { bar.orderFrontRegardless() }
         updateEdgePanel()
         updatePointerFollowing()
         Log.sidebar.notice("Sidebar panels shown: \(self.bars.count, privacy: .public)")
@@ -154,6 +170,9 @@ public final class PanelController {
         flyoutHideTask?.cancel()
         eventTask?.cancel()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        if let spaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)
+        }
         groupHideTask?.cancel()
         folderHideTask?.cancel()
         keyboardIdleTask?.cancel()
@@ -506,7 +525,9 @@ public final class PanelController {
     /// The shortcut asked for the bar. Takes the keyboard, or gives it back if the bar already has
     /// it — the same toggle the palette's shortcut is.
     public func focusBar() {
-        guard !isSuppressed, let panel = sidebarPanel else { return }
+        // `isVisible` covers the bar being suppressed *and* its display showing a full-screen space
+        // (D111): a ring on a bar nobody can see is a keyboard mode with nothing to look at.
+        guard !isSuppressed, let panel = sidebarPanel, panel.isVisible else { return }
         if model.isKeyboardNavigating {
             model.endKeyboardNavigation()
             return
@@ -588,8 +609,8 @@ public final class PanelController {
             for edge in edges { edge.orderOut(nil) }
             onBarFrameChange?()
         } else {
+            updateFullScreenDisplays()
             reframe(animated: false)
-            for bar in bars { bar.orderFrontRegardless() }
             updateEdgePanel()
         }
     }
@@ -656,10 +677,54 @@ public final class PanelController {
             )
             setFrame(frame, on: bars[index], animated: animated)
         }
+        applyBarVisibility()
         updateEdgePanel()
         onBarFrameChange?()
         if groupModel.group != nil { layoutGroup() }
         if folderModel.folder != nil { layoutFolder() }
+    }
+
+    // MARK: - Full-screen spaces (D111)
+
+    /// The window server changed which space is showing. Recomputing is one `CGWindowList` call, on
+    /// an event that happens when somebody presses a key — not on a timer.
+    private func spaceChanged() {
+        guard updateFullScreenDisplays() else { return }
+        Log.sidebar.notice(
+            "Full-screen displays: \(self.fullScreenDisplays.count, privacy: .public) of \(NSScreen.screens.count, privacy: .public)"
+        )
+        reframe(animated: false)
+    }
+
+    /// Returns whether the set changed, so nothing is reframed for a space change that does not
+    /// concern the bar — switching between two ordinary Spaces, most of the time.
+    @discardableResult
+    private func updateFullScreenDisplays() -> Bool {
+        let displays = configuration.configuration.behavior.hideOverFullScreen
+            ? DisplayService.fullScreenDisplays()
+            : []
+        guard displays != fullScreenDisplays else { return false }
+        fullScreenDisplays = displays
+        return true
+    }
+
+    private func isFullScreen(_ screen: NSScreen) -> Bool {
+        guard let displayID = DisplayService.displayID(of: screen) else { return false }
+        return fullScreenDisplays.contains(displayID)
+    }
+
+    /// Which bars are on screen at all. Three reasons one might not be: the menu-bar item hid it,
+    /// or its display is showing a full-screen space (D111). Only the ones that need to change are
+    /// touched — ordering a visible panel front again raises it over the popovers beside it.
+    private func applyBarVisibility() {
+        for (index, screen) in targetScreens.enumerated() where index < bars.count {
+            let shouldShow = !isSuppressed && !isFullScreen(screen)
+            if shouldShow, !bars[index].isVisible {
+                bars[index].orderFrontRegardless()
+            } else if !shouldShow, bars[index].isVisible {
+                bars[index].orderOut(nil)
+            }
+        }
     }
 
     /// What Reserved Space needs to know: where each bar is, and on which screen. Empty whenever
@@ -674,7 +739,10 @@ public final class PanelController {
         // with the wrong screen tells Reserved Space that every window on that screen is in the
         // way — which pushes windows onto the other monitor (D91).
         return bars.compactMap { bar in
-            guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(bar.frame) })
+            // A bar that is not on screen — its display is showing a full-screen space (D111) —
+            // is not in any window's way.
+            guard bar.isVisible,
+                  let screen = NSScreen.screens.first(where: { $0.frame.intersects(bar.frame) })
             else { return nil }
             return ReservedSpaceController.Geometry(
                 bar: bar.frame,
@@ -706,6 +774,11 @@ public final class PanelController {
         // A trigger strip per bar: the edge of the display you are on is the one that should
         // reveal, and revealing shows every bar, because they are one bar in three places.
         for (index, screen) in targetScreens.enumerated() where index < edges.count {
+            // A display showing a full-screen space has no bar to reveal (D111).
+            guard !isFullScreen(screen) else {
+                edges[index].orderOut(nil)
+                continue
+            }
             edges[index].setFrame(
                 SidebarLayout.edgeTriggerFrame(
                     in: screen.visibleFrame,
@@ -756,6 +829,7 @@ public final class PanelController {
 
     private func applyBehavior() {
         updatePointerFollowing()
+        updateFullScreenDisplays()
         let autoHide = configuration.configuration.behavior.autoHide
         if !autoHide, !isRevealed { reveal() }
         if autoHide, isRevealed { scheduleHide() }
@@ -778,7 +852,6 @@ public final class PanelController {
         guard !isRevealed else { return }
         isRevealed = true
         reframe(animated: true)
-        for bar in bars { bar.orderFrontRegardless() }
     }
 
     private func scheduleHide() {
