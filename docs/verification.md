@@ -94,3 +94,12 @@ One 1920×1080 display by then; the two 2560×1440 monitors of the earlier sessi
 | Configuration migrates 4 → 5 | `defaults export` after installing M21: `version: 5`, the five pinned applications unchanged, no new `configuration.corrupt.*` key (D96) |
 | Nexus starts on the new build | `Nexus launched in 924 ms`, `Sidebar panels shown: 1`, `Sidebar rows: 5 pinned, 17 running` |
 | Dragging a folder from Finder onto the bar | **Not verified.** The machine's displays changed mid-session, `screencapture` began returning wallpaper with no windows and System Events lost Finder — the signature of Screen Recording and Accessibility being toggled in System Settings, which was frontmost. Driving synthetic drags through that would have proved nothing. The drop handler, the listing, the refusal and the missing-folder cases are unit-tested; the Finder drag itself is the one part of M21 with no live pass |
+
+## Milestone 22 — 2026-08-23, 17:2x
+
+**No live pass.** By this point `screencapture` returned the desktop picture with no windows and an
+`AXUIElement` walk of Nexus returned nothing but the application element repeated — both of which
+mean the grants those tools need were off. The build installs and runs; the section, its cap, its
+ordering, the setting and the restore path are unit-tested (8 tests). What has not been seen is a
+real window being minimized and a row appearing for it. That, and M21's Finder drag, are the two
+things to check first in the next session with the permissions back.

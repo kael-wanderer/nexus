@@ -415,6 +415,10 @@ struct BehaviorPane: View {
             }
             Section {
                 Toggle(String(localized: "Show running applications"), isOn: configuration.binding(\.behavior.showRunningApplications))
+                Toggle(String(localized: "Show minimized windows"), isOn: configuration.binding(\.behavior.showMinimizedWindows))
+                Text("Minimized windows sit before the Trash, newest first, at most three.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle(String(localized: "Show window count"), isOn: configuration.binding(\.behavior.showWindowCount))
                 Toggle(String(localized: "Show favourites"), isOn: configuration.binding(\.behavior.showFavorites))
             }

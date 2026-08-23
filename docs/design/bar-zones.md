@@ -22,7 +22,8 @@ The bar becomes three parts, and only the middle one scrolls:
 │ ▣ Slack  │                   running applications, up to `runningLimit`
 │ ▣ Music  │
 ├──────────┤   ───────────
-│ ♫ Track  │   fixed tail      now playing (M15), Trash, Search
+│ ♫ Track  │   fixed tail      now playing (M15), minimized windows (M22),
+│ ▫ Draft  │                   Trash, Search
 │ 🗑 Trash  │
 │ ⌕ Search │
 └──────────┘
@@ -31,7 +32,7 @@ The bar becomes three parts, and only the middle one scrolls:
 The head and the tail keep their rows whatever else happens. The middle gets what is left of the
 screen and scrolls inside it.
 
-The tail is not one part but three — now playing, Trash, Search — and each is drawn as its own
+The tail is not one part but four — now playing, minimized windows, Trash, Search — and each is drawn as its own
 section, so the separator the bar already puts between sections falls between them too. Six parts,
 six kinds of thing, and the zone maths counts one separator per fixed section rather than one for
 the tail as a whole (D77).

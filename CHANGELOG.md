@@ -6,6 +6,12 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- Minimized windows in the bar (M22): a fourth part of the fixed tail, before Trash, holding the
+  windows you have minimized — newest first, at most three, the owning application's icon with the
+  window title when the bar is expanded. Clicking one restores it and brings its application
+  forward. Order is kept by Nexus, since `AXMinimized` is a boolean and the window layer has no
+  minimise time to give (D97). `behavior.showMinimizedWindows`, default on; off returns the slots
+  to the applications.
 - Folder stacks (M21): drag a folder from Finder onto the bar and it becomes a row with the
   folder's own icon. Clicking opens what is inside on a grid beside the bar — folders first, then
   files, hidden files skipped, capped at 60 items and read when the stack opens rather than

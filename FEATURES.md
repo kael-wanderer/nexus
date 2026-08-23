@@ -40,6 +40,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 27 | Search scope | M19 | None | Everything / Applications / Files & Folders / Files / Folders / Settings, on `⌃1`…`⌃6`, `⇥` or the chip menu; files versus folders is a Spotlight predicate on the existing query (D87) |
 | 28 | Search box in the bar | M19 | None | `search.barStyle`: an icon in one slot, or a box across three that opens the palette beside itself. The global shortcut always centres the palette (D90) |
 | 29 | Folder stacks | M21 | None of Nexus's own; reading Desktop/Documents/Downloads goes through the system's file-access prompt | Drop a folder from Finder onto the bar; clicking opens its contents on a grid beside the bar, folders first, capped at 60. A folder macOS will not let Nexus read says so rather than showing an empty grid (D96) |
+| 30 | Minimized windows | M22 | Accessibility (same grant as the window list) | Three rows in the tail before Trash, newest first; click restores. Older ones stay in the application's hover flyout. `behavior.showMinimizedWindows` (D97) |
 
 ### Basic actions shipped in the MVP (§13)
 

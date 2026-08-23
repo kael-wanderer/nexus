@@ -144,9 +144,9 @@ public struct SidebarView: View {
         }
     }
 
-    /// The fixed tail, as three parts of its own: now playing when something is playing, Trash, and
-    /// Search. Each is separated, because they are different kinds of thing and the bar says so
-    /// everywhere else (D77).
+    /// The fixed tail, as parts of its own: now playing when something is playing, the minimized
+    /// windows when there are any, Trash, and Search. Each is separated, because they are different
+    /// kinds of thing and the bar says so everywhere else (D77).
     private var utilitySection: some View {
         axis {
             if model.showsNowPlayingRow {
@@ -158,12 +158,34 @@ public struct SidebarView: View {
                 }
                 separator
             }
+            if model.showsMinimizedRows {
+                minimizedSection
+                separator
+            }
             trashRow
             if model.openSearch != nil {
                 separator
                 searchRow
             }
         }
+    }
+
+    /// Where a window goes when it is minimized: the owning application's icon, newest first, at
+    /// most three (M22).
+    private var minimizedSection: some View {
+        let spacing = model.appearance.iconSpacing
+        let layout = isVertical
+            ? AnyLayout(VStackLayout(spacing: spacing))
+            : AnyLayout(HStackLayout(spacing: spacing))
+        return layout {
+            ForEach(model.minimizedRows) { window in
+                MinimizedWindowRow(model: model, window: window, expanded: model.isExpanded)
+            }
+        }
+        .animation(
+            Design.animation(Design.reveal, reduceMotion: reduceMotion),
+            value: model.minimizedRows.map(\.id)
+        )
     }
 
     private var trashRow: some View {

@@ -54,6 +54,20 @@ public enum SidebarRow: Identifiable, Equatable, Sendable {
     }
 }
 
+/// One minimized window, ready to draw (M22). The icon comes from the owning application, which
+/// is the only picture there is without Screen Recording.
+public struct MinimizedWindow: Identifiable, Equatable, Sendable {
+    public let identity: WindowIdentity
+    public let title: String
+    public let applicationName: String
+    public let bundleURL: URL?
+
+    public var id: String { "\(identity.owner.bundleIdentifier)#\(identity.number)" }
+
+    /// What the row says when the window has no title of its own.
+    public var name: String { title.isEmpty ? applicationName : title }
+}
+
 /// A pinned folder, ready to draw. Its contents are not here: they are read when the stack opens
 /// (M21), so the bar never waits on a disk.
 public struct SidebarFolder: Identifiable, Equatable, Sendable {
@@ -110,6 +124,16 @@ public final class SidebarViewModel {
     /// Where the player is, when it will say (M16). Drives the progress line under the row's
     /// artwork and the popover's scrubber.
     public private(set) var nowPlayingPosition: MediaPosition?
+
+    /// Windows that have been minimized, newest first (M22). Order is kept here because the window
+    /// layer has none to give: `AXMinimized` is a boolean, and enumeration order is whatever the
+    /// application's window list happens to be.
+    public private(set) var minimized: [MinimizedWindow] = []
+
+    /// Rows the minimized section may take. The tail is subtracted from the applications before
+    /// they are laid out, so an unbounded tail is a bar that shrinks every time somebody minimises
+    /// something. Older windows stay reachable in their application's flyout.
+    public static let minimizedLimit = 3
 
     /// Drives which Trash icon the utility row draws.
     public private(set) var trashIsEmpty = TrashService.isEmpty
@@ -262,7 +286,24 @@ public final class SidebarViewModel {
     /// Search once it is injected. A row that is not there gives its slot back to the applications
     /// (D74).
     public var tailRowCount: Int {
-        (showsNowPlayingRow ? nowPlayingRowCount : 0) + 1 + (openSearch == nil ? 0 : searchRowCount)
+        (showsNowPlayingRow ? nowPlayingRowCount : 0)
+            + minimizedRowCount
+            + 1
+            + (openSearch == nil ? 0 : searchRowCount)
+    }
+
+    /// Rows the minimized section draws: none when it is switched off, when Accessibility is not
+    /// granted (nothing to enumerate), or when nothing is minimized.
+    public var minimizedRowCount: Int {
+        guard behavior.showMinimizedWindows, activateWindow != nil else { return 0 }
+        return min(minimized.count, Self.minimizedLimit)
+    }
+
+    public var showsMinimizedRows: Bool { minimizedRowCount > 0 }
+
+    /// The rows actually drawn, which is the capped list.
+    public var minimizedRows: [MinimizedWindow] {
+        Array(minimized.prefix(minimizedRowCount))
     }
 
     /// How many slots the Search part takes: three when it is drawn as a box, one when it is an
@@ -302,6 +343,7 @@ public final class SidebarViewModel {
         if showsStartMenuRow { rows.append(1) }
         if showsNowPlayingRow { rows.append(nowPlayingRowCount) }
         rows.append(1)                                      // Trash
+        if showsMinimizedRows { rows.append(minimizedRowCount) }
         if openSearch != nil { rows.append(searchRowCount) }
         return rows
     }
@@ -931,6 +973,45 @@ public final class SidebarViewModel {
     public func prefetchWindows(_ identity: ApplicationIdentity) {
         guard activateWindow != nil else { return }
         loadWindows?(identity)
+    }
+
+    /// Every window in the system, from the same enumeration that refreshes the counts. The
+    /// minimized ones keep the order they already had, and the ones that are new to the list go to
+    /// the front — the window you just put down is the one you reach for.
+    public func setAllWindows(_ windows: [NexusWindow]) {
+        let minimizedNow = windows.filter(\.isMinimized)
+        let byID = Dictionary(uniqueKeysWithValues: minimizedNow.map { ($0.id, $0) })
+        var updated: [MinimizedWindow] = []
+        for existing in minimized {
+            guard let window = byID[existing.id] else { continue }
+            updated.append(drawable(window))
+        }
+        let known = Set(updated.map(\.id))
+        for window in minimizedNow where !known.contains(window.id) {
+            updated.insert(drawable(window), at: 0)
+        }
+        guard updated != minimized else { return }
+        let countChanged = min(updated.count, Self.minimizedLimit) != minimizedRowCount
+        minimized = updated
+        if countChanged { layoutDidChange?() }
+    }
+
+    private func drawable(_ window: NexusWindow) -> MinimizedWindow {
+        let identifier = window.identity.owner.bundleIdentifier
+        return MinimizedWindow(
+            identity: window.identity,
+            title: window.title,
+            applicationName: window.applicationName.isEmpty
+                ? (items[identifier]?.name ?? identifier)
+                : window.applicationName,
+            bundleURL: items[identifier]?.bundleURL
+        )
+    }
+
+    /// Puts a minimized window back. The same call the flyout's rows make: `WindowService.activate`
+    /// clears `AXMinimized`, raises the window and activates its application.
+    public func restore(_ window: MinimizedWindow) {
+        activateWindow?(window.identity)
     }
 
     public func setWindows(_ windows: [NexusWindow], for identity: ApplicationIdentity) {

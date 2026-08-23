@@ -207,6 +207,8 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     /// nothing, short enough that resting on a row feels immediate.
     public var hoverPreviewDelay: Double = 0.5
     public var showRunningApplications = true
+    /// The windows that have been minimized, in the tail before Trash (M22).
+    public var showMinimizedWindows = true
     public var showWindowCount = true
     public var showFavorites = true
     /// Keep other applications' windows off the bar (M12). Off by default: it moves windows
@@ -229,6 +231,7 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         hoverPreview = try container.decodeIfPresent(Bool.self, forKey: .hoverPreview) ?? true
         hoverPreviewDelay = try container.decodeIfPresent(Double.self, forKey: .hoverPreviewDelay) ?? 0.5
         showRunningApplications = try container.decodeIfPresent(Bool.self, forKey: .showRunningApplications) ?? true
+        showMinimizedWindows = try container.decodeIfPresent(Bool.self, forKey: .showMinimizedWindows) ?? true
         showWindowCount = try container.decodeIfPresent(Bool.self, forKey: .showWindowCount) ?? true
         showFavorites = try container.decodeIfPresent(Bool.self, forKey: .showFavorites) ?? true
         reserveSpace = try container.decodeIfPresent(Bool.self, forKey: .reserveSpace) ?? false

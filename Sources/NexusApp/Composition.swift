@@ -286,13 +286,16 @@ final class Composition {
             applicationMonitor.refresh()
             return
         }
-        Task { [windows, applications, events] in
+        Task { [windows, applications, events, sidebarModel] in
             guard let all = try? await windows.allWindows() else { return }
             var counts: [String: Int] = [:]
             for window in all {
                 counts[window.identity.owner.bundleIdentifier, default: 0] += 1
             }
             await applications.updateWindowCounts(byBundleIdentifier: counts)
+            // The same enumeration feeds the minimized section: minimising a window is one of the
+            // events that brought us here (M22).
+            await MainActor.run { sidebarModel.setAllWindows(all) }
             events.publish(.applicationsChanged)
         }
     }

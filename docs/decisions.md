@@ -948,3 +948,29 @@ reading `{"folder": …}` **throws** while decoding the dock, and a throw quaran
 resets the dock. A version it does not recognise is the one case the store handles gently: run on
 defaults, overwrite nothing. So the number moves, with an empty migration, and a downgrade costs a
 session rather than a dock.
+
+**D97. Three minimized windows, in the tail, in an order Nexus keeps itself.**
+
+macOS parks minimized windows at the end of its Dock. Nexus had nowhere for them: minimising a
+window dropped its application's count by one and left the window reachable only by hovering that
+application and reading the flyout.
+
+*In the tail, not the scrolling middle.* A minimized window that scrolled away would be exactly as
+lost as it was before, and the tail is the part of the bar that exists so Trash and Search never
+scroll (M14). It costs `min(count, 3)` slots out of the application budget and gives every one back
+when the last window is restored, the same arithmetic the now-playing row already uses.
+
+*Three.* The tail is subtracted from the applications before they are laid out, so an unbounded
+tail is a bar that shrinks every time somebody minimises something. Three covers the windows you
+just put down; the older ones stay where they already were, in their application's flyout. A
+scrolling minimized section was the alternative and it is a worse trade: a fourth budget in the zone
+maths, for rows nobody looks at.
+
+*Order kept here.* `AXMinimized` is a boolean and enumeration order is whatever an application's
+window list happens to be, so "newest first" has to be remembered rather than read: a window that is
+newly minimized goes to the front, and one that is restored, closed or whose application quit leaves
+the list. Without that the rows would reshuffle every time any application's windows changed.
+
+*No thumbnail.* A preview needs Screen Recording (M10). A tile that is blank without a permission is
+worse than one that is honestly an application icon, and the flyout still shows thumbnails to
+anybody who granted it.

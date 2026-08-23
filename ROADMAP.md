@@ -491,3 +491,26 @@ same macOS file-access prompt any application gets, and a refusal is shown rathe
 - Remove from Bar leaves the rest of the dock in order.
 
 Spec: `docs/design/folder-stacks.md`.
+
+## Milestone 22 — Minimized windows  ← post-MVP
+
+**Shipped** 2026-08-23 (live pass pending: the machine's Accessibility and Screen Recording grants were being changed).
+
+**Scope**
+- A fourth part of the fixed tail, before Trash: the windows that have been minimized, newest
+  first, at most three rows.
+- Order is tracked in Nexus — `AXMinimized` is a boolean and the window layer keeps no minimise
+  time — and a window leaves the list when it is restored, closed, or its application quits.
+- The row draws the owning application's icon and, when the bar is expanded, the window title.
+  Clicking restores through the path the flyout already uses.
+- `behavior.showMinimizedWindows`, default on. Off returns the slots to the applications.
+
+**Permissions:** Accessibility, already required for the window list. Denied means no section.
+
+**Acceptance criteria**
+- Minimising a window adds a row within a second, newest first; restoring it removes the row.
+- Clicking a row restores the window and activates its application.
+- Four minimized windows show three rows; the fourth stays reachable in its application's flyout.
+- Switching the setting off gives the rows back to the applications.
+
+Spec: `docs/design/minimized-windows.md`.
