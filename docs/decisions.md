@@ -626,3 +626,23 @@ it yields no title rather than a wrong one, published metadata always wins when 
 row is drawn as inset artwork with a waveform badge so it can never be confused with the
 application's own icon.
 
+**D77. The bar is six parts, and it says so.**
+Launcher, pinned, running, now playing, Trash, Search. They were already six *kinds* of thing but
+only three of them were separated, so the tail read as one undifferentiated clump — and with the
+now-playing row in it, as a duplicate of the application it was playing. Each part is its own
+section now, which means each gets the separator the layout already draws between sections, and the
+zone maths counts one separator per fixed section rather than one for the whole tail.
+
+**D78. "Nexus is my Dock" is one choice, not a toggle in a list.**
+Running Nexus at the bottom of the screen with the macOS Dock still there gives you two docks, which
+is nobody's intention. The Dock pane now opens with a two-way choice — *My Dock*, which hides the
+system Dock while Nexus runs (D51/D52 do the work), or *A sidebar*, which leaves it alone. The
+setting underneath is the same `dock.replacementEnabled`; what changed is that it now reads as the
+decision it is, and says which of the two you are looking at.
+
+**D79. Icons default to the size of a Dock tile.**
+40 points was the default because it looked right in a narrow sidebar. Next to the macOS Dock it
+looks like a downgrade: a dock replacement with smaller icons than the dock it replaces. The default
+is 64 — a Dock tile at its own default — and configuration version 4 rewrites a stored 40, since
+nobody chose it while it was the default. Any other size was set by hand and is kept.
+

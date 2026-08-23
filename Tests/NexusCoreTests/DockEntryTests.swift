@@ -210,8 +210,8 @@ struct AutomaticRowLimitsMigrationTests {
         #expect(store.outcomeOfLastLoad == .migrated(from: 2))
         #expect(configuration.appearance.pinnedLimit == 0)
         #expect(configuration.appearance.runningLimit == 0)
-        // Nothing else about appearance was touched.
-        #expect(configuration.appearance.iconSize == 40)
+        // Version 4 runs on top of it: the previous default icon size becomes a Dock-sized one.
+        #expect(configuration.appearance.iconSize == 64)
     }
 
     @Test("A ceiling set against the new meaning is kept")

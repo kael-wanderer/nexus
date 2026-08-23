@@ -55,7 +55,18 @@ this project follows [Semantic Versioning](https://semver.org).
   application's icon. `general.showNowPlaying`. No new permission, and no `MediaRemote`: it is
   private and entitlement-gated since macOS 15.4 (D75).
 
+- The bar is drawn as its six parts, each separated: launcher, pinned, running, now playing, Trash,
+  Search (D77).
+- Settings → Dock opens with the choice it always was: **Nexus is my Dock** — the macOS Dock stays
+  hidden while Nexus runs — or **a sidebar**, which leaves it alone. Two docks at the bottom of the
+  screen was nobody's intention (D78).
+- Icons default to 64 points, the size of a macOS Dock tile, rather than 40 (D79). Configuration
+  version 4 rewrites the old default; a size set by hand is kept.
+
 ### Fixed
+- The search palette stayed on screen when it lost the keyboard: a click in another application, or
+  ⌘Tab, now dismisses it, as well as Escape. `hidesOnDeactivate` is off by necessity, so this needs
+  a global mouse monitor and a resign-key observer rather than coming for free.
 - With enough applications running, Trash and Search scrolled off the end of the bar: everything
   was in one scroll view, clamped to the screen. They now live in a zone that cannot scroll (D73).
 - The start menu drew a tile with no caption for any bundle shipping an empty `CFBundleName`; an

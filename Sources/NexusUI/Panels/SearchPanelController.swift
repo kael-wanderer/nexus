@@ -44,6 +44,8 @@ public final class SearchPanelController {
     private var hosting: NSView?
     private var previousApplication: NSRunningApplication?
     private var digitMonitor: Any?
+    private var outsideClickMonitor: Any?
+    private var resignObserver: (any NSObjectProtocol)?
     private var verificationTask: Task<Void, Never>?
 
     public private(set) var strategy: ActivationStrategy = .nonActivating
@@ -66,6 +68,7 @@ public final class SearchPanelController {
     public func stop() {
         verificationTask?.cancel()
         removeDigitMonitor()
+        removeDismissMonitors()
         panel?.orderOut(nil)
         panel = nil
     }
@@ -89,6 +92,7 @@ public final class SearchPanelController {
         panel.makeKeyAndOrderFront(nil)
         focusField(in: panel)
         installDigitMonitor()
+        installDismissMonitors(panel)
         isVisible = true
         resize()
 
@@ -118,6 +122,7 @@ public final class SearchPanelController {
         verificationTask?.cancel()
         verificationTask = nil
         removeDigitMonitor()
+        removeDismissMonitors()
         panel.orderOut(nil)
         isVisible = false
         model.reset()
@@ -128,6 +133,50 @@ public final class SearchPanelController {
             previousApplication?.activate()
         }
         previousApplication = nil
+    }
+
+    // MARK: - Dismissal
+
+    /// A click anywhere but the palette closes it, and so does losing key status.
+    ///
+    /// Neither happens on its own: `hidesOnDeactivate` is off, because the palette has to survive
+    /// the flicker of activating, and clicks in another application never reach a panel that is not
+    /// theirs. Without this the palette stays on screen until Escape — which is what it did.
+    private func installDismissMonitors(_ panel: SearchPanel) {
+        removeDismissMonitors()
+
+        // Global monitors see clicks in *other* applications. Clicks inside the palette arrive as
+        // local events instead, so "global" is exactly "outside" here — except for Nexus's own
+        // panels, which is why the frame is checked too.
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] event in
+            MainActor.assumeIsolated {
+                guard let self, let panel = self.panel, self.isVisible else { return }
+                guard !panel.frame.contains(NSEvent.mouseLocation) else { return }
+                self.hide(restoreFocus: false)
+            }
+        }
+
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.isVisible else { return }
+                // Command-Tab, a click that activated another application, a hotkey elsewhere: the
+                // palette has lost the keyboard, so it has nothing left to do.
+                self.hide(restoreFocus: false)
+            }
+        }
+    }
+
+    private func removeDismissMonitors() {
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        outsideClickMonitor = nil
+        if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
+        resignObserver = nil
     }
 
     // MARK: - Geometry

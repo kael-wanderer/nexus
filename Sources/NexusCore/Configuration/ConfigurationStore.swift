@@ -47,6 +47,7 @@ public final class ConfigurationStore: ConfigurationStoring {
     public static let standardMigrations: [any ConfigurationMigration] = [
         PinnedEntriesMigration(),
         AutomaticRowLimitsMigration(),
+        DockSizedIconsMigration(),
     ]
 
     public var outcomeOfLastLoad: ConfigurationLoadOutcome {
@@ -163,6 +164,25 @@ public struct AutomaticRowLimitsMigration: ConfigurationMigration {
         var appearance = json["appearance"] as? [String: Any] ?? [:]
         appearance["pinnedLimit"] = 0
         appearance["runningLimit"] = 0
+        json["appearance"] = appearance
+    }
+}
+
+/// Version 3 → 4 (M16): icons default to 64 points, the size of a macOS Dock tile.
+///
+/// A stored 40 — the previous default — is rewritten, because a dock replacement whose icons are
+/// smaller than the dock it replaces reads as a downgrade, and nobody chose 40 deliberately while it
+/// was the default. Any other size was set by hand and is kept.
+public struct DockSizedIconsMigration: ConfigurationMigration {
+    public let fromVersion = 3
+
+    public init() {}
+
+    public func migrate(_ json: inout [String: Any]) throws {
+        var appearance = json["appearance"] as? [String: Any] ?? [:]
+        if let size = appearance["iconSize"] as? Double, size == 40 {
+            appearance["iconSize"] = 64
+        }
         json["appearance"] = appearance
     }
 }

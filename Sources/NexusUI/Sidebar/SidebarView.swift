@@ -142,19 +142,20 @@ public struct SidebarView: View {
         }
     }
 
-    /// The fixed tail: now playing when there is something playing, then Trash and Search — neither
-    /// of which depends on any application being there.
+    /// The fixed tail, as three parts of its own: now playing when something is playing, Trash, and
+    /// Search. Each is separated, because they are different kinds of thing and the bar says so
+    /// everywhere else (D77).
     private var utilitySection: some View {
-        let spacing = model.appearance.iconSpacing
-        let layout = isVertical
-            ? AnyLayout(VStackLayout(spacing: spacing))
-            : AnyLayout(HStackLayout(spacing: spacing))
-        return layout {
+        axis {
             if model.showsNowPlayingRow {
                 NowPlayingRow(model: model, expanded: model.isExpanded)
+                separator
             }
             trashRow
-            if model.openSearch != nil { searchRow }
+            if model.openSearch != nil {
+                separator
+                searchRow
+            }
         }
     }
 

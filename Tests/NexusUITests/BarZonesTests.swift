@@ -22,10 +22,9 @@ struct BarZonesTests {
     @Test("With room to spare each section shows what it has, up to its limit")
     func withinLimits() {
         let zones = SidebarLayout.zones(
-            headRows: 1,
+            fixedRows: [1] + Array(repeating: 1, count: 2),
             pinnedRows: 4,
             runningRows: 3,
-            tailRows: 2,
             appearance: appearance,
             available: 2_000
         )
@@ -41,10 +40,9 @@ struct BarZonesTests {
         appearance.runningLimit = 5
 
         let zones = SidebarLayout.zones(
-            headRows: 1,
+            fixedRows: [1] + Array(repeating: 1, count: 2),
             pinnedRows: 14,
             runningRows: 30,
-            tailRows: 2,
             appearance: appearance,
             available: 2_000
         )
@@ -58,15 +56,15 @@ struct BarZonesTests {
     func tailAlwaysFits() {
         let available: CGFloat = 800
         let zones = SidebarLayout.zones(
-            headRows: 1,
+            fixedRows: [1] + Array(repeating: 1, count: 2),
             pinnedRows: 14,
             runningRows: 30,
-            tailRows: 2,
             appearance: appearance,
             available: available
         )
-        let fixed = SidebarLayout.outerPadding * 2 + extent(1) + extent(2)
-            + 3 * (Design.separatorHeight + SidebarLayout.separatorSpacing * 2)
+        // Head, Trash, Search, pinned, running: five sections, so four separators.
+        let fixed = SidebarLayout.outerPadding * 2 + extent(1) * 3
+            + 4 * (Design.separatorHeight + SidebarLayout.separatorSpacing * 2)
         #expect(zones.total <= available)
         #expect(zones.total == fixed + zones.pinnedExtent + zones.runningExtent)
         #expect(zones.pinnedExtent + zones.runningExtent <= available - fixed)
@@ -80,10 +78,9 @@ struct BarZonesTests {
 
         // Room for the head, the tail, separators and about four middle rows.
         let zones = SidebarLayout.zones(
-            headRows: 1,
+            fixedRows: [1] + Array(repeating: 1, count: 2),
             pinnedRows: 10,
             runningRows: 10,
-            tailRows: 2,
             appearance: appearance,
             available: 460
         )
@@ -99,10 +96,9 @@ struct BarZonesTests {
         appearance.runningLimit = 5
 
         let zones = SidebarLayout.zones(
-            headRows: 0,
+            fixedRows: Array(repeating: 1, count: 2),
             pinnedRows: 40,
             runningRows: 9,
-            tailRows: 2,
             appearance: appearance,
             available: 600
         )
@@ -116,11 +112,11 @@ struct BarZonesTests {
         appearance.pinnedLimit = 40
 
         let withRunning = SidebarLayout.zones(
-            headRows: 0, pinnedRows: 40, runningRows: 4, tailRows: 2,
+            fixedRows: Array(repeating: 1, count: 2), pinnedRows: 40, runningRows: 4,
             appearance: appearance, available: 600
         )
         let withoutRunning = SidebarLayout.zones(
-            headRows: 0, pinnedRows: 40, runningRows: 0, tailRows: 2,
+            fixedRows: Array(repeating: 1, count: 2), pinnedRows: 40, runningRows: 0,
             appearance: appearance, available: 600
         )
         #expect(withoutRunning.runningRows == 0)
@@ -132,11 +128,11 @@ struct BarZonesTests {
     @Test("With no ceiling set the bar grows into the screen it has, then scrolls")
     func growsToFitTheScreen() {
         let short = SidebarLayout.zones(
-            headRows: 1, pinnedRows: 0, runningRows: 30, tailRows: 2,
+            fixedRows: [1] + Array(repeating: 1, count: 2), pinnedRows: 0, runningRows: 30,
             appearance: appearance, available: 600
         )
         let tall = SidebarLayout.zones(
-            headRows: 1, pinnedRows: 0, runningRows: 30, tailRows: 2,
+            fixedRows: [1] + Array(repeating: 1, count: 2), pinnedRows: 0, runningRows: 30,
             appearance: appearance, available: 1_400
         )
         // A taller edge shows more, and neither shows more than it holds.
@@ -148,7 +144,7 @@ struct BarZonesTests {
 
         // Enough screen for everything: nothing scrolls, and the bar is no taller than it needs.
         let huge = SidebarLayout.zones(
-            headRows: 1, pinnedRows: 0, runningRows: 30, tailRows: 2,
+            fixedRows: [1] + Array(repeating: 1, count: 2), pinnedRows: 0, runningRows: 30,
             appearance: appearance, available: 4_000
         )
         #expect(huge.runningRows == 30)
@@ -161,11 +157,11 @@ struct BarZonesTests {
     @Test("The same screen holds different numbers of rows on a side edge and on a main edge")
     func edgeAxisChangesCapacity() {
         let side = SidebarLayout.zones(
-            headRows: 1, pinnedRows: 0, runningRows: 40, tailRows: 2,
+            fixedRows: [1] + Array(repeating: 1, count: 2), pinnedRows: 0, runningRows: 40,
             appearance: appearance, available: 1_080 - 25 - 16      // height, less menu bar
         )
         let main = SidebarLayout.zones(
-            headRows: 1, pinnedRows: 0, runningRows: 40, tailRows: 2,
+            fixedRows: [1] + Array(repeating: 1, count: 2), pinnedRows: 0, runningRows: 40,
             appearance: appearance, available: 1_920 - 16           // width
         )
         #expect(main.slots > side.slots)
@@ -183,7 +179,7 @@ struct BarZonesTests {
         var appearance = appearance
         appearance.position = .left
         let zones = SidebarLayout.zones(
-            headRows: 1, pinnedRows: 3, runningRows: 3, tailRows: 2,
+            fixedRows: [1] + Array(repeating: 1, count: 2), pinnedRows: 3, runningRows: 3,
             appearance: appearance, available: 1_000
         )
         let vertical = SidebarLayout.size(zones: zones, appearance: appearance, expanded: false)
@@ -237,11 +233,11 @@ struct SidebarZoneTests {
         // a number: three pins plus as many running rows as 900 pt holds.
         #expect(zones.pinnedRows == 3)
         #expect(zones.runningRows == zones.slots - 3)
-        #expect(zones.runningRows > 5)
+        #expect(zones.runningRows > SidebarLayout.runningFloor)
         #expect(zones.total <= 900)
-        // Tail rows counted, and counted last.
-        #expect(model.sectionRowCounts.last == 2)
-        #expect(model.sectionRowCounts == [zones.pinnedRows, zones.runningRows, 2])
+        // Six parts, each its own section so each gets a separator: no launcher and nothing
+        // playing here, so pinned, running, Trash, Search.
+        #expect(model.sectionRowCounts == [zones.pinnedRows, zones.runningRows, 1, 1])
     }
 
     @Test("A group counts as one row against the pinned limit")

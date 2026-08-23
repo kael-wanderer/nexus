@@ -152,20 +152,30 @@ struct DockPane: View {
 
     @State private var isDockHidden = false
 
+    /// One choice rather than a toggle, because it is one decision: either Nexus is the dock — in
+    /// which case there should not be two — or it is a sidebar beside the real one (D78).
+    private enum Mode: Hashable { case dock, sidebar }
+
     var body: some View {
         Form {
             Section {
-                Toggle(
-                    String(localized: "Use Nexus as primary Dock"),
-                    isOn: Binding(
-                        get: { configuration.configuration.dock.replacementEnabled },
-                        set: { enabled in
-                            dockReplacement.setEnabled(enabled)
+                Picker(
+                    String(localized: "Nexus is"),
+                    selection: Binding(
+                        get: { configuration.configuration.dock.replacementEnabled ? Mode.dock : .sidebar },
+                        set: { mode in
+                            dockReplacement.setEnabled(mode == .dock)
                             isDockHidden = dockReplacement.isDockHidden
                         }
                     )
-                )
-                Text("Hides the macOS Dock while Nexus is running and restores it when Nexus quits.")
+                ) {
+                    Text("My Dock").tag(Mode.dock)
+                    Text("A sidebar").tag(Mode.sidebar)
+                }
+                .pickerStyle(.radioGroup)
+                Text(configuration.configuration.dock.replacementEnabled
+                    ? String(localized: "The macOS Dock stays hidden while Nexus is running, and comes back exactly as it was when Nexus quits.")
+                    : String(localized: "The macOS Dock is left alone, so both are on screen. Choose “My Dock” to have Nexus replace it."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

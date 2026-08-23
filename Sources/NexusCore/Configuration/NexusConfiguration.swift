@@ -116,7 +116,9 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
 public struct AppearanceConfiguration: Codable, Sendable, Equatable {
     public var position: SidebarPosition = .left
     public var width: Double = 64            // 44...120
-    public var iconSize: Double = 40         // 24...96
+    /// 64, the size of a macOS Dock tile at its default: an icon in a dock replacement that is
+    /// smaller than the dock it replaces reads as a downgrade (D79).
+    public var iconSize: Double = 64         // 24...96
     public var iconSpacing: Double = 8       // 0...24
     public var cornerRadius: Double = 16     // 0...32
     public var opacity: Double = 1.0         // 0.3...1.0
@@ -146,7 +148,7 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         position = try container.decodeIfPresent(SidebarPosition.self, forKey: .position) ?? .left
         width = try container.decodeIfPresent(Double.self, forKey: .width) ?? 64
-        iconSize = try container.decodeIfPresent(Double.self, forKey: .iconSize) ?? 40
+        iconSize = try container.decodeIfPresent(Double.self, forKey: .iconSize) ?? 64
         iconSpacing = try container.decodeIfPresent(Double.self, forKey: .iconSpacing) ?? 8
         cornerRadius = try container.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 16
         opacity = try container.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
@@ -283,8 +285,8 @@ public struct OnboardingState: Codable, Sendable, Equatable {
 }
 
 public struct NexusConfiguration: Codable, Sendable, Equatable {
-    /// 3 since Milestone 14: the bar's row limits mean "a ceiling", with zero for "fit the screen".
-    public static let currentVersion = 3
+    /// 4 since Milestone 16: icons default to the size of a macOS Dock tile.
+    public static let currentVersion = 4
 
     public var version: Int = currentVersion
     public var general = GeneralConfiguration()

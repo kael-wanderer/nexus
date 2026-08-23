@@ -213,13 +213,18 @@ public final class SidebarViewModel {
 
     /// The utility section — Trash, then Search — is always present: the Trash row does not
     /// depend on anything being injected, so this section never has fewer than one row.
+    /// One entry per drawn section, in order — the six parts of the bar: launcher, pinned, running,
+    /// now playing, Trash, Search. Empty sections are dropped by `SidebarLayout`, which is what puts
+    /// a separator between exactly the parts that are there (D77).
     public var sectionRowCounts: [Int] {
         let zones = zones
         var counts: [Int] = []
         if showsStartMenuRow { counts.append(1) }
         counts.append(zones.pinnedRows)
         if behavior.showRunningApplications { counts.append(zones.runningRows) }
-        counts.append(tailRowCount)
+        if showsNowPlayingRow { counts.append(1) }
+        counts.append(1)                                    // Trash
+        if openSearch != nil { counts.append(1) }
         return counts
     }
 
@@ -234,14 +239,24 @@ public final class SidebarViewModel {
         general.showNowPlaying && mediaCommand != nil && nowPlayingIsActive
     }
 
+    /// The sections that never scroll, each of which costs a separator: the launcher, then the
+    /// tail's three parts.
+    private var fixedSectionRows: [Int] {
+        var rows: [Int] = []
+        if showsStartMenuRow { rows.append(1) }
+        if showsNowPlayingRow { rows.append(1) }
+        rows.append(1)                                      // Trash
+        if openSearch != nil { rows.append(1) }
+        return rows
+    }
+
     /// How the bar divides itself up (M14): a fixed head, a scrolling middle whose two sections
     /// have a row budget each, and a fixed tail that never scrolls away.
     public var zones: SidebarLayout.BarZones {
         SidebarLayout.zones(
-            headRows: showsStartMenuRow ? 1 : 0,
+            fixedRows: fixedSectionRows,
             pinnedRows: pinned.count,
             runningRows: behavior.showRunningApplications ? running.count : 0,
-            tailRows: tailRowCount,
             appearance: appearance,
             // Before the first reframe there is no screen to measure. A large finite extent means
             // "everything fits" without pretending the screen is infinite, which no arithmetic

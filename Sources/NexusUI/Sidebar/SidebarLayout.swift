@@ -98,18 +98,20 @@ public enum SidebarLayout {
 
     private static var separatorExtent: CGFloat { Design.separatorHeight + separatorSpacing * 2 }
 
+    /// `fixedRows` is one entry per section that cannot scroll — the launcher, and each part of the
+    /// tail — because each of them costs a separator as well as its rows (D77).
     public static func zones(
-        headRows: Int,
+        fixedRows: [Int],
         pinnedRows: Int,
         runningRows: Int,
-        tailRows: Int,
         appearance: AppearanceConfiguration,
         available: CGFloat
     ) -> BarZones {
-        let sectionsPresent = [headRows, pinnedRows, runningRows, tailRows].filter { $0 > 0 }.count
+        let fixedSections = fixedRows.filter { $0 > 0 }
+        let sectionsPresent = fixedSections.count
+            + [pinnedRows, runningRows].filter { $0 > 0 }.count
         let fixed = outerPadding * 2
-            + sectionExtent(rows: headRows, appearance: appearance)
-            + sectionExtent(rows: tailRows, appearance: appearance)
+            + fixedSections.reduce(0) { $0 + sectionExtent(rows: $1, appearance: appearance) }
             + CGFloat(max(0, sectionsPresent - 1)) * separatorExtent
         let budget = max(0, available - fixed)
 
