@@ -336,14 +336,21 @@ final class Composition {
     // MARK: - Observation
 
     /// The playing application's window title is its track: a track change shows up as a window
-    /// title change, which `WindowMonitor` already publishes.
+    /// title change, which `WindowMonitor` already publishes — and so does the player quitting.
     private func observeWindowTitles() {
         let stream = events.events()
         windowTitleTask = Task { [weak self] in
             for await event in stream {
                 guard let self else { return }
-                guard case .windowsChanged(let identity) = event else { continue }
-                nowPlaying.windowsChanged(identity.bundleIdentifier)
+                switch event {
+                case .windowsChanged(let identity):
+                    nowPlaying.windowsChanged(identity.bundleIdentifier)
+                case .applicationTerminated(let identity):
+                    // The player quit: nothing else will say so (D95).
+                    nowPlaying.applicationTerminated(identity.bundleIdentifier)
+                default:
+                    continue
+                }
             }
         }
     }
@@ -409,6 +416,7 @@ final class Composition {
             openSettings: { [weak self] in self?.showSettings() },
             runSetupAgain: { [weak self] in self?.runOnboarding() },
             openSearch: { [weak self] in self?.searchPanel.show() },
+            isBarVisible: { [weak self] in self?.panels.isBarVisible ?? true },
             isDockHidden: { [weak self] in self?.dockReplacement.isDockHidden ?? false },
             restoreDock: { [weak self] in self?.dockReplacement.restoreNow() }
         )

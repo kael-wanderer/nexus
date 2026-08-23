@@ -9,6 +9,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         var openSettings: (() -> Void)?
         var runSetupAgain: (() -> Void)?
         var openSearch: (() -> Void)?
+        /// Read live, like `isDockHidden`: a menu item that only says "Toggle" leaves the one thing
+        /// worth knowing — whether the bar is there — off the menu (D94).
+        var isBarVisible: (() -> Bool)?
         /// Read live: Dock Replacement Mode is a visible change to the user's system, so the menu
         /// bar — the one piece of chrome an `LSUIElement` app always has — says so.
         var isDockHidden: (() -> Bool)?
@@ -92,7 +95,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             menu.addItem(actionItem(String(localized: "Search…"), #selector(openSearch), ""))
         }
         if actions.toggleSidebar != nil {
-            menu.addItem(actionItem(String(localized: "Toggle Sidebar"), #selector(toggleSidebar), ""))
+            let visible = actions.isBarVisible?() ?? true
+            menu.addItem(actionItem(
+                visible
+                    ? String(localized: "Hide Nexus Bar")
+                    : String(localized: "Show Nexus Bar"),
+                #selector(toggleSidebar),
+                ""
+            ))
         }
         if !menu.items.isEmpty { menu.addItem(.separator()) }
         if actions.openSettings != nil {

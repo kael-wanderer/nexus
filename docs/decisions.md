@@ -894,3 +894,35 @@ already does — by activating the application that had it before, falling back 
 The second half matters beyond the bars: an application flagged hidden publishes no windows to the
 accessibility tree, so `canHide = false` alone would have kept the bars on screen and left VoiceOver
 unable to find them (D88).
+
+**D94. A menu item that toggles says which way it toggles.**
+
+"Toggle Sidebar" said nothing about the state it was toggling from, and it was read as a *mode*
+switch — a way to move the bar from the bottom edge to the side — rather than as show/hide. Nothing
+else on the menu says where the bar is either, so a bar hidden by mistake looks like Nexus running
+with nothing to show for it.
+
+The item now reads `Hide Nexus Bar` or `Show Nexus Bar`, built from the live state the same way the
+Dock row above it is (`isDockHidden`). The name changed with it: "Sidebar" is the code's word for the
+panel and dates from when it only sat on a side; on the menu it is the Nexus Bar, wherever the user
+has put it. A checkmark was the other option, and says less: a tick beside "Toggle Sidebar" still
+does not say what unticking does.
+
+**D95. A player that has quit is not paused.**
+
+The row deliberately survives a pause: a scriptable player that stops making sound still has the film
+loaded, and a row that vanished on pause could not be unpaused (D83). Quitting is a different thing
+that looks identical from inside — the audio stops, and nothing else arrives. Spotify and Music post
+no notification when they quit, `MediaPositionService` only polls while somebody is looking at the
+row, and CoreAudio has nothing to say about a process that no longer exists. So the last track sat
+there with transport buttons that reached nobody.
+
+The evidence that was missing is the plainest one available: whether the application is still
+running. It arrives twice over — `.applicationTerminated` from the application monitor clears
+whatever that bundle identifier owned, and `isActive` re-checks liveness for the published track and
+for the paused-but-present player, so a row can never outlive its player even if the event is missed.
+
+Not the cause of the report that prompted it: closing a browser *tab* was measured and already
+clears the row (a YouTube tab, a `<video>` element and a WebAudio tone all stop CoreAudio's
+`IsRunningOutput` within two seconds, and the row goes with them). What this fixes is the case one
+step further out — the player itself going away.

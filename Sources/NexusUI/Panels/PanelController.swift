@@ -374,6 +374,9 @@ public final class PanelController {
         return (model.appearance.position.isVertical ? panel.frame.height : panel.frame.width) / 2
     }
 
+    /// Whether the bar is on screen at all — what the menu item's own title reports.
+    public var isBarVisible: Bool { !isSuppressed }
+
     public func toggleSidebar() {
         isSuppressed.toggle()
         if isSuppressed {

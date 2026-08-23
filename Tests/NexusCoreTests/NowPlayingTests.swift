@@ -61,6 +61,7 @@ struct NowPlayingSourceTests {
 struct NowPlayingServiceTests {
     private func makeService() -> (NowPlayingService, Box) {
         let service = NowPlayingService()
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         let box = Box()
         service.send = { key in box.keys.append(key) }
         service.onChange = { playing, active in box.changes.append((playing, active)) }
@@ -211,6 +212,7 @@ struct NowPlayingDisplayTests {
     @Test("Published metadata wins; a window title fills in when there is none")
     func displayPrefersMetadata() async {
         let service = NowPlayingService()
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.windowTitle = { _ in "Loki S01 - Newmoon21.mkv" }
 
         service.setAudioPlayers(["org.videolan.vlc"])
@@ -231,6 +233,7 @@ struct NowPlayingDisplayTests {
     @Test("Nothing playing clears the derived title too")
     func clearsOnIdle() async {
         let service = NowPlayingService()
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.windowTitle = { _ in "Something.mp4" }
         service.setAudioPlayers(["org.videolan.vlc"])
         await until { service.windowDerivedTitle != nil }
@@ -331,6 +334,7 @@ struct PositionPollingTests {
     func gatedOnVisibility() async {
         let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
         let service = NowPlayingService(control: control)
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.setAudioPlayers(["com.spotify.client"])
 
         #expect(service.position == nil)
@@ -348,6 +352,7 @@ struct PositionPollingTests {
     func seek() async {
         let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
         let service = NowPlayingService(control: control)
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.setAudioPlayers(["com.spotify.client"])
         service.setPlayerVisible(true)
         await untilPolled { service.position != nil }
@@ -361,6 +366,7 @@ struct PositionPollingTests {
     @Test("A player that answers nothing gets no timeline, and no repeated asking")
     func silentPlayer() async {
         let service = NowPlayingService(control: FakeMediaControl(nil))
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.setAudioPlayers(["com.brave.Browser"])
         service.setPlayerVisible(true)
 
@@ -386,6 +392,7 @@ struct PausedPlayerTests {
     func pauseKeepsRow() async {
         let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
         let service = NowPlayingService(control: control)
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.setAudioPlayers(["org.videolan.vlc"])
         service.setPlayerVisible(true)
         await untilPolled { service.position != nil }
@@ -400,6 +407,7 @@ struct PausedPlayerTests {
     func closedPlayerLosesRow() async {
         let control = FakeMediaControl(nil)
         let service = NowPlayingService(control: control)
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.setAudioPlayers(["org.videolan.vlc"])
         service.setPlayerVisible(true)
         service.setAudioPlayers([])
@@ -411,6 +419,7 @@ struct PausedPlayerTests {
     @Test("A browser tab that stops making sound loses its row, since nothing can be asked")
     func browserLosesRow() {
         let service = NowPlayingService(control: FakeMediaControl(nil))
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.setAudioPlayers(["com.brave.Browser"])
         #expect(service.isActive)
 
@@ -418,10 +427,67 @@ struct PausedPlayerTests {
         #expect(service.isActive == false)
     }
 
+    @Test("A player that quits loses its row, paused or not")
+    func quitLosesRow() async {
+        let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
+        let service = NowPlayingService(control: control)
+        service.isRunning = { _ in true }
+        service.setAudioPlayers(["org.videolan.vlc"])
+        service.setPlayerVisible(true)
+        await untilPolled { service.position != nil }
+        service.setAudioPlayers([])          // paused: the row stays, there is something to resume
+        #expect(service.isActive)
+
+        service.applicationTerminated("org.videolan.vlc")
+        #expect(service.isActive == false)
+        #expect(service.display.playerBundleIdentifier == nil)
+    }
+
+    @Test("A published track outlives nothing: quitting the player clears it")
+    func quitClearsPublishedTrack() {
+        let service = NowPlayingService(control: FakeMediaControl(nil))
+        service.isRunning = { _ in true }
+        service.received(
+            NowPlaying(
+                title: "Blue Monday",
+                artist: "New Order",
+                playerBundleIdentifier: "com.spotify.client",
+                isPlaying: true
+            )
+        )
+        #expect(service.isActive)
+
+        // Spotify posts no notification on quit — the only evidence is that it is gone.
+        service.applicationTerminated("com.spotify.client")
+        #expect(service.isActive == false)
+        #expect(service.current.title == nil)
+    }
+
+    @Test("Another application quitting leaves the row alone")
+    func otherQuitKeepsRow() {
+        let service = NowPlayingService(control: FakeMediaControl(nil))
+        service.isRunning = { _ in true }
+        service.setAudioPlayers(["com.google.Chrome"])
+        service.applicationTerminated("com.apple.Safari")
+        #expect(service.isActive)
+        #expect(service.display.playerBundleIdentifier == "com.google.Chrome")
+    }
+
+    @Test("A track whose player is no longer running is not a row")
+    func deadPlayerIsNotActive() {
+        let service = NowPlayingService(control: FakeMediaControl(nil))
+        service.isRunning = { _ in false }
+        service.received(
+            NowPlaying(title: "Blue Monday", playerBundleIdentifier: "com.spotify.client", isPlaying: true)
+        )
+        #expect(service.isActive == false)
+    }
+
     @Test("Transport goes through the script for a scriptable player, and the state follows")
     func scriptedTransport() async {
         let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
         let service = NowPlayingService(control: control)
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         var keys: [MediaKey] = []
         service.send = { keys.append($0) }
         service.setAudioPlayers(["org.videolan.vlc"])
@@ -439,6 +505,7 @@ struct PausedPlayerTests {
     @Test("A player with no dictionary gets a media key instead")
     func keyFallback() {
         let service = NowPlayingService(control: FakeMediaControl(nil))
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         var keys: [MediaKey] = []
         service.send = { keys.append($0) }
         service.setAudioPlayers(["com.brave.Browser"])
@@ -507,6 +574,7 @@ struct BrowserPlayStateTests {
     @Test("Losing the marker pauses the row, even while the audio process still says it is playing")
     func pausedBrowser() async {
         let service = NowPlayingService()
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         var title = "A Video - YouTube - Audio playing - Google Chrome - Work"
         service.windowTitle = { _ in title }
 
@@ -531,6 +599,7 @@ struct BrowserPlayStateTests {
     @Test("An application that never publishes a marker is still judged by its audio")
     func nonBrowser() async {
         let service = NowPlayingService()
+        service.isRunning = { _ in true }   // the machine's own applications are not the subject
         service.windowTitle = { _ in "Loki S01 - Newmoon21.mkv" }
 
         service.setAudioPlayers(["org.videolan.vlc"])

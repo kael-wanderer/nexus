@@ -134,3 +134,16 @@ Three sources, in order of how much they know:
 
 The transport button follows: one triangle to play, two bars to pause, and the double triangles
 either side never change.
+
+## When the row goes away (D95)
+
+Three ways, and they are not the same:
+
+- **The sound stops** and the player cannot be asked anything — a browser tab, muted or closed. The
+  row goes at once: CoreAudio stops reporting the process within a second or two of the tab closing,
+  and there is nothing left to control.
+- **The sound stops but the player can be asked** — VLC paused mid-film. The row stays, showing the
+  play triangle, because that is what the buttons are for (D83).
+- **The player quits.** The row goes, whatever it was last showing. Nothing announces this — Spotify
+  and Music post no notification on quit — so it comes from `.applicationTerminated`, and `isActive`
+  re-checks that the player is still running in case that event never arrives.

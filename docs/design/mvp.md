@@ -9,7 +9,7 @@ module map and cross-cutting rules.
 
 Agent application: `LSUIElement = true`, `NSApplication.activationPolicy = .accessory`.
 No Dock tile, no menu bar of its own. The only always-visible surfaces are the sidebar panel
-and a menu-bar status item (open Settings, toggle sidebar, quit).
+and a menu-bar status item (open Settings, show or hide the bar, quit).
 
 `.accessory` (not `.prohibited`) because the search palette must be able to become key, and a
 `.prohibited` app cannot activate.

@@ -97,6 +97,13 @@ this project follows [Semantic Versioning](https://semver.org).
   30-minute leak soak and the one item that still needs hardware: multi-monitor reconnect.
 
 ### Fixed
+- The media row goes away when the player quits (D95). It deliberately survives a pause — a paused
+  film still has something to resume — but a player that has quit sends no notification saying so,
+  and the last track sat there with buttons that reached nobody. The row now clears on
+  `.applicationTerminated`, and re-checks that its player is running before drawing at all.
+- The menu-bar item says which way it toggles: **Hide Nexus Bar** / **Show Nexus Bar** rather than
+  "Toggle Sidebar", which read as a way to move the bar to a side edge and never said whether the
+  bar was there (D94).
 - Closing the Settings window no longer takes the bars with it (D93): it called `NSApp.hide(nil)`,
   which hides every window an application owns, panels included — leaving the menu-bar item as the
   only sign Nexus was running. Panels now set `canHide = false`, and closing hands focus back by

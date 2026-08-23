@@ -187,6 +187,11 @@ public final class NowPlayingService {
 
     /// Injected so tests do not move the machine's actual playback.
     @ObservationIgnored public var send: (MediaKey) -> Void = MediaKeys.send
+    /// Whether an application is still running. Nothing else answers it: a player that quits sends
+    /// no "stopped" notification, and a process that has died makes no sound to stop making (D95).
+    @ObservationIgnored public var isRunning: (String) -> Bool = { bundleIdentifier in
+        !NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).isEmpty
+    }
     /// Given a bundle identifier, the title of that application's frontmost window — how a player
     /// that publishes nothing still gets a name for what it is playing (D76). Injected because the
     /// window layer is Accessibility's, and this type knows nothing about it.
@@ -218,12 +223,18 @@ public final class NowPlayingService {
     /// A row worth drawing. A paused player counts: it stopped making sound, but it is still what
     /// the buttons are for, and a row that vanishes on pause cannot be unpaused (D83).
     public var isActive: Bool {
-        current.isPlaying || current.hasMetadata || !audioPlayers.isEmpty || isPausedButPresent
+        if !audioPlayers.isEmpty { return true }
+        if current.isPlaying || current.hasMetadata {
+            return isRunning(current.playerBundleIdentifier ?? "")
+        }
+        return isPausedButPresent
     }
 
-    /// A scriptable player that has stopped making sound but still has something loaded.
+    /// A scriptable player that has stopped making sound but still has something loaded — and is
+    /// still there to be unpaused. A player that has quit is not paused, it is gone (D95).
     private var isPausedButPresent: Bool {
-        stickyPlayer != nil && position?.hasTimeline == true
+        guard let player = stickyPlayer else { return false }
+        return position?.hasTimeline == true && isRunning(player)
     }
 
     /// What the row draws when no player published a track: the application making the sound.
@@ -338,21 +349,12 @@ public final class NowPlayingService {
         if let player = players.first {
             // A new player takes over the row, and its own position with it.
             if player != stickyPlayer {
+                forgetPlayer()
                 stickyPlayer = player
-                position = nil
-                scriptedIsPlaying = nil
-                windowDerivedTitle = nil
-                windowSaysPlaying = nil
-                sawAudioMarker = false
             }
         } else if !AppleScriptMediaControl.canReportPosition(stickyPlayer ?? "") {
             // Nothing playing, and the last player cannot be asked whether it is merely paused.
-            stickyPlayer = nil
-            position = nil
-            scriptedIsPlaying = nil
-            windowDerivedTitle = nil
-            windowSaysPlaying = nil
-            sawAudioMarker = false
+            forgetPlayer()
         }
         onChange?(current, isActive)
         refreshWindowTitle()
@@ -382,6 +384,38 @@ public final class NowPlayingService {
     public func windowsChanged(_ bundleIdentifier: String) {
         guard audioPlayers.first == bundleIdentifier else { return }
         refreshWindowTitle()
+    }
+
+    /// That application quit. Whatever it last published, and whatever it was last heard making,
+    /// belongs to a process that no longer exists — so the row goes rather than keeping a track
+    /// nobody can pause, skip or resume (D95).
+    public func applicationTerminated(_ bundleIdentifier: String) {
+        var changed = false
+        if current.playerBundleIdentifier == bundleIdentifier {
+            current = NowPlaying()
+            changed = true
+        }
+        if audioPlayers.contains(bundleIdentifier) {
+            audioPlayers.removeAll { $0 == bundleIdentifier }
+            changed = true
+        }
+        if stickyPlayer == bundleIdentifier {
+            forgetPlayer()
+            changed = true
+        }
+        guard changed else { return }
+        onChange?(current, isActive)
+        refreshWindowTitle()
+    }
+
+    /// Everything remembered about whoever was playing, and nothing about whoever is.
+    private func forgetPlayer() {
+        stickyPlayer = nil
+        position = nil
+        scriptedIsPlaying = nil
+        windowDerivedTitle = nil
+        windowSaysPlaying = nil
+        sawAudioMarker = false
     }
 
     func setWindowTitle(_ title: String?, raw: String? = nil) {
