@@ -121,6 +121,15 @@ final class Composition {
         configuration.flush()
 
         sidebarModel.refreshWindowCounts = { [weak self] in self?.refreshWindowCounts() }
+        // The Dock's badges (D106). Accessibility-gated and AX-bound, so it is read off the main
+        // thread on the events Nexus already has — never on a timer.
+        sidebarModel.refreshBadges = { [weak self] in
+            guard let self, permissions.status(of: .accessibility) == .granted else { return }
+            Task.detached { [sidebarModel] in
+                let badges = DockBadgeService.badges()
+                await MainActor.run { sidebarModel.setBadges(badges) }
+            }
+        }
         // Window titles for the context menu. Accessibility-gated, so a refusal simply leaves the
         // cache empty and the menu without a window section (D60).
         sidebarModel.loadWindows = { [weak self] identity in
@@ -155,6 +164,15 @@ final class Composition {
         groupModel.rename = { [weak self] group, name in
             self?.sidebarModel.renameGroup(group.id, to: name)
         }
+        groupModel.restyle = { [weak self] group, tint, emoji in
+            self?.sidebarModel.setGroupStyle(group.id, tint: tint, emoji: emoji)
+        }
+        // A drag that sprang the popover open, let go on one of the tiles (P2).
+        groupModel.dropOnMember = { [weak self] dragged, member in
+            guard let self, let group = groupModel.group else { return }
+            sidebarModel.dropIntoGroup(dragged, groupID: group.id, before: member.id)
+        }
+        groupModel.showsStyleEditor = configuration.configuration.behavior.groupColorsAndEmoji
         // Opening what is in a stack is the system's business: a file goes to its default
         // application, a folder to Finder (M21).
         folderModel.open = { url in NSWorkspace.shared.open(url) }
@@ -413,6 +431,9 @@ final class Composition {
                     lastShowStartMenu = updated.general.showStartMenu
                     self.sidebarModel.configurationChanged()
                 }
+                // Every preference is respected live; this one is read by a second model, so it is
+                // pushed rather than looked up (D108).
+                self.groupModel.showsStyleEditor = updated.behavior.groupColorsAndEmoji
             }
         }
     }

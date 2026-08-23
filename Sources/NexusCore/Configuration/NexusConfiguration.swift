@@ -225,6 +225,14 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     public var reserveSpace = false
     /// How many applications fit in one group: 9 as a 3×3 grid, 16 as 4×4 (M13).
     public var groupCapacity = 9
+    /// Hovering a pinned folder shows what is in it, without a click (M24). On, because a stack you
+    /// have to click is a folder in the Finder with extra steps.
+    public var folderHoverPreview = true
+    /// Offer to put a newly pinned application into the group its category already has (M24). Off:
+    /// moving somebody's dock around unasked is not a favour (D109).
+    public var suggestCategoryGroups = false
+    /// A group may carry a colour and an emoji (D108). On — it costs nothing until one is picked.
+    public var groupColorsAndEmoji = true
     public var clickBehavior: ClickBehavior = .activateOrLaunch
     public var reduceMotionOverride: Bool?
     public init() {}
@@ -245,6 +253,9 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         showFavorites = try container.decodeIfPresent(Bool.self, forKey: .showFavorites) ?? true
         reserveSpace = try container.decodeIfPresent(Bool.self, forKey: .reserveSpace) ?? false
         groupCapacity = try container.decodeIfPresent(Int.self, forKey: .groupCapacity) ?? 9
+        folderHoverPreview = try container.decodeIfPresent(Bool.self, forKey: .folderHoverPreview) ?? true
+        suggestCategoryGroups = try container.decodeIfPresent(Bool.self, forKey: .suggestCategoryGroups) ?? false
+        groupColorsAndEmoji = try container.decodeIfPresent(Bool.self, forKey: .groupColorsAndEmoji) ?? true
         clickBehavior = try container.decodeIfPresent(ClickBehavior.self, forKey: .clickBehavior) ?? .activateOrLaunch
         reduceMotionOverride = try container.decodeIfPresent(Bool.self, forKey: .reduceMotionOverride)
     }

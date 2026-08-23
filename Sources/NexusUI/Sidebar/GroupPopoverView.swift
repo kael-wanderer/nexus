@@ -14,12 +14,21 @@ public final class GroupPopoverViewModel {
     /// Whether the title is being edited, and what has been typed into it so far.
     public private(set) var isRenaming = false
     public var draftName = ""
+    /// The emoji field's contents while the title is being edited (D108).
+    public var draftEmoji = ""
+    /// Whether colours and emoji are switched on at all. Set by the composition root from the
+    /// preference, so the editor is absent rather than inert when they are off.
+    public var showsStyleEditor = true
 
     /// Set by the composition root, so a click here does the same thing a click in the bar does.
     @ObservationIgnored public var launch: ((SidebarItem) -> Void)?
     @ObservationIgnored public var remove: ((SidebarItem) -> Void)?
     /// Commits a new name. Injected, because the dock belongs to the bar's model, not to this one.
     @ObservationIgnored public var rename: ((SidebarGroup, String) -> Void)?
+    /// Commits a colour and an emoji (D108).
+    @ObservationIgnored public var restyle: ((SidebarGroup, GroupTint?, String?) -> Void)?
+    /// A row from the bar was dropped on one of the members, which is where it goes (P2).
+    @ObservationIgnored public var dropOnMember: ((String, SidebarItem) -> Void)?
     /// Asks the panel for the keyboard, and gives it back. Set by `PanelController` (D104).
     @ObservationIgnored public var setEditing: ((Bool) -> Void)?
     @ObservationIgnored public var onDismiss: (() -> Void)?
@@ -36,6 +45,7 @@ public final class GroupPopoverViewModel {
     public func beginRename() {
         guard let group, !isRenaming else { return }
         draftName = group.name
+        draftEmoji = group.group.emoji ?? ""
         isRenaming = true
         setEditing?(true)
     }
@@ -47,6 +57,15 @@ public final class GroupPopoverViewModel {
         isRenaming = false
         setEditing?(false)
         rename?(group, draftName)
+        guard draftEmoji != (group.group.emoji ?? "") else { return }
+        restyle?(group, group.group.tint, draftEmoji)
+    }
+
+    /// A swatch was clicked. Applied at once rather than on commit: a colour is its own preview, and
+    /// waiting for Return to see it is the wrong way round.
+    public func setTint(_ tint: GroupTint?) {
+        guard let group else { return }
+        restyle?(group, tint, draftEmoji.isEmpty ? group.group.emoji : draftEmoji)
     }
 
     /// Escape: the name goes back to what it was.
@@ -122,10 +141,14 @@ public struct GroupPopoverView: View {
                     GroupMemberTile(
                         item: item,
                         launch: { model.launch?(item) },
-                        remove: { model.remove?(item) }
+                        remove: { model.remove?(item) },
+                        // A drag that sprang this popover open can be let go on a tile, and the
+                        // application lands in the group *there* rather than at the end (P2).
+                        drop: { dragged in model.dropOnMember?(dragged, item) }
                     )
                 }
             }
+            if model.isRenaming, model.showsStyleEditor { styleEditor(group) }
         }
         .padding(Self.padding)
         .frame(width: CGFloat(model.columns) * (Self.tileSize + 4) + Self.padding * 2)
@@ -181,15 +204,55 @@ public struct GroupPopoverView: View {
         }
         .accessibilityLabel(String(localized: "Group name"))
     }
-}
 
-/// Where the icon sits inside its tile, so the remove badge can be drawn on the tile's own layer —
-/// above the click catcher — and still land on the icon's corner.
-private struct IconCorner: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
+    /// Colour and emoji, shown while the name is being edited — one place where everything about a
+    /// group's appearance is changed, which is where iOS put it too (D108).
+    private func styleEditor(_ group: SidebarGroup) -> some View {
+        HStack(spacing: 6) {
+            swatch(nil, isSelected: group.group.tint == nil)
+            ForEach(GroupTint.allCases, id: \.rawValue) { tint in
+                swatch(tint, isSelected: group.group.tint == tint)
+            }
+            Spacer(minLength: 0)
+            NativeSearchField(
+                text: $model.draftEmoji,
+                placeholder: String(localized: "emoji"),
+                fontSize: 13,
+                onMove: { _ in },
+                onSubmit: { _ in model.commitRename() },
+                onCancel: { model.cancelRename() }
+            )
+            .frame(width: 34, height: 18)
+            .padding(.horizontal, 4)
+            .background {
+                RoundedRectangle(cornerRadius: 5, style: .continuous).fill(.quaternary)
+            }
+            .accessibilityLabel(String(localized: "Group emoji"))
+        }
+        .padding(.horizontal, 6)
+    }
 
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = value ?? nextValue()
+    private func swatch(_ tint: GroupTint?, isSelected: Bool) -> some View {
+        Circle()
+            .fill(tint?.color ?? Color.clear)
+            .overlay {
+                Circle().strokeBorder(isSelected ? AnyShapeStyle(.primary) : AnyShapeStyle(.separator),
+                                      lineWidth: isSelected ? 1.5 : 0.5)
+            }
+            .overlay {
+                // The "no colour" swatch says so, rather than being an empty circle nobody trusts.
+                if tint == nil {
+                    Image(systemName: "slash.circle")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 14, height: 14)
+            .contentShape(Circle())
+            .nexusRow(onClick: { model.setTint(tint) })
+            .accessibilityLabel(tint?.localizedName ?? String(localized: "No colour"))
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction { model.setTint(tint) }
     }
 }
 
@@ -197,6 +260,8 @@ struct GroupMemberTile: View {
     let item: SidebarItem
     let launch: () -> Void
     let remove: () -> Void
+    /// Another row was dropped on this tile (P2).
+    var drop: ((String) -> Void)?
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -213,7 +278,7 @@ struct GroupMemberTile: View {
                     .offset(y: 5)
                     .opacity(item.isRunning ? 1 : 0)
             }
-            .anchorPreference(key: IconCorner.self, value: .bounds) { $0 }
+            .nexusIconAnchor()
             Text(item.name)
                 .font(.caption2)
                 .lineLimit(2)
@@ -241,23 +306,14 @@ struct GroupMemberTile: View {
                 ]
             },
             dragPayload: item.id,
-            dragImage: IconCache.shared.icon(for: item.bundleURL, size: 36)
+            dragImage: IconCache.shared.icon(for: item.bundleURL, size: 36),
+            onDrop: drop
         )
-        // After the tile's own catcher, deliberately: `nexusRow` overlays an `NSView` on whatever it
-        // is applied to, so a badge added before it sits *under* the tile's click catcher and the
-        // click launches the application instead of removing it. The topmost catcher wins, so the
-        // badge has to be the last thing on the tile.
-        .overlayPreferenceValue(IconCorner.self) { anchor in
-            // Taking an application out by dragging it onto the bar is precise work with nine or
-            // sixteen tiles in front of you. The badge is the same answer iOS gives.
-            if isHovered, let anchor {
-                GeometryReader { proxy in
-                    let icon = proxy[anchor]
-                    RemoveBadge(action: remove)
-                        .position(x: icon.minX, y: icon.minY)
-                }
-            }
-        }
+        // After the tile's own catcher, deliberately: the topmost catcher wins, so a badge added
+        // before it would sit underneath and its click would launch the application instead (D104).
+        // Taking an application out by dragging it onto the bar is precise work with nine or sixteen
+        // tiles in front of you; the badge is the same answer iOS gives.
+        .nexusRemoveBadge(isHovered) { remove() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
         .accessibilityHint(
@@ -267,25 +323,6 @@ struct GroupMemberTile: View {
         )
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { launch() }
-    }
-}
-
-/// The minus badge that takes an application out of a group. Its own row rather than a `Button`,
-/// because AppKit controls render inactive in a panel that can never become key.
-struct RemoveBadge: View {
-    let action: () -> Void
-
-    var body: some View {
-        Image(systemName: "minus.circle.fill")
-            .font(.system(size: 16))
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(.white, .secondary)
-            .background(Circle().fill(.background).padding(2))
-            .contentShape(Circle())
-            .nexusRow(onClick: action)
-            .accessibilityLabel(String(localized: "Remove from group"))
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { action() }
     }
 }
 

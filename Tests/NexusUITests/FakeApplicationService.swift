@@ -62,13 +62,27 @@ func makeApplication(
     _ bundleIdentifier: String,
     name: String,
     running: Bool = false,
-    windowCount: Int = 0
+    windowCount: Int = 0,
+    bundleURL: URL? = nil
 ) -> NexusApplication {
     NexusApplication(
         identity: ApplicationIdentity(bundleIdentifier: bundleIdentifier),
         name: name,
-        bundleURL: URL(fileURLWithPath: "/Applications/\(name).app"),
+        bundleURL: bundleURL ?? URL(fileURLWithPath: "/Applications/\(name).app"),
         isRunning: running,
         windowCount: windowCount
     )
+}
+
+/// Real bundles, for the one thing a fake cannot fake: `LSApplicationCategoryType` is read off the
+/// disk, so a category test needs an application that is actually there. Both of these declare
+/// `public.app-category.productivity`.
+enum RealBundle {
+    static let mail = URL(fileURLWithPath: "/System/Applications/Mail.app")
+    static let notes = URL(fileURLWithPath: "/System/Applications/Notes.app")
+
+    static var areInstalled: Bool {
+        FileManager.default.fileExists(atPath: mail.path)
+            && FileManager.default.fileExists(atPath: notes.path)
+    }
 }

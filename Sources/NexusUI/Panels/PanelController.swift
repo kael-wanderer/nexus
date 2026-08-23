@@ -108,6 +108,7 @@ public final class PanelController {
 
         model.setKeyboardFocus = { [weak self] focused in self?.setKeyboardFocus(focused) }
         model.showFolder = { [weak self] folder in self?.showFolder(folder) }
+        model.scheduleFolderHide = { [weak self] in self?.scheduleFolderHide() }
         folderModel.onDismiss = { [weak self] in self?.hideFolder() }
         let folderHostingView = FirstMouseHostingView(
             rootView: FolderStackView(model: folderModel)
@@ -292,6 +293,12 @@ public final class PanelController {
             folderHideTask = nil
             return
         }
+        scheduleFolderHide()
+    }
+
+    /// The grace period between the folder's row and its stack — the same one the flyout gets, and
+    /// what makes a stack opened by hovering (F2) survive the trip from the row to the popover.
+    private func scheduleFolderHide() {
         guard folderModel.folder != nil else { return }
         folderHideTask?.cancel()
         folderHideTask = Task { [weak self] in

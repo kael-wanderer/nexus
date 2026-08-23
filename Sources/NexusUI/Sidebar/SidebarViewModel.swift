@@ -157,6 +157,37 @@ public final class SidebarViewModel {
     /// The last thing the drag was understood to mean, so the same intent is never acted on twice
     /// (D103).
     @ObservationIgnored private var lastIntent: (target: String, intent: DragIntent)?
+    /// Where a reorder would put the dragged row: the caret drawn between two rows (M24). Set only
+    /// while a reorder is what the drag means — a group candidate draws a ring instead.
+    public private(set) var dropIndicator: DropIndicator?
+    /// Opens a group's popover mid-drag, so the drag can carry on into it (M24).
+    @ObservationIgnored private var springTask: Task<Void, Never>?
+
+    /// Where the insertion caret goes: on one edge of a row that is still drawn.
+    public struct DropIndicator: Equatable, Sendable {
+        public let row: String
+        public let after: Bool
+    }
+
+    /// Which edge of `id` the caret belongs on, if either: `false` before it, `true` after it, `nil`
+    /// for every other row and whenever the drag means something else.
+    public func dropEdge(for id: String) -> Bool? {
+        guard let dropIndicator, dropIndicator.row == id else { return nil }
+        return dropIndicator.after
+    }
+
+    /// How long a drag rests on a group before the group opens under it. Longer than the grouping
+    /// zone needs, because spring-loading is the *second* thing this gesture can mean.
+    static let springDwell = Duration.milliseconds(900)
+
+    /// Applications that have been asked to launch and have not appeared yet (M24). The row is
+    /// dimmed while it is in here, which is the only honest answer to "did my click work".
+    public private(set) var launching: Set<String> = []
+
+    /// iOS's jiggle mode: every pinned row grows a minus badge and shakes (M24, D107). Entered by
+    /// pressing and holding a row, left by clicking anything else.
+    public private(set) var isEditing = false
+    @ObservationIgnored private var editingIdleTask: Task<Void, Never>?
 
     /// Extent of the screen the bar may use along its own axis, set by `PanelController` when it
     /// reframes. Zero until then, which reads as "no budget yet" and shows the limits alone.
@@ -169,6 +200,23 @@ public final class SidebarViewModel {
     /// Window titles per application, filled when the pointer enters a row so the context menu —
     /// which `NSMenu` builds synchronously — never waits on Accessibility (D60).
     public private(set) var windowsByApplication: [String: [NexusWindow]] = [:]
+
+    /// The Dock's own badge labels, per bundle identifier (M24, D106). Empty without Accessibility,
+    /// which means no badges and nothing else.
+    public private(set) var badges: [String: String] = [:]
+
+    public func badge(for identifier: String) -> String? { badges[identifier] }
+
+    /// A group wears the first badge any of its members has: nine icons behind one row, and the
+    /// point of the badge is that something in there wants attention.
+    public func badge(forGroup group: SidebarGroup) -> String? {
+        group.items.compactMap { badges[$0.id] }.first
+    }
+
+    public func setBadges(_ labels: [String: String]) {
+        guard labels != badges else { return }
+        badges = labels
+    }
 
 
     /// The application whose window flyout is open, if any.
@@ -187,6 +235,7 @@ public final class SidebarViewModel {
     @ObservationIgnored private var items: [String: SidebarItem] = [:]
     @ObservationIgnored private var alphabeticalRunning: [String] = []
     @ObservationIgnored private var hoverPreviewTask: Task<Void, Never>?
+    @ObservationIgnored private var folderHoverTask: Task<Void, Never>?
 
     /// Called whenever the number of rows or the appearance changes, so the panel can reframe.
     @ObservationIgnored public var layoutDidChange: (() -> Void)?
@@ -200,11 +249,17 @@ public final class SidebarViewModel {
     /// Starts the flyout's grace period — the pointer left a row, but it may be on its way to the
     /// flyout itself.
     @ObservationIgnored public var scheduleFlyoutHide: (() -> Void)?
+    /// The same, for a folder stack opened by hovering its row (F2).
+    @ObservationIgnored public var scheduleFolderHide: (() -> Void)?
     /// Pointer entered or left the sidebar; drives the auto-hide grace timer.
     @ObservationIgnored public var onHoverChange: ((Bool) -> Void)?
     /// Recomputes window counts. Called when the pointer enters the sidebar, because macOS
     /// publishes no notification for another application opening a window.
     @ObservationIgnored public var refreshWindowCounts: (() -> Void)?
+    /// Re-reads the Dock's badges (D106). Called on the same events as the window counts: the Dock
+    /// publishes no notification for a badge changing, and a timer for a decoration is a timer too
+    /// many.
+    @ObservationIgnored public var refreshBadges: (() -> Void)?
     /// Asks for one application's windows; the answer arrives via `setWindows(_:for:)`.
     @ObservationIgnored public var loadWindows: ((ApplicationIdentity) -> Void)?
     /// Raises one window. Injected at Milestone 9; without it the menu shows no window section.
@@ -263,6 +318,12 @@ public final class SidebarViewModel {
         eventTask = nil
         hoverPreviewTask?.cancel()
         hoverPreviewTask = nil
+        folderHoverTask?.cancel()
+        folderHoverTask = nil
+        springTask?.cancel()
+        springTask = nil
+        editingIdleTask?.cancel()
+        editingIdleTask = nil
     }
 
     // MARK: - Rows
@@ -398,10 +459,14 @@ public final class SidebarViewModel {
         }
 
         items = resolved
+        // Whatever has turned up is not launching any more, and its row stops being dimmed (M24).
+        launching = launching.filter { resolved[$0]?.isRunning != true }
         alphabeticalRunning = runningApplications
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             .map(\.identity.bundleIdentifier)
         rebuildRows()
+        // An application launching or quitting is the other moment a badge appears or goes (D106).
+        refreshBadges?()
     }
 
     /// The dock the pinned section shows: the stored one, or the drag preview while one is in
@@ -494,6 +559,7 @@ public final class SidebarViewModel {
             openFlyout(for: item.identity)
             return
         }
+        if !item.isRunning { markLaunching(item.id) }
         Task { [applications] in
             if item.isRunning {
                 try? await applications.activate(item.identity)
@@ -503,8 +569,26 @@ public final class SidebarViewModel {
         }
     }
 
+    /// Dims the row until the application shows up (M24). Nothing else tells the user their click
+    /// landed: a cold launch can take five seconds, and an icon that does not react reads as a
+    /// click that missed.
+    private func markLaunching(_ identifier: String) {
+        launching.insert(identifier)
+        Task { [weak self] in
+            // A launch that fails, or an application that never registers as running, must not
+            // leave a row dimmed for the rest of the session.
+            try? await Task.sleep(for: .seconds(15))
+            self?.launching.remove(identifier)
+        }
+    }
+
+    public func isLaunching(_ identifier: String) -> Bool { launching.contains(identifier) }
+
+    /// Pins an application. With category suggestions on (F3) it goes into the group its category
+    /// already has, if there is one — which is where the user put the last one.
     public func pin(_ identifier: String) {
         guard !configuration.configuration.pinnedApplications.contains(identifier) else { return }
+        if let existing = categoryGroup(for: identifier), group(identifier, with: existing.id) { return }
         setEntries(configuration.configuration.pinnedEntries + [.application(identifier)])
         Log.sidebar.notice("Pinned \(identifier, privacy: .public)")
     }
@@ -644,6 +728,19 @@ public final class SidebarViewModel {
         setEntries(configuration.configuration.pinnedEntries.filter { $0.id != id })
     }
 
+    /// A group's colour and emoji (D108). `nil` for either means "none", which is what a group has
+    /// until somebody picks one, and what the "no colour" swatch puts back.
+    public func setGroupStyle(_ id: String, tint: GroupTint?, emoji: String?) {
+        var entries = configuration.configuration.pinnedEntries
+        guard let index = entries.firstIndex(where: { $0.id == id }),
+              case .group(var group) = entries[index]
+        else { return }
+        group.tint = tint
+        group.emoji = ApplicationGroup.trimmedEmoji(emoji)
+        entries[index] = .group(group)
+        setEntries(entries)
+    }
+
     public func renameGroup(_ id: String, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         var entries = configuration.configuration.pinnedEntries
@@ -757,6 +854,28 @@ public final class SidebarViewModel {
         showFolder?(folder)
     }
 
+    /// How long the pointer rests on a folder before its stack opens (F2). Shorter than the window
+    /// flyout's default: a folder has no other way of showing what is in it, so the answer to
+    /// hovering one is "yes, and quickly".
+    static let folderHoverDelay = Duration.milliseconds(400)
+
+    /// Pointer entered or left a folder row. With the preference on, resting on one opens the stack
+    /// without a click; sweeping past it opens nothing.
+    public func folderHoverChanged(_ folder: SidebarFolder, hovering: Bool) {
+        folderHoverTask?.cancel()
+        folderHoverTask = nil
+        guard behavior.folderHoverPreview, showFolder != nil else { return }
+        guard hovering else {
+            scheduleFolderHide?()
+            return
+        }
+        folderHoverTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.folderHoverDelay)
+            guard !Task.isCancelled else { return }
+            self?.openFolder(folder)
+        }
+    }
+
     public func unpinFolder(_ id: String) {
         setEntries(configuration.configuration.pinnedEntries.filter { $0.id != id })
     }
@@ -811,9 +930,15 @@ public final class SidebarViewModel {
     /// A row started moving — pinned or running. A running application is previewed inside the
     /// pinned section as soon as the drag reaches it, and dropping is what pins it there.
     public func beginDrag(_ identifier: String) {
-        guard items[identifier] != nil || identifier.hasPrefix(DockEntry.identifierPrefix) else { return }
+        // An application the bar knows, or any slot the dock holds. Checking the *dock* rather than
+        // the "group:" prefix is what lets a folder row be dragged at all: it wears a "folder:" id,
+        // and a prefix check for one of the two silently refused the other.
+        guard items[identifier] != nil
+                || configuration.configuration.pinnedEntries.contains(where: { $0.id == identifier })
+        else { return }
         draggingIdentifier = identifier
         lastIntent = nil
+        dropIndicator = nil
         // A member dragged out of a group leaves it for the duration of the drag: the preview then
         // treats it like any other row, and dropping it anywhere but back on the group is what
         // takes it out for good.
@@ -871,9 +996,29 @@ public final class SidebarViewModel {
             // nothing moves. A reorder here is what used to snatch the target out from under the
             // pointer the moment it was chosen.
             groupCandidate = target
+            dropIndicator = nil
+            springLoad(target)
         case .insertBefore, .insertAfter:
             groupCandidate = nil
+            springTask?.cancel()
+            springTask = nil
+            dropIndicator = DropIndicator(row: target, after: intent == .insertAfter)
             reorderPreview(dragged, target: target, after: intent == .insertAfter)
+        }
+    }
+
+    /// A drag resting on a group opens it, so it can be carried on inside and dropped between two
+    /// members — Finder's spring-loaded folders, and iOS's (M24).
+    private func springLoad(_ target: String) {
+        springTask?.cancel()
+        guard let group = pinned.first(where: { $0.id == target })?.group, showGroup != nil else {
+            springTask = nil
+            return
+        }
+        springTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.springDwell)
+            guard !Task.isCancelled, let self, self.groupCandidate == target else { return }
+            self.openGroup(group)
         }
     }
 
@@ -908,6 +1053,9 @@ public final class SidebarViewModel {
         let dragged = draggingIdentifier
         let candidate = groupCandidate
         lastIntent = nil
+        dropIndicator = nil
+        springTask?.cancel()
+        springTask = nil
         draggingIdentifier = nil
         groupCandidate = nil
         previewPinned = nil
@@ -933,6 +1081,108 @@ public final class SidebarViewModel {
             $0.runningApplicationOrder = runningOrder
         }
         rebuildRows()
+    }
+
+    /// The drag was let go outside the bar (F1, D105). A pinned row leaves the dock — the Dock's own
+    /// gesture, and the reason it is worth having: the alternative is a context menu for something
+    /// the hand has already done. A running row has nothing to leave, so it is a cancel.
+    ///
+    /// Returns whether anything was unpinned, so the caller can put the puff of smoke where the
+    /// pointer let go.
+    @discardableResult
+    public func dragDroppedOutside() -> Bool {
+        guard let dragged = draggingIdentifier else { return false }
+        let entries = configuration.configuration.pinnedEntries
+        let wasPinned = entries.contains { $0.id == dragged || $0.applications.contains(dragged) }
+        endDrag(commit: false)
+        guard wasPinned else { return false }
+        if dragged.hasPrefix(DockEntry.identifierPrefix) {
+            unpinGroup(dragged)
+        } else if dragged.hasPrefix(DockEntry.folderPrefix) {
+            unpinFolder(dragged)
+        } else {
+            unpin(dragged)
+        }
+        Log.sidebar.notice("Dragged \(dragged, privacy: .public) off the bar")
+        return true
+    }
+
+    /// A row was dropped on one of a group's own tiles, inside the open popover (P2): it joins the
+    /// group *there*, rather than at the end.
+    @discardableResult
+    public func dropIntoGroup(_ identifier: String, groupID: String, before member: String) -> Bool {
+        guard !identifier.hasPrefix(DockEntry.identifierPrefix),
+              identifier != member,
+              items[identifier] != nil
+        else { return false }
+        var entries = configuration.configuration.pinnedEntries
+        guard let index = entries.firstIndex(where: { $0.id == groupID }),
+              case .group(var group) = entries[index]
+        else { return false }
+        group.applications.removeAll { $0 == identifier }
+        guard group.applications.count < groupCapacity else { return false }
+        let insertion = group.applications.firstIndex(of: member) ?? group.applications.count
+        group.applications.insert(identifier, at: insertion)
+        entries[index] = .group(group)
+        entries = Self.removing(identifier, from: entries, keeping: index)
+        setEntries(entries)
+        Log.sidebar.notice("Dropped \(identifier, privacy: .public) into a group at \(insertion, privacy: .public)")
+        return true
+    }
+
+    // MARK: - Edit mode (M24)
+
+    /// Pressed and held. Every pinned row grows a minus badge and starts shaking, which is how iOS
+    /// has said "you can take these out now" since 2008 (D107).
+    public func beginEditing() {
+        guard !isEditing else { return }
+        isEditing = true
+        armEditingTimeout()
+    }
+
+    public func endEditing() {
+        guard isEditing else { return }
+        editingIdleTask?.cancel()
+        editingIdleTask = nil
+        isEditing = false
+    }
+
+    /// Insurance, not a feature — the same shape the keyboard mode's timeout has (D99). A bar left
+    /// jiggling because a click went somewhere unexpected is a bar that looks broken.
+    private func armEditingTimeout() {
+        editingIdleTask?.cancel()
+        editingIdleTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(20))
+            guard !Task.isCancelled else { return }
+            self?.endEditing()
+        }
+    }
+
+    /// What the minus badge on a row does: whatever "not on the bar any more" means for that row.
+    public func removeRow(_ id: String) {
+        if id.hasPrefix(DockEntry.identifierPrefix) {
+            unpinGroup(id)
+        } else if id.hasPrefix(DockEntry.folderPrefix) {
+            unpinFolder(id)
+        } else {
+            unpin(id)
+        }
+        if pinned.isEmpty { endEditing() }
+    }
+
+    // MARK: - Category groups (F3, D109)
+
+    /// The group a category already has on the bar, if this application belongs to it. Nothing is
+    /// created here and nothing is scanned: it is one look at the dock and one at the bundle.
+    public func categoryGroup(for identifier: String) -> SidebarGroup? {
+        guard behavior.suggestCategoryGroups,
+              let item = items[identifier],
+              let category = ApplicationCategory.category(of: item.bundleURL),
+              let name = ApplicationCategory.displayName(for: category)
+        else { return nil }
+        return pinned.compactMap(\.group).first {
+            $0.name == name && $0.items.count < groupCapacity && !$0.items.contains { $0.id == identifier }
+        }
     }
 
     /// A row was dropped on `target`. A drag of the bar's own needs nothing here: its preview
@@ -1171,8 +1421,10 @@ public final class SidebarViewModel {
         setExpanded(hovering)
         if hovering {
             refreshWindowCounts?()
+            refreshBadges?()
             refreshTrash()
         }
+        if !hovering { endEditing() }
         onHoverChange?(hovering)
     }
 

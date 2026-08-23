@@ -45,6 +45,11 @@ struct PanelRowInteraction: NSViewRepresentable {
     var onDragOver: ((String, CGPoint) -> Void)?
     /// The drag that started here ended; `true` when it was accepted by a row.
     var onDragEnd: ((Bool) -> Void)?
+    /// The drag that started here was let go outside every Nexus window, at that point on screen
+    /// (F1, D105).
+    var onDragOut: ((NSPoint) -> Void)?
+    /// Pressed and held without moving (D107).
+    var onLongPress: (() -> Void)?
 
     func makeNSView(context: Context) -> NSView {
         let view = CatcherView(onClick: onClick, items: items)
@@ -66,6 +71,8 @@ struct PanelRowInteraction: NSViewRepresentable {
         view.onDragBegin = onDragBegin
         view.onDragOver = onDragOver
         view.onDragEnd = onDragEnd
+        view.onDragOut = onDragOut
+        view.onLongPress = onLongPress
     }
 
     final class CatcherView: NSView, NSDraggingSource {
@@ -79,12 +86,19 @@ struct PanelRowInteraction: NSViewRepresentable {
         var onDragBegin: ((String) -> Void)?
         var onDragOver: ((String, CGPoint) -> Void)?
         var onDragEnd: ((Bool) -> Void)?
+        var onDragOut: ((NSPoint) -> Void)?
+        var onLongPress: (() -> Void)?
 
         private var mouseDownLocation: NSPoint?
         private var isDragging = false
+        private var longPressTask: Task<Void, Never>?
 
         /// Squared distance, in points, a press may travel and still count as a click.
         private static let clickSlopSquared: CGFloat = 25
+
+        /// How long a press has to be held, without travelling, to mean "let me edit these" (D107).
+        /// The same 600 ms iOS uses, which is long enough not to fire on the way to a drag.
+        static let longPress = Duration.milliseconds(600)
 
         /// The pasteboard type for a row being dragged inside the sidebar. Private to Nexus, so a
         /// stray text drag from another application can never reorder anything.
@@ -122,6 +136,12 @@ struct PanelRowInteraction: NSViewRepresentable {
 
         override func mouseDown(with event: NSEvent) {
             mouseDownLocation = event.locationInWindow
+            guard let onLongPress else { return }
+            longPressTask = Task { @MainActor in
+                try? await Task.sleep(for: Self.longPress)
+                guard !Task.isCancelled else { return }
+                onLongPress()
+            }
         }
 
         /// A press that travels far enough becomes a drag instead of a click. `mouseUp`'s slop
@@ -134,6 +154,9 @@ struct PanelRowInteraction: NSViewRepresentable {
             let dx = event.locationInWindow.x - start.x
             let dy = event.locationInWindow.y - start.y
             guard dx * dx + dy * dy > Self.clickSlopSquared else { return }
+            // Travelling means this is a drag, so it is not a long press.
+            longPressTask?.cancel()
+            longPressTask = nil
 
             let item = NSPasteboardItem()
             item.setString(payload, forType: Self.rowType)
@@ -162,7 +185,24 @@ struct PanelRowInteraction: NSViewRepresentable {
         ) {
             isDragging = false
             mouseDownLocation = nil
-            onDragEnd?(operation == .move)
+            if operation == .move {
+                onDragEnd?(true)
+                return
+            }
+            // Nothing took the drop. Off Nexus altogether is the Dock's "drag it off" gesture
+            // (D105); anywhere else — a Nexus panel that refused it — is a cancel.
+            if let onDragOut, !Self.isOverNexus(screenPoint) {
+                onDragOut(screenPoint)
+                return
+            }
+            onDragEnd?(false)
+        }
+
+        /// Whether a screen point is over any window Nexus has on screen. The bar's own frame is not
+        /// enough: the group popover and the folder stack are separate windows, and letting go over
+        /// one of those must not throw the row off the bar.
+        private static func isOverNexus(_ screenPoint: NSPoint) -> Bool {
+            NSApp.windows.contains { $0.isVisible && $0.frame.contains(screenPoint) }
         }
 
         // MARK: - NSDraggingDestination
@@ -208,6 +248,8 @@ struct PanelRowInteraction: NSViewRepresentable {
 
         override func mouseUp(with event: NSEvent) {
             defer { mouseDownLocation = nil }
+            longPressTask?.cancel()
+            longPressTask = nil
             guard let onClick, let start = mouseDownLocation else { return }
             let dx = event.locationInWindow.x - start.x
             let dy = event.locationInWindow.y - start.y
@@ -234,7 +276,9 @@ extension View {
         onDrop: ((String) -> Void)? = nil,
         onDragBegin: ((String) -> Void)? = nil,
         onDragOver: ((String, CGPoint) -> Void)? = nil,
-        onDragEnd: ((Bool) -> Void)? = nil
+        onDragEnd: ((Bool) -> Void)? = nil,
+        onDragOut: ((NSPoint) -> Void)? = nil,
+        onLongPress: (() -> Void)? = nil
     ) -> some View {
         overlay(
             PanelRowInteraction(
@@ -245,7 +289,9 @@ extension View {
                 onDrop: onDrop,
                 onDragBegin: onDragBegin,
                 onDragOver: onDragOver,
-                onDragEnd: onDragEnd
+                onDragEnd: onDragEnd,
+                onDragOut: onDragOut,
+                onLongPress: onLongPress
             )
         )
     }

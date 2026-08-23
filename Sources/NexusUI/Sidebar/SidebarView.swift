@@ -273,10 +273,24 @@ struct SidebarItemView: View {
     let expanded: Bool
 
     @State private var isHovered = false
+    @State private var bounced = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var iconSize: CGFloat { model.appearance.iconSize }
     private var isVertical: Bool { model.appearance.position.isVertical }
+    private var isLaunching: Bool { model.isLaunching(item.id) }
+
+    /// The hop, away from the edge the bar is on — which is the direction the Dock bounces, and the
+    /// only one with room. Reduce Motion gets the dimming and no movement.
+    private var bounceOffset: CGSize {
+        guard bounced, !reduceMotion else { return .zero }
+        switch model.appearance.position {
+        case .left: return CGSize(width: Design.launchBounce, height: 0)
+        case .right: return CGSize(width: -Design.launchBounce, height: 0)
+        case .top: return CGSize(width: 0, height: Design.launchBounce)
+        case .bottom: return CGSize(width: 0, height: -Design.launchBounce)
+        }
+    }
 
     var body: some View {
         let layout = isVertical
@@ -296,6 +310,16 @@ struct SidebarItemView: View {
                         .accessibilityHidden(true)
                 }
             }
+            // Dimmed until the application turns up, and it hops once on the way (M24).
+            .opacity(isLaunching ? 0.45 : 1)
+            .offset(bounceOffset)
+            .overlay(alignment: .topTrailing) {
+                if let badge = model.badge(for: item.id) {
+                    DockBadge(label: badge, iconSize: iconSize)
+                        .offset(x: iconSize * 0.16, y: -iconSize * 0.1)
+                }
+            }
+            .nexusIconAnchor()
             if expanded, isVertical {
                 Text(item.name)
                     .lineLimit(1)
@@ -323,6 +347,8 @@ struct SidebarItemView: View {
         }
         .contentShape(Rectangle())
         .nexusFocusRing(model.focusedRowID == item.id)
+        .nexusDropIndicator(after: model.dropEdge(for: item.id), isVertical: isVertical)
+        .nexusJiggle(model.isEditing, reduceMotion: reduceMotion)
         .opacity(model.draggingIdentifier == item.id ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
@@ -331,18 +357,29 @@ struct SidebarItemView: View {
             // Warms the window titles the context menu needs (D60) and drives the hover flyout.
             model.rowHoverChanged(item, hovering: hovering)
         }
+        // One hop when the click lands, and only when something was actually launched.
+        .onChange(of: isLaunching) { _, launching in
+            guard launching, !reduceMotion else { return }
+            withAnimation(Design.bounce) { bounced = true }
+            bounced = false
+        }
         // The drag is AppKit's, not SwiftUI's: this panel can never become key, so
         // PanelRowInteraction claims every mouse-down and SwiftUI's own drag gestures never fire.
         .nexusRow(
-            onClick: { model.activateOrLaunch(item) },
+            onClick: { click() },
             menu: { contextMenuItems() },
             dragPayload: item.id,
             dragImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize),
             onDrop: { dragged in model.dropPinned(dragged, on: item.id) },
             onDragBegin: { dragged in model.beginDrag(dragged) },
             onDragOver: { _, location in model.dragMoved(over: item.id, at: location) },
-            onDragEnd: { accepted in model.endDrag(commit: accepted) }
+            onDragEnd: { accepted in model.endDrag(commit: accepted) },
+            onDragOut: { point in
+                if model.dragDroppedOutside() { Poof.show(at: point) }
+            },
+            onLongPress: item.isPinned ? { model.beginEditing() } : nil
         )
+        .nexusRemoveBadge(model.isEditing && item.isPinned) { model.removeRow(item.id) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
         .accessibilityValue(accessibilityValue)
@@ -355,6 +392,16 @@ struct SidebarItemView: View {
         // The click is AppKit's, so the row needs its own action or VoiceOver can read it and
         // not press it (D88).
         .accessibilityAction { model.activateOrLaunch(item) }
+    }
+
+    /// In edit mode a click on the row itself is how you leave it — the minus badges are the only
+    /// live targets while it lasts, which is the bargain iOS makes (D107).
+    private func click() {
+        guard !model.isEditing else {
+            model.endEditing()
+            return
+        }
+        model.activateOrLaunch(item)
     }
 
     private var runningIndicator: some View {
@@ -432,6 +479,14 @@ struct SidebarItemView: View {
             items.append(
                 ClosureMenuItem(title: String(localized: "Remove from Group")) {
                     model.removeFromGroup(item.id)
+                }
+            )
+        } else if let suggestion = model.categoryGroup(for: item.id) {
+            // The suggestion, offered rather than applied (F3): a category group already on the bar
+            // is where the last application of this kind went.
+            items.append(
+                ClosureMenuItem(title: String(localized: "Add to \(suggestion.name)")) {
+                    model.group(item.id, with: suggestion.id)
                 }
             )
         }

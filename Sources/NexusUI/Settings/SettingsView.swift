@@ -547,6 +547,29 @@ struct BarPane: View {
             }
             Section {
                 Toggle(
+                    String(localized: "Show folder preview on hover"),
+                    isOn: configuration.binding(\.behavior.folderHoverPreview)
+                )
+                Text("Resting on a pinned folder shows what is in it, without a click. Off, a folder opens its stack when clicked.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle(
+                    String(localized: "Suggest groups by category"),
+                    isOn: configuration.binding(\.behavior.suggestCategoryGroups)
+                )
+                Text("A newly pinned application joins the group its category already has, and its menu offers that group by name. Nothing is created and nothing is scanned.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle(
+                    String(localized: "Group colours and emoji"),
+                    isOn: configuration.binding(\.behavior.groupColorsAndEmoji)
+                )
+                Text("A group can carry a colour and an emoji, chosen where its name is edited. Off hides both without forgetting them.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle(
                     String(localized: "Keyboard access to the bar"),
                     isOn: Binding(
                         get: { configuration.configuration.general.focusBarShortcut != nil },

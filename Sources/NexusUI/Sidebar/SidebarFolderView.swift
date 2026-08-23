@@ -23,6 +23,7 @@ struct SidebarFolderView: View {
             Image(nsImage: IconCache.shared.icon(for: folder.url, size: iconSize))
                 .resizable()
                 .frame(width: iconSize, height: iconSize)
+                .nexusIconAnchor()
             if expanded, isVertical {
                 Text(folder.name)
                     .lineLimit(1)
@@ -42,28 +43,45 @@ struct SidebarFolderView: View {
         }
         .contentShape(Rectangle())
         .nexusFocusRing(model.focusedRowID == folder.id)
+        .nexusDropIndicator(after: model.dropEdge(for: folder.id), isVertical: isVertical)
+        .nexusJiggle(model.isEditing, reduceMotion: reduceMotion)
         .opacity(model.draggingIdentifier == folder.id ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering
             }
+            // Resting on a folder shows what is in it, when the preference asks for it (F2).
+            model.folderHoverChanged(folder, hovering: hovering)
         }
         .nexusRow(
-            onClick: { model.openFolder(folder) },
+            onClick: { click() },
             menu: { contextMenuItems() },
             dragPayload: folder.id,
             dragImage: IconCache.shared.icon(for: folder.url, size: iconSize),
             onDrop: { dragged in model.dropPinned(dragged, on: folder.id) },
             onDragBegin: { dragged in model.beginDrag(dragged) },
             onDragOver: { _, location in model.dragMoved(over: folder.id, at: location) },
-            onDragEnd: { accepted in model.endDrag(commit: accepted) }
+            onDragEnd: { accepted in model.endDrag(commit: accepted) },
+            onDragOut: { point in
+                if model.dragDroppedOutside() { Poof.show(at: point) }
+            },
+            onLongPress: { model.beginEditing() }
         )
+        .nexusRemoveBadge(model.isEditing) { model.removeRow(folder.id) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(folder.name)
         .accessibilityValue(String(localized: "folder"))
         .accessibilityHint(String(localized: "Shows what is in the folder"))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { model.openFolder(folder) }
+    }
+
+    private func click() {
+        guard !model.isEditing else {
+            model.endEditing()
+            return
+        }
+        model.openFolder(folder)
     }
 
     private func contextMenuItems() -> [NSMenuItem] {

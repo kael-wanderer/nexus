@@ -1,25 +1,59 @@
 import Foundation
 
+/// A colour a group may be tinted with (D108). Stored by name rather than as a hex string: the
+/// name survives a change of palette, reads in `defaults read`, and lets the system pick the shade
+/// that suits dark mode and Increase Contrast.
+public enum GroupTint: String, Codable, Sendable, CaseIterable {
+    case red
+    case orange
+    case yellow
+    case green
+    case blue
+    case purple
+}
+
 /// A folder in the dock: a handful of applications behind one row (M13).
 public struct ApplicationGroup: Codable, Sendable, Equatable, Identifiable {
     public var id: UUID
     /// Auto-named from the members' `LSApplicationCategoryType`, renameable.
     public var name: String
     public var applications: [String]
+    /// Optional decoration, both `nil` until somebody picks one (D108).
+    public var tint: GroupTint?
+    /// One character, so it fits the corner of a 2×2 tile at any icon size.
+    public var emoji: String?
 
-    public init(id: UUID = UUID(), name: String, applications: [String]) {
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        applications: [String],
+        tint: GroupTint? = nil,
+        emoji: String? = nil
+    ) {
         self.id = id
         self.name = name
         self.applications = applications
+        self.tint = tint
+        self.emoji = Self.trimmedEmoji(emoji)
     }
 
     /// Tolerant decode, like every other stored type: a group written by a later version, or by
-    /// hand, must not take the whole dock down with it.
+    /// hand, must not take the whole dock down with it. A group written by an *earlier* version has
+    /// no tint and no emoji, which is exactly what `decodeIfPresent` gives it.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
         applications = try container.decodeIfPresent([String].self, forKey: .applications) ?? []
+        tint = try container.decodeIfPresent(GroupTint.self, forKey: .tint)
+        emoji = Self.trimmedEmoji(try container.decodeIfPresent(String.self, forKey: .emoji))
+    }
+
+    /// The first character of whatever was typed, or nothing. A field somebody has pasted a
+    /// sentence into must not become a tile nobody can read.
+    public static func trimmedEmoji(_ value: String?) -> String? {
+        guard let first = value?.trimmingCharacters(in: .whitespacesAndNewlines).first else { return nil }
+        return String(first)
     }
 }
 

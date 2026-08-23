@@ -48,6 +48,8 @@ struct SidebarGroupView: View {
         }
         .contentShape(Rectangle())
         .nexusFocusRing(model.focusedRowID == group.id)
+        .nexusDropIndicator(after: model.dropEdge(for: group.id), isVertical: isVertical)
+        .nexusJiggle(model.isEditing, reduceMotion: reduceMotion)
         .opacity(model.draggingIdentifier == group.id ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
@@ -55,15 +57,20 @@ struct SidebarGroupView: View {
             }
         }
         .nexusRow(
-            onClick: { model.openGroup(group) },
+            onClick: { click() },
             menu: { contextMenuItems() },
             dragPayload: group.id,
             dragImage: GroupIcon.image(for: group.items.map(\.bundleURL), size: iconSize),
             onDrop: { dragged in model.dropPinned(dragged, on: group.id) },
             onDragBegin: { dragged in model.beginDrag(dragged) },
             onDragOver: { _, location in model.dragMoved(over: group.id, at: location) },
-            onDragEnd: { accepted in model.endDrag(commit: accepted) }
+            onDragEnd: { accepted in model.endDrag(commit: accepted) },
+            onDragOut: { point in
+                if model.dragDroppedOutside() { Poof.show(at: point) }
+            },
+            onLongPress: { model.beginEditing() }
         )
+        .nexusRemoveBadge(model.isEditing) { model.removeRow(group.id) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(group.name)
         .accessibilityValue(
@@ -74,11 +81,28 @@ struct SidebarGroupView: View {
         .accessibilityAction { model.openGroup(group) }
     }
 
+    /// The colour the group was given, if colours are switched on at all (D108).
+    private var tint: Color? {
+        guard model.behavior.groupColorsAndEmoji else { return nil }
+        return group.group.tint?.color
+    }
+
+    private var emoji: String? {
+        guard model.behavior.groupColorsAndEmoji else { return nil }
+        return group.group.emoji
+    }
+
     private var tile: some View {
         let inset = iconSize * 0.08
         let cell = (iconSize - inset * 3) / 2
         return RoundedRectangle(cornerRadius: iconSize * 0.22, style: .continuous)
-            .fill(.quaternary)
+            // A tinted tile, not tinted icons: the applications keep their own colours, and the
+            // group gets the one somebody chose for it.
+            .fill(tint?.opacity(0.35) ?? Color.clear)
+            .background {
+                RoundedRectangle(cornerRadius: iconSize * 0.22, style: .continuous)
+                    .fill(.quaternary)
+            }
             .frame(width: iconSize, height: iconSize)
             .overlay {
                 Grid(horizontalSpacing: inset, verticalSpacing: inset) {
@@ -92,6 +116,22 @@ struct SidebarGroupView: View {
                     }
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if let emoji {
+                    Text(emoji)
+                        .font(.system(size: iconSize * 0.3))
+                        .shadow(radius: 1)
+                        .offset(x: iconSize * 0.06, y: iconSize * 0.06)
+                        .accessibilityHidden(true)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if let badge = model.badge(forGroup: group) {
+                    DockBadge(label: badge, iconSize: iconSize)
+                        .offset(x: iconSize * 0.16, y: -iconSize * 0.1)
+                }
+            }
+            .nexusIconAnchor()
     }
 
     private func memberIcon(_ index: Int, size: CGFloat) -> some View {
@@ -130,6 +170,7 @@ struct SidebarGroupView: View {
         }
         items.append(.separator())
         items.append(ClosureMenuItem(title: String(localized: "Rename…")) { promptForName() })
+        if model.behavior.groupColorsAndEmoji { items.append(colorMenuItem()) }
         items.append(
             ClosureMenuItem(title: String(localized: "Ungroup")) { model.ungroup(group.id) }
         )
@@ -153,8 +194,38 @@ struct SidebarGroupView: View {
         return items
     }
 
+    /// Colours as a submenu of ticked names, not as swatches: an `NSMenu` in a panel that never
+    /// becomes key draws its own images reliably and its own colours not at all. The popover's
+    /// header is where the swatches live (D108).
+    private func colorMenuItem() -> NSMenuItem {
+        let parent = NSMenuItem(title: String(localized: "Colour"), action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        let none = ClosureMenuItem(title: String(localized: "None")) {
+            model.setGroupStyle(group.id, tint: nil, emoji: group.group.emoji)
+        }
+        none.state = group.group.tint == nil ? .on : .off
+        submenu.addItem(none)
+        for tint in GroupTint.allCases {
+            let item = ClosureMenuItem(title: tint.localizedName) {
+                model.setGroupStyle(group.id, tint: tint, emoji: group.group.emoji)
+            }
+            item.state = group.group.tint == tint ? .on : .off
+            submenu.addItem(item)
+        }
+        parent.submenu = submenu
+        return parent
+    }
+
     private func promptForName() {
         GroupRename.prompt(for: group, model: model)
+    }
+
+    private func click() {
+        guard !model.isEditing else {
+            model.endEditing()
+            return
+        }
+        model.openGroup(group)
     }
 }
 
