@@ -167,8 +167,15 @@ public final class NowPlayingService {
 
     /// A row worth drawing: either a player told us something, or something is making sound and the
     /// controls will reach whoever owns it.
+    /// A row worth drawing. A paused player counts: it stopped making sound, but it is still what
+    /// the buttons are for, and a row that vanishes on pause cannot be unpaused (D83).
     public var isActive: Bool {
-        current.isPlaying || current.hasMetadata || !audioPlayers.isEmpty
+        current.isPlaying || current.hasMetadata || !audioPlayers.isEmpty || isPausedButPresent
+    }
+
+    /// A scriptable player that has stopped making sound but still has something loaded.
+    private var isPausedButPresent: Bool {
+        stickyPlayer != nil && position?.hasTimeline == true
     }
 
     /// What the row draws when no player published a track: the application making the sound.
@@ -180,17 +187,28 @@ public final class NowPlayingService {
     /// Where the player is, for the players that will say (M16). `nil` means no timeline, which is
     /// the honest answer for a browser tab.
     public private(set) var position: MediaPosition?
+    /// Whether the player says it is playing. Only a scriptable player knows: for everyone else,
+    /// making sound is the only evidence there is.
+    public private(set) var scriptedIsPlaying: Bool?
+    /// The last application known to be playing, kept after the audio stops so that pausing does not
+    /// delete the player you were about to unpause (D83).
+    public private(set) var stickyPlayer: String?
 
     /// What the row and the flyout actually show: published metadata when there is any, and
     /// otherwise the playing application's own window title, which is what it is playing.
     public var display: NowPlaying {
-        if current.hasMetadata { return current }
-        guard let player = audioPlayers.first else { return NowPlaying() }
+        if current.hasMetadata {
+            var published = current
+            if let scriptedIsPlaying { published.isPlaying = scriptedIsPlaying }
+            return published
+        }
+        guard let player = audioPlayers.first ?? stickyPlayer else { return NowPlaying() }
         return NowPlaying(
             title: windowDerivedTitle,
             artist: Self.applicationName(of: player),
             playerBundleIdentifier: player,
-            isPlaying: true
+            // Making sound is the evidence for a player that will not say; one that will, says.
+            isPlaying: scriptedIsPlaying ?? !audioPlayers.isEmpty
         )
     }
 
@@ -259,8 +277,21 @@ public final class NowPlayingService {
     public func setAudioPlayers(_ players: [String]) {
         guard players != audioPlayers else { return }
         audioPlayers = players
-        if players.isEmpty { windowDerivedTitle = nil }
-        position = nil
+        if let player = players.first {
+            // A new player takes over the row, and its own position with it.
+            if player != stickyPlayer {
+                stickyPlayer = player
+                position = nil
+                scriptedIsPlaying = nil
+                windowDerivedTitle = nil
+            }
+        } else if !AppleScriptMediaControl.canReportPosition(stickyPlayer ?? "") {
+            // Nothing playing, and the last player cannot be asked whether it is merely paused.
+            stickyPlayer = nil
+            position = nil
+            scriptedIsPlaying = nil
+            windowDerivedTitle = nil
+        }
         onChange?(current, isActive)
         refreshWindowTitle()
         if isPlayerVisible { startPolling() }
@@ -314,21 +345,23 @@ public final class NowPlayingService {
     /// The player a timeline would belong to: whoever published the track, or whoever is making the
     /// sound.
     public var positionPlayer: String? {
-        current.hasMetadata ? current.playerBundleIdentifier : audioPlayers.first
+        current.hasMetadata
+            ? current.playerBundleIdentifier
+            : (audioPlayers.first ?? stickyPlayer)
     }
 
     private func startPolling() {
         positionTask?.cancel()
         guard let player = positionPlayer else {
-            setPosition(nil)
+            setPlayback(nil)
             return
         }
         Log.system.notice("Reading position from \(player, privacy: .public)")
         positionTask = Task { [weak self, control] in
             while !Task.isCancelled {
-                let reading = await control.position(of: player)
+                let reading = await control.playback(of: player)
                 guard !Task.isCancelled else { return }
-                self?.setPosition(reading)
+                self?.setPlayback(reading)
                 // One second: a clock that ticks. Anything faster is an AppleScript round trip per
                 // frame for no visible gain.
                 try? await Task.sleep(for: .seconds(1))
@@ -336,9 +369,12 @@ public final class NowPlayingService {
         }
     }
 
-    private func setPosition(_ reading: MediaPosition?) {
-        guard reading != position else { return }
-        position = reading
+    private func setPlayback(_ reading: MediaPlayback?) {
+        guard reading?.position != position || reading?.isPlaying != scriptedIsPlaying else { return }
+        position = reading?.position
+        scriptedIsPlaying = reading?.isPlaying
+        // A player that has stopped answering has nothing loaded any more, so the row goes.
+        if reading == nil, audioPlayers.isEmpty { stickyPlayer = nil }
         onChange?(current, isActive)
     }
 
@@ -346,16 +382,49 @@ public final class NowPlayingService {
         guard let player = positionPlayer else { return }
         // Optimistic: the thumb stays where it was dropped rather than snapping back for the second
         // until the next reading.
-        if var current = position {
-            current.position = seconds
-            setPosition(current)
+        if let current = position {
+            setPlayback(
+                MediaPlayback(
+                    position: MediaPosition(position: seconds, duration: current.duration),
+                    isPlaying: scriptedIsPlaying ?? true
+                )
+            )
         }
         Task { [control] in await control.seek(to: seconds, in: player) }
     }
 
-    public func toggle() { send(.play) }
-    public func next() { send(.next) }
-    public func previous() { send(.previous) }
+    /// A script where the player has one, a media key where it does not.
+    ///
+    /// The key path exists for browser tabs, which no dictionary covers. The script path exists
+    /// because a media key is a request to whoever macOS thinks owns playback — which is not always
+    /// the player on the row, and in VLC's case is often nobody at all (D83).
+    public func toggle() { transport(.playPause, fallback: .play) }
+    public func next() { transport(.next, fallback: .next) }
+    public func previous() { transport(.previous, fallback: .previous) }
+
+    private func transport(_ command: MediaTransport, fallback key: MediaKey) {
+        guard let player = positionPlayer,
+              AppleScriptMediaControl.canReportPosition(player)
+        else {
+            send(key)
+            return
+        }
+        Task { [weak self, control] in
+            let handled = await control.command(command, in: player)
+            if !handled { self?.send(key) }
+            // The state the player reports is the truth, and it just changed.
+            self?.refreshPlaybackNow()
+        }
+    }
+
+    /// One reading, right now, without waiting for the next tick of the poll.
+    private func refreshPlaybackNow() {
+        guard let player = positionPlayer else { return }
+        Task { [weak self, control] in
+            let reading = await control.playback(of: player)
+            self?.setPlayback(reading)
+        }
+    }
 }
 
 /// Posts the system-defined events a keyboard's transport keys post. No permission of its own: it

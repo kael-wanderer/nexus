@@ -274,6 +274,10 @@ struct MediaPositionTests {
     @Test("Spotify's duration is milliseconds and is converted")
     func spotifyMilliseconds() {
         #expect(AppleScriptMediaControl.dialects["com.spotify.client"]?.durationIsMilliseconds == true)
+        // And every dialect can be told to play, skip and go back.
+        for (identifier, dialect) in AppleScriptMediaControl.dialects {
+            #expect(dialect.transport.count == MediaTransport.allCases.count, "\(identifier)")
+        }
         #expect(AppleScriptMediaControl.dialects["com.apple.Music"]?.durationIsMilliseconds == false)
         #expect(AppleScriptMediaControl.dialects["org.videolan.vlc"]?.durationIsMilliseconds == false)
     }
@@ -281,16 +285,27 @@ struct MediaPositionTests {
 
 /// A player that answers, for the tests that need one.
 actor FakeMediaControl: MediaPositionControlling {
-    private var reading: MediaPosition?
+    private var reading: MediaPlayback?
     private(set) var seeks: [Double] = []
+    private(set) var commands: [MediaTransport] = []
+    private let acceptsCommands: Bool
 
-    init(_ reading: MediaPosition?) { self.reading = reading }
+    init(_ position: MediaPosition?, isPlaying: Bool = true, acceptsCommands: Bool = true) {
+        reading = position.map { MediaPlayback(position: $0, isPlaying: isPlaying) }
+        self.acceptsCommands = acceptsCommands
+    }
 
-    func position(of bundleIdentifier: String) async -> MediaPosition? { reading }
+    func playback(of bundleIdentifier: String) async -> MediaPlayback? { reading }
 
     func seek(to seconds: Double, in bundleIdentifier: String) async {
         seeks.append(seconds)
-        reading?.position = seconds
+        reading?.position.position = seconds
+    }
+
+    func command(_ transport: MediaTransport, in bundleIdentifier: String) async -> Bool {
+        commands.append(transport)
+        if transport == .playPause { reading?.isPlaying.toggle() }
+        return acceptsCommands
     }
 }
 
@@ -346,3 +361,76 @@ private func untilPolled(_ condition: () async -> Bool) async {
         try? await Task.sleep(for: .milliseconds(10))
     }
 }
+
+@MainActor
+@Suite("Pausing keeps the player")
+struct PausedPlayerTests {
+    /// The bug: pausing stopped the audio, the audio was the only evidence of a player, and the row
+    /// vanished — leaving nothing to press play on.
+    @Test("A scriptable player that pauses keeps its row")
+    func pauseKeepsRow() async {
+        let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
+        let service = NowPlayingService(control: control)
+        service.setAudioPlayers(["org.videolan.vlc"])
+        service.setPlayerVisible(true)
+        await untilPolled { service.position != nil }
+
+        // Pause: no more audio anywhere, but VLC still has the film loaded.
+        service.setAudioPlayers([])
+        #expect(service.isActive)
+        #expect(service.display.playerBundleIdentifier == "org.videolan.vlc")
+    }
+
+    @Test("A player that stops answering at all loses its row")
+    func closedPlayerLosesRow() async {
+        let control = FakeMediaControl(nil)
+        let service = NowPlayingService(control: control)
+        service.setAudioPlayers(["org.videolan.vlc"])
+        service.setPlayerVisible(true)
+        service.setAudioPlayers([])
+
+        await untilPolled { service.isActive == false }
+        #expect(service.isActive == false)
+    }
+
+    @Test("A browser tab that stops making sound loses its row, since nothing can be asked")
+    func browserLosesRow() {
+        let service = NowPlayingService(control: FakeMediaControl(nil))
+        service.setAudioPlayers(["com.brave.Browser"])
+        #expect(service.isActive)
+
+        service.setAudioPlayers([])
+        #expect(service.isActive == false)
+    }
+
+    @Test("Transport goes through the script for a scriptable player, and the state follows")
+    func scriptedTransport() async {
+        let control = FakeMediaControl(MediaPosition(position: 30, duration: 240))
+        let service = NowPlayingService(control: control)
+        var keys: [MediaKey] = []
+        service.send = { keys.append($0) }
+        service.setAudioPlayers(["org.videolan.vlc"])
+        service.setPlayerVisible(true)
+        await untilPolled { service.position != nil }
+
+        service.toggle()
+        await untilPolled { await control.commands.isEmpty == false }
+        #expect(await control.commands == [.playPause])
+        #expect(keys.isEmpty)                         // no media key needed
+        await untilPolled { service.scriptedIsPlaying == false }
+        #expect(service.display.isPlaying == false)   // the button becomes a play button
+    }
+
+    @Test("A player with no dictionary gets a media key instead")
+    func keyFallback() {
+        let service = NowPlayingService(control: FakeMediaControl(nil))
+        var keys: [MediaKey] = []
+        service.send = { keys.append($0) }
+        service.setAudioPlayers(["com.brave.Browser"])
+
+        service.toggle()
+        service.next()
+        #expect(keys == [.play, .next])
+    }
+}
+

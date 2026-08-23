@@ -105,7 +105,8 @@ wide player is **one view spanning four rows' worth of extent**, so `sectionExte
 
 ```
 ┌──────────────────────────────────────────┐
-│ ▣  ────────●──────────   ⏮ ⏯ ⏭          │   appearance.mediaContent == .progress
+│ ▣  Loki S01 - Newmoon21  ⏮ ⏯ ⏭          │   appearance.mediaContent == .progress
+│    ────────●──────────                   │   (the name is free: the row is 72 pt tall)
 │    27:13        -18:09                   │
 └──────────────────────────────────────────┘
 ┌──────────────────────────────────────────┐
@@ -134,3 +135,21 @@ rather than only when the pointer leaves (D81).
 - The clock formats a duration as `1:58` and `1:02:07`, and a position past the duration is clamped.
 - Dragging the thumb seeks once, on release, with the value under the pointer.
 - Position polling starts when the player appears on screen and stops when it goes away.
+
+## The two bugs it shipped with (D83)
+
+Both from the same assumption — that "somebody is making sound" is the same question as "is there a
+player, and is it playing".
+
+- **Pause deleted the player.** Pausing stops the audio, the audio was the only evidence of a player,
+  so the row disappeared and took the play button with it. A scriptable player is now asked whether
+  it still has something loaded, and keeps its row while it does.
+- **The buttons looked broken.** They were landing; the media key was going nowhere. A media key is a
+  request to whoever macOS thinks owns playback, and for VLC that is frequently nobody. Transport now
+  goes through the player's own scripting dictionary where there is one, with the key as the fallback
+  for browser tabs. The play/pause icon follows the player's reported state rather than assuming it
+  is playing.
+
+Verified live: clicking play in the bar takes VLC from `playing: false` to `true`; clicking again
+pauses it and the row stays, with its title, its position, and a play button.
+

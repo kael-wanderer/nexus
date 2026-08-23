@@ -685,3 +685,27 @@ everything else: four slots that the applications no longer get (D74). Which is 
 setting — and why a narrow vertical bar ignores it, since four rows of height cannot hold a scrubber
 worth dragging.
 
+**D83. The player asks the player, and a paused player keeps its row.**
+Two bugs with one cause: the row's existence and its play state were both inferred from CoreAudio
+saying somebody was making sound.
+
+- **Pausing deleted the player.** Pause stops the audio, the audio was the only evidence, so the row
+  vanished — leaving nothing to press play on. A player that can be asked is now *asked*: while it
+  still has something loaded, the row stays and shows a play button. A player that stops answering
+  loses its row, and a browser tab — which cannot be asked anything — loses it when the sound stops,
+  which is the best available answer.
+- **The button always showed pause.** `isPlaying` was hard-coded true on the fallback path, so it
+  never became a play button. Scriptable players report their own state; for the rest, making sound
+  is still the only evidence there is.
+
+Transport now goes through a script where the player has a dictionary, and falls back to a media key
+where it does not. A media key is a request to whoever macOS thinks owns playback, which is not
+always the player on the row and in VLC's case is often nobody at all — which is why the buttons
+looked broken even when the click was landing. The keys stay for browser tabs, which no dictionary
+covers.
+
+**D84. The wide player's title goes above the scrubber, not instead of it.**
+The row is 72 points tall and the scrubber with its clocks needs about 40, so the name is free.
+`mediaContent` still chooses what the middle is *for* — a scrubber with a name over it, or the track
+and artist alone — but the progress mode no longer hides what is playing.
+

@@ -33,9 +33,30 @@ public struct MediaPosition: Sendable, Equatable {
     }
 }
 
+/// What a player is doing: where it is, and whether it is actually playing.
+public struct MediaPlayback: Sendable, Equatable {
+    public var position: MediaPosition
+    public var isPlaying: Bool
+
+    public init(position: MediaPosition, isPlaying: Bool) {
+        self.position = position
+        self.isPlaying = isPlaying
+    }
+}
+
+/// The transport commands a player understands. Sent as a script where the player has a scripting
+/// dictionary, and as a media key where it does not (D83).
+public enum MediaTransport: Sendable, CaseIterable {
+    case playPause
+    case next
+    case previous
+}
+
 public protocol MediaPositionControlling: Sendable {
-    func position(of bundleIdentifier: String) async -> MediaPosition?
+    func playback(of bundleIdentifier: String) async -> MediaPlayback?
     func seek(to seconds: Double, in bundleIdentifier: String) async
+    /// `false` when the player would not take it, so the caller can fall back to a media key.
+    func command(_ transport: MediaTransport, in bundleIdentifier: String) async -> Bool
 }
 
 /// Position and seeking, over the scripting interfaces the players already publish.
@@ -48,30 +69,49 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
     /// Per player: how to read a position, how to write one, and whether the duration it reports is
     /// in milliseconds (Spotify's is).
     struct Dialect: Sendable {
+        /// Returns `{position, duration, isPlaying}`.
         let read: String
         let seek: @Sendable (Double) -> String
+        let transport: [MediaTransport: String]
         let durationIsMilliseconds: Bool
+    }
+
+    private static func appleTransport(_ id: String) -> [MediaTransport: String] {
+        [
+            .playPause: #"tell application id "\#(id)" to playpause"#,
+            .next: #"tell application id "\#(id)" to next track"#,
+            .previous: #"tell application id "\#(id)" to previous track"#,
+        ]
     }
 
     static let dialects: [String: Dialect] = [
         "com.apple.Music": Dialect(
-            read: #"tell application id "com.apple.Music" to return {player position, duration of current track}"#,
+            read: #"tell application id "com.apple.Music" to return {player position, duration of current track, player state is playing}"#,
             seek: { #"tell application id "com.apple.Music" to set player position to \#($0)"# },
+            transport: appleTransport("com.apple.Music"),
             durationIsMilliseconds: false
         ),
         "com.apple.iTunes": Dialect(
-            read: #"tell application id "com.apple.iTunes" to return {player position, duration of current track}"#,
+            read: #"tell application id "com.apple.iTunes" to return {player position, duration of current track, player state is playing}"#,
             seek: { #"tell application id "com.apple.iTunes" to set player position to \#($0)"# },
+            transport: appleTransport("com.apple.iTunes"),
             durationIsMilliseconds: false
         ),
         "com.spotify.client": Dialect(
-            read: #"tell application id "com.spotify.client" to return {player position, duration of current track}"#,
+            read: #"tell application id "com.spotify.client" to return {player position, duration of current track, player state is playing}"#,
             seek: { #"tell application id "com.spotify.client" to set player position to \#($0)"# },
+            transport: appleTransport("com.spotify.client"),
             durationIsMilliseconds: true
         ),
         "org.videolan.vlc": Dialect(
-            read: #"tell application id "org.videolan.vlc" to return {current time, duration of current item}"#,
+            read: #"tell application id "org.videolan.vlc" to return {current time, duration of current item, playing}"#,
             seek: { #"tell application id "org.videolan.vlc" to set current time to \#(Int($0))"# },
+            // VLC's `play` toggles, and its next/previous move through the playlist.
+            transport: [
+                .playPause: #"tell application id "org.videolan.vlc" to play"#,
+                .next: #"tell application id "org.videolan.vlc" to next"#,
+                .previous: #"tell application id "org.videolan.vlc" to previous"#,
+            ],
             durationIsMilliseconds: false
         ),
     ]
@@ -85,16 +125,26 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
         dialects[bundleIdentifier] != nil
     }
 
-    public func position(of bundleIdentifier: String) async -> MediaPosition? {
+    public func playback(of bundleIdentifier: String) async -> MediaPlayback? {
         guard let dialect = Self.dialects[bundleIdentifier], !refused.contains(bundleIdentifier)
         else { return nil }
 
-        guard let pair = await Self.runForPair(dialect.read) else {
+        guard let reading = await Self.runForReading(dialect.read) else {
             refuse(bundleIdentifier)
             return nil
         }
-        let duration = dialect.durationIsMilliseconds ? pair.1 / 1_000 : pair.1
-        return MediaPosition(position: pair.0, duration: duration)
+        let duration = dialect.durationIsMilliseconds ? reading.duration / 1_000 : reading.duration
+        return MediaPlayback(
+            position: MediaPosition(position: reading.position, duration: duration),
+            isPlaying: reading.isPlaying
+        )
+    }
+
+    public func command(_ transport: MediaTransport, in bundleIdentifier: String) async -> Bool {
+        guard let source = Self.dialects[bundleIdentifier]?.transport[transport],
+              !refused.contains(bundleIdentifier)
+        else { return false }
+        return await Self.run(source)
     }
 
     public func seek(to seconds: Double, in bundleIdentifier: String) async {
@@ -117,7 +167,7 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
     /// failure here is invisible otherwise: a silently missing timeline is exactly the class of bug
     /// that took three rebuilds to find at Milestone 10 (D66).
     @MainActor
-    static func runForPair(_ source: String) -> (Double, Double)? {
+    static func runForReading(_ source: String) -> (position: Double, duration: Double, isPlaying: Bool)? {
         guard let script = NSAppleScript(source: source) else { return nil }
         var error: NSDictionary?
         let result = script.executeAndReturnError(&error)
@@ -125,16 +175,17 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
             Log.system.notice("Media script failed: \(String(describing: error), privacy: .public)")
             return nil
         }
-        guard result.numberOfItems >= 2,
+        guard result.numberOfItems >= 3,
               let position = result.atIndex(1)?.doubleValue,
-              let duration = result.atIndex(2)?.doubleValue
+              let duration = result.atIndex(2)?.doubleValue,
+              let playing = result.atIndex(3)?.booleanValue
         else {
             Log.system.notice(
-                "Media script answered \(result.numberOfItems, privacy: .public) items, expected 2"
+                "Media script answered \(result.numberOfItems, privacy: .public) items, expected 3"
             )
             return nil
         }
-        return (position, duration)
+        return (position, duration, playing)
     }
 
     @MainActor
@@ -154,6 +205,7 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
 /// For tests and for players that answer nothing.
 public struct NoMediaPosition: MediaPositionControlling {
     public init() {}
-    public func position(of bundleIdentifier: String) async -> MediaPosition? { nil }
+    public func playback(of bundleIdentifier: String) async -> MediaPlayback? { nil }
     public func seek(to seconds: Double, in bundleIdentifier: String) async {}
+    public func command(_ transport: MediaTransport, in bundleIdentifier: String) async -> Bool { false }
 }

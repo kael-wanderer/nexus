@@ -76,6 +76,13 @@ this project follows [Semantic Versioning](https://semver.org).
   cannot be dragged (D82).
 
 ### Fixed
+- The media player's buttons did nothing for VLC, and pausing deleted the player entirely: the row
+  existed only while CoreAudio reported sound, and the transport went out as a media key, which
+  reaches whoever macOS thinks owns playback — for VLC, usually nobody. Transport now goes through
+  the player's own scripting dictionary where there is one, a paused player keeps its row, and the
+  play/pause icon follows what the player reports rather than assuming (D83).
+- The wide player shows the track name above the progress bar; the row was tall enough for it all
+  along (D84).
 - Popovers — the window flyout, a group, the media player — now close on a click outside instead of
   only when the pointer leaves. A non-activating panel has no key status to lose, so this needs the
   same global mouse monitor the palette does (D81).

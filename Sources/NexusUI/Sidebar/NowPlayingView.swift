@@ -450,14 +450,24 @@ struct NowPlayingWidePlayer: View {
 
     /// Progress or the name, whichever the setting says — and the name when there is no progress to
     /// show, because an empty track is worse than a title nobody asked for.
+    ///
+    /// In progress mode the name goes *above* the bar: the row is 72 points tall and the scrubber
+    /// with its clocks needs about 40 of them, so the title costs nothing (M17).
     @ViewBuilder
     private var middle: some View {
         if model.appearance.mediaContent == .progress, let position, position.hasTimeline {
-            InlineTimeline(
-                position: position,
-                dragFraction: $dragFraction,
-                onSeek: { model.seekPlayback(to: $0) }
-            )
+            VStack(alignment: .leading, spacing: 1) {
+                Text(playing.title ?? String(localized: "Playing"))
+                    .font(.system(size: 11))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                InlineTimeline(
+                    position: position,
+                    dragFraction: $dragFraction,
+                    onSeek: { model.seekPlayback(to: $0) }
+                )
+            }
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 Text(playing.title ?? String(localized: "Playing"))
