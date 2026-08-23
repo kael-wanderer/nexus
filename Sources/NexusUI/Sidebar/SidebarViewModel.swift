@@ -236,6 +236,7 @@ public final class SidebarViewModel {
     @ObservationIgnored private var alphabeticalRunning: [String] = []
     @ObservationIgnored private var hoverPreviewTask: Task<Void, Never>?
     @ObservationIgnored private var folderHoverTask: Task<Void, Never>?
+    @ObservationIgnored private var playerHoverTask: Task<Void, Never>?
 
     /// Called whenever the number of rows or the appearance changes, so the panel can reframe.
     @ObservationIgnored public var layoutDidChange: (() -> Void)?
@@ -249,6 +250,13 @@ public final class SidebarViewModel {
     /// Starts the flyout's grace period — the pointer left a row, but it may be on its way to the
     /// flyout itself.
     @ObservationIgnored public var scheduleFlyoutHide: (() -> Void)?
+    /// Opens the now-playing flyout, and starts its grace period on the way out. Injected at
+    /// Milestone 15 alongside the transport controls.
+    @ObservationIgnored public var showPlayer: (() -> Void)?
+    @ObservationIgnored public var schedulePlayerHide: (() -> Void)?
+    /// Every metadata update comes through here, so an open flyout re-measures itself around the
+    /// new title — or closes, if the row it hangs off has gone.
+    @ObservationIgnored public var playerContentChanged: (() -> Void)?
     /// The same, for a folder stack opened by hovering its row (F2).
     @ObservationIgnored public var scheduleFolderHide: (() -> Void)?
     /// Pointer entered or left the sidebar; drives the auto-hide grace timer.
@@ -320,6 +328,8 @@ public final class SidebarViewModel {
         hoverPreviewTask = nil
         folderHoverTask?.cancel()
         folderHoverTask = nil
+        playerHoverTask?.cancel()
+        playerHoverTask = nil
         springTask?.cancel()
         springTask = nil
         editingIdleTask?.cancel()
@@ -387,6 +397,39 @@ public final class SidebarViewModel {
     public var isSearchFieldWide: Bool {
         guard search.barStyle == .field else { return false }
         return !appearance.position.isVertical || isExpanded
+    }
+
+    /// Where the player sits among the sections that are actually drawn — counted the same way
+    /// `searchSectionIndex` counts, since `SidebarLayout` drops the empty ones.
+    public var nowPlayingSectionIndex: Int? {
+        guard showsNowPlayingRow else { return nil }
+        var before: [Int] = []
+        if showsStartMenuRow { before.append(1) }
+        before.append(zones.pinnedRows)
+        if behavior.showRunningApplications { before.append(zones.runningRows) }
+        return before.filter { $0 > 0 }.count
+    }
+
+    /// How long the pointer rests on the player before it opens, and the same grace the folder
+    /// stack gets on the way out.
+    static let playerHoverDelay = Duration.milliseconds(400)
+
+    /// Pointer entered or left the player. Only the compact row opens a flyout: the wide row
+    /// already draws artwork, title, timeline and buttons, and D85 removed the popover precisely
+    /// because it repeated them.
+    public func playerHoverChanged(_ hovering: Bool) {
+        playerHoverTask?.cancel()
+        playerHoverTask = nil
+        guard showPlayer != nil, !isMediaPlayerWide else { return }
+        guard hovering else {
+            schedulePlayerHide?()
+            return
+        }
+        playerHoverTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.playerHoverDelay)
+            guard !Task.isCancelled else { return }
+            self?.showPlayer?()
+        }
     }
 
     public var showsNowPlayingRow: Bool {
@@ -1248,11 +1291,15 @@ public final class SidebarViewModel {
         nowPlayingFallbackPlayer = players.first
         nowPlayingPosition = position
         if showsNowPlayingRow != wasShowing {
+            Log.sidebar.notice(
+                "Now playing row \(self.showsNowPlayingRow ? "shown" : "hidden", privacy: .public)"
+            )
             layoutDidChange?()
             // A row that has appeared is a row somebody can see: that is what starts the one poll
             // Nexus allows itself (M16).
             setPlayerVisible?(showsNowPlayingRow)
         }
+        playerContentChanged?()
     }
 
     public func seekPlayback(to seconds: Double) { seekPlayer?(seconds) }

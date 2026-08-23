@@ -51,6 +51,7 @@ struct NowPlayingRow: View {
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering
             }
+            model.playerHoverChanged(hovering)
         }
         .nexusRow(
             onClick: { model.togglePlayback() },
@@ -312,6 +313,91 @@ struct NowPlayingWidePlayer: View {
                 model.nextTrack()
             }
         }
+    }
+}
+
+/// The player, a hover away from the compact row (M15). D85 took the popover off the *wide* row,
+/// where it was a second copy of what the row already drew; on a narrow bar the row is 64 points of
+/// artwork with no title, no album and no scrubber, and this is where those live.
+public struct NowPlayingFlyoutView: View {
+    @Bindable var model: SidebarViewModel
+
+    public static let width: CGFloat = 232
+    public static let artworkSize: CGFloat = 168
+
+    @State private var dragFraction: Double?
+
+    public init(model: SidebarViewModel) {
+        self.model = model
+    }
+
+    private var playing: NowPlaying { model.nowPlaying }
+
+    public var body: some View {
+        Group {
+            if model.showsNowPlayingRow {
+                content
+            } else {
+                Color.clear.frame(width: 1, height: 1)
+            }
+        }
+        .background(VisualEffectBackground(material: .popover))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(.separator, lineWidth: 0.5)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(playing.title ?? String(localized: "Now playing"))
+    }
+
+    private var content: some View {
+        VStack(spacing: 10) {
+            Image(nsImage: model.nowPlayingArtwork(size: Self.artworkSize))
+                .resizable()
+                .frame(width: Self.artworkSize, height: Self.artworkSize)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            VStack(spacing: 2) {
+                // The whole title, wrapped rather than truncated: the one thing the compact row
+                // cannot show, and the reason this panel exists (D85).
+                Text(playing.title ?? String(localized: "Playing"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(3)
+                    .multilineTextAlignment(.center)
+                if let artist = playing.artist {
+                    Text(artist)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            if let position = model.nowPlayingPosition, position.hasTimeline {
+                InlineTimeline(
+                    position: position,
+                    dragFraction: $dragFraction,
+                    onSeek: { model.seekPlayback(to: $0) }
+                )
+            }
+            HStack(spacing: 6) {
+                MiniTransportButton(symbol: "backward.fill", label: String(localized: "Previous"), size: 30) {
+                    model.previousTrack()
+                }
+                MiniTransportButton(
+                    symbol: playing.isPlaying ? "pause.fill" : "play.fill",
+                    label: playing.isPlaying ? String(localized: "Pause") : String(localized: "Play"),
+                    size: 30
+                ) {
+                    model.togglePlayback()
+                }
+                MiniTransportButton(symbol: "forward.fill", label: String(localized: "Next"), size: 30) {
+                    model.nextTrack()
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: Self.width)
     }
 }
 

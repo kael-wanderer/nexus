@@ -38,6 +38,9 @@ public final class PanelController {
     private var folderPanel: NonActivatingPanel?
     private var folderHosting: NSView?
     private var folderHideTask: Task<Void, Never>?
+    private var playerPanel: NonActivatingPanel?
+    private var playerHosting: NSView?
+    private var playerHideTask: Task<Void, Never>?
     /// Clicks elsewhere close the popovers. A non-activating panel never loses key status — it never
     /// had any — so nothing else would (D81).
     private var outsideClickMonitor: Any?
@@ -125,6 +128,22 @@ public final class PanelController {
         )
 
 
+        model.showPlayer = { [weak self] in self?.showPlayer() }
+        model.schedulePlayerHide = { [weak self] in self?.schedulePlayerHide() }
+        model.playerContentChanged = { [weak self] in
+            guard let self, playerPanel?.isVisible == true else { return }
+            if model.showsNowPlayingRow { layoutPlayer() } else { hidePlayer() }
+        }
+        let playerHostingView = FirstMouseHostingView(
+            rootView: NowPlayingFlyoutView(model: model)
+                .onHover { [weak self] hovering in self?.playerHoverChanged(hovering) }
+        )
+        playerHosting = playerHostingView
+        playerPanel = NonActivatingPanel(
+            contentView: playerHostingView,
+            title: String(localized: "Nexus now playing")
+        )
+
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -175,6 +194,7 @@ public final class PanelController {
         }
         groupHideTask?.cancel()
         folderHideTask?.cancel()
+        playerHideTask?.cancel()
         keyboardIdleTask?.cancel()
         model.endKeyboardNavigation()
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
@@ -186,6 +206,7 @@ public final class PanelController {
         flyoutPanel?.orderOut(nil)
         groupPanel?.orderOut(nil)
         folderPanel?.orderOut(nil)
+        playerPanel?.orderOut(nil)
     }
 
     // MARK: - Dismissing the popovers
@@ -382,6 +403,78 @@ public final class PanelController {
                 size: size,
                 beside: sidebar.frame,
                 anchor: anchorOffset(forRow: group.id),
+                in: screen.visibleFrame,
+                position: model.appearance.position
+            ),
+            display: true
+        )
+    }
+
+    // MARK: - Now playing
+
+    /// Hover-driven like the window flyout, so it takes no click monitor: nothing here is a
+    /// commitment, and clicking the row still plays or pauses.
+    private func showPlayer() {
+        guard model.showsNowPlayingRow, !model.isMediaPlayerWide else { return }
+        playerHideTask?.cancel()
+        playerHideTask = nil
+        layoutPlayer()
+        playerPanel?.orderFrontRegardless()
+    }
+
+    private func hidePlayer() {
+        playerHideTask?.cancel()
+        playerHideTask = nil
+        playerPanel?.orderOut(nil)
+    }
+
+    private func playerHoverChanged(_ hovering: Bool) {
+        guard !hovering else {
+            playerHideTask?.cancel()
+            playerHideTask = nil
+            return
+        }
+        schedulePlayerHide()
+    }
+
+    /// The same grace period the other panels get: the pointer has to cross from the row to the
+    /// panel, and the gap between them is not "outside".
+    private func schedulePlayerHide() {
+        guard playerPanel?.isVisible == true else { return }
+        playerHideTask?.cancel()
+        playerHideTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            self?.hidePlayer()
+        }
+    }
+
+    /// Measured, not computed: the title wraps to as many as three lines and the timeline comes
+    /// and goes with the track.
+    private func layoutPlayer() {
+        guard let panel = playerPanel,
+              let hosting = playerHosting,
+              let (sidebar, screen) = barUnderPointer(),
+              let section = model.nowPlayingSectionIndex
+        else { return }
+
+        hosting.layoutSubtreeIfNeeded()
+        let margin = SidebarLayout.screenMargin * 2
+        let fitting = hosting.fittingSize
+        let size = CGSize(
+            width: min(fitting.width, screen.visibleFrame.width - margin),
+            height: min(fitting.height, screen.visibleFrame.height - margin)
+        )
+        panel.setFrame(
+            SidebarLayout.flyoutFrame(
+                size: size,
+                beside: sidebar.frame,
+                anchor: SidebarLayout.rowCentre(
+                    sectionRowCounts: model.sectionRowCounts,
+                    section: section,
+                    row: 0,
+                    appearance: model.appearance
+                ),
                 in: screen.visibleFrame,
                 position: model.appearance.position
             ),
@@ -650,6 +743,9 @@ public final class PanelController {
     }
 
     public func reframe(animated: Bool) {
+        // Hover-expanding the bar turns the compact player into the wide one, which draws
+        // everything this panel does — so the panel steps aside rather than repeating it (D85).
+        if playerPanel?.isVisible == true, model.isMediaPlayerWide { hidePlayer() }
         let screens = targetScreens
         syncPanels(to: screens)
         guard !screens.isEmpty, !isSuppressed else { return }

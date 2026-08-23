@@ -362,6 +362,79 @@ struct NowPlayingRowTests {
 }
 
 @MainActor
+@Suite("The now-playing flyout")
+struct NowPlayingFlyoutTests {
+    private func makeModel(width: MediaWidth = .compact) -> SidebarViewModel {
+        var initial = NexusConfiguration()
+        initial.general.showNowPlaying = true
+        initial.appearance.mediaWidth = width
+        // Horizontal, so `.wide` really is wide: a narrow vertical bar keeps the compact player
+        // whatever the setting says.
+        initial.appearance.position = .bottom
+        let configuration = ConfigurationController(
+            store: InMemoryConfigurationStore(initial),
+            events: EventBus(),
+            saveDelay: .zero
+        )
+        let model = SidebarViewModel(
+            applications: FakeApplicationService([]),
+            configuration: configuration,
+            events: EventBus()
+        )
+        model.availableExtent = 1_000
+        model.openSearch = {}
+        model.mediaCommand = { _ in }
+        model.nowPlayingChanged(
+            NowPlaying(title: "Tunnel Vision", artist: "Aurora B.Polaris", isPlaying: true),
+            isActive: true
+        )
+        return model
+    }
+
+    @Test("Resting on the compact player opens it; sweeping past does not")
+    func opensOnHover() async {
+        let model = makeModel()
+        var opened = 0
+        model.showPlayer = { opened += 1 }
+
+        model.playerHoverChanged(true)
+        #expect(opened == 0)                               // not immediately
+        await until { opened == 1 }
+
+        let swept = makeModel()
+        var sweptOpened = 0
+        swept.showPlayer = { sweptOpened += 1 }
+        swept.playerHoverChanged(true)
+        swept.playerHoverChanged(false)
+        try? await Task.sleep(for: SidebarViewModel.playerHoverDelay + .milliseconds(200))
+        #expect(sweptOpened == 0)
+    }
+
+    @Test("The wide player opens nothing: it already draws everything the panel would (D85)")
+    func wideStaysShut() async {
+        let model = makeModel(width: .wide)
+        var opened = 0
+        model.showPlayer = { opened += 1 }
+
+        #expect(model.isMediaPlayerWide)
+        model.playerHoverChanged(true)
+        try? await Task.sleep(for: SidebarViewModel.playerHoverDelay + .milliseconds(200))
+        #expect(opened == 0)
+    }
+
+    @Test("The anchor counts only the sections that are drawn")
+    func anchorSection() {
+        let model = makeModel()
+        // An empty bar: the player is the first section there is.
+        #expect(model.nowPlayingSectionIndex == 0)
+
+        let idle = makeModel()
+        idle.nowPlayingChanged(NowPlaying(), isActive: false)
+        #expect(idle.nowPlayingSectionIndex == nil)
+    }
+}
+
+@MainActor
 @Suite("Media player width")
 struct MediaPlayerWidthTests {
     private func makeModel(

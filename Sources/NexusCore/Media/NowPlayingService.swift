@@ -346,6 +346,9 @@ public final class NowPlayingService {
     public func setAudioPlayers(_ players: [String]) {
         guard players != audioPlayers else { return }
         audioPlayers = players
+        Log.system.notice(
+            "Now playing: audio out from [\(players.joined(separator: ", "), privacy: .public)]"
+        )
         if let player = players.first {
             // A new player takes over the row, and its own position with it.
             if player != stickyPlayer {
