@@ -1,6 +1,50 @@
 import AppKit
 import SwiftUI
 
+/// Event-transparent hover tracking for controls drawn inside non-key panels.
+///
+/// SwiftUI's `onHover` is tied to whichever rendered layer is under the pointer. That is normally
+/// useful, but it makes a hover-only overlay unstable: as soon as the overlay appears it occludes
+/// the layer whose hover created it. An AppKit tracking area follows the view's bounds instead, so
+/// child overlays can appear without manufacturing a mouse-exit event.
+struct PanelHoverRegion: NSViewRepresentable {
+    let changed: (Bool) -> Void
+
+    func makeNSView(context: Context) -> TrackingView {
+        TrackingView(changed: changed)
+    }
+
+    func updateNSView(_ view: TrackingView, context: Context) {
+        view.changed = changed
+    }
+
+    final class TrackingView: NSView {
+        var changed: (Bool) -> Void
+
+        init(changed: @escaping (Bool) -> Void) {
+            self.changed = changed
+            super.init(frame: .zero)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError("not supported") }
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            trackingAreas.forEach(removeTrackingArea)
+            addTrackingArea(NSTrackingArea(
+                rect: .zero,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self
+            ))
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func mouseEntered(with event: NSEvent) { changed(true) }
+        override func mouseExited(with event: NSEvent) { changed(false) }
+    }
+}
+
 /// One menu item carrying its own closure, so callers do not need an `@objc` target.
 final class ClosureMenuItem: NSMenuItem {
     private let handler: () -> Void

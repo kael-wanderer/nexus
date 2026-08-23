@@ -486,11 +486,11 @@ hand-check, and `RemoveBadge` has a fixed size, because where it goes is arithme
 needs a number rather than whatever the symbol happens to measure.
 
 The clamp turned out to be half the fix. The badge still flashed with the whole of it inside the
-tile, because SwiftUI's `onHover` is occlusion-sensitive: the badge is an overlay drawn *above* the
-layer whose hover draws it, so the pointer arriving on the badge stopped hovering the tile — hid the
-badge — hovered the tile again — drew it again. Same loop, one layer up. The hover is therefore
-tracked *after* the badge overlay in the modifier chain, so the region that keeps the badge alive
-includes the badge itself. Order of modifiers is load-bearing here, and the tile's source says so.
+tile, because SwiftUI's `onHover` is occlusion-sensitive: the badge has its own AppKit click catcher,
+and the pointer arriving on that catcher can stop hovering the SwiftUI layer — hide the badge —
+hover the layer again — draw it again. Same loop, one layer up. The group tile therefore uses an
+event-transparent AppKit tracking area over its fixed bounds. Child overlays cannot change those
+bounds or manufacture an exit event, while the badge's own click catcher remains the live target.
 
 ## D111. Full screen means full screen: the bar steps aside, per display.
 

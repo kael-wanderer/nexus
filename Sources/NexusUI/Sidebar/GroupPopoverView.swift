@@ -309,12 +309,14 @@ struct GroupMemberTile: View {
         // Taking an application out by dragging it onto the bar is precise work with nine or sixteen
         // tiles in front of you; the badge is the same answer iOS gives.
         .nexusRemoveBadge(isHovered) { remove() }
-        // Hover is tracked *after* the badge, deliberately (D110): the badge is a sibling overlay
-        // above the tile, so tracking the tile alone meant the badge occluded the hover that draws
-        // it — which hid it, which restored the hover, which drew it again.
-        .onHover { hovering in
-            withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
-                isHovered = hovering
+        // Track the tile's geometry rather than its rendered SwiftUI layer. The badge has its own
+        // AppKit click catcher; layer-sensitive `onHover` can report a false exit when that catcher
+        // appears under the pointer, producing an endless hide/show flash (D110).
+        .overlay {
+            PanelHoverRegion { hovering in
+                withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
+                    isHovered = hovering
+                }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -328,4 +330,3 @@ struct GroupMemberTile: View {
         .accessibilityAction { launch() }
     }
 }
-
