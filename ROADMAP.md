@@ -567,6 +567,8 @@ and the fixes turned into a small milestone of their own (M24). What shipped:
   feedback**, **group colours and emoji** (D108), **folder previews on hover**, and **category
   suggestions** (D109).
 - **Inline group rename** in the popover's own title (D104).
+- **The bar hides over full-screen apps**, per display (D111), after a third hand-test round — along
+  with a minus badge that stopped flashing once it was kept inside its own row (D110).
 - **`scripts/build-app.sh` and `scripts/make-dmg.sh`**, so assembling and packaging a signed build is
   one command each and `make` is only the front door.
 
@@ -574,6 +576,11 @@ and the fixes turned into a small milestone of their own (M24). What shipped:
 
 - **Per-display edge and width.** Deleted rather than left half-built: multi-display shipped with
   one edge everywhere, which is what was asked for (see `git log` for `DisplayOverride`).
+- **Revealing the bar over a full-screen app by hovering the edge.** Skipped rather than deferred:
+  it needs a second visible state — "temporarily over full screen" — with a hide rule of its own,
+  since auto-hide's belongs to the auto-hide preference. A bar that reappears over a full-screen
+  window is also most of the bug D111 fixes. The preference that turns the hiding off is the escape
+  hatch for anybody who wants the bar there.
 - **Typing directly into the bar.** Impossible as designed — the panel can never take focus while
   it is a bar (D3). The box in the bar opens the palette beside itself instead (D90).
 - **Notarisation.** Needs a paid Developer ID.

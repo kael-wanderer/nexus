@@ -143,3 +143,5 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D107** | Press and hold to edit, and any other click to stop | [The bar](decisions/bar.md) |
 | **D108** | A group's colour and emoji are stored by name, and shown where its name is edited | [The bar](decisions/bar.md) |
 | **D109** | A category suggestion is an offer, not a rearrangement | [The bar](decisions/bar.md) |
+| **D110** | A badge that hangs over the edge of a row is outside the row | [The bar](decisions/bar.md) |
+| **D111** | Full screen means full screen: the bar steps aside, per display | [The bar](decisions/bar.md) |

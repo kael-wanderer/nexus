@@ -108,6 +108,7 @@ permission and belong to the automation engine (§46, out of scope).
 | Group colours and emoji | None | Optional per group, edited beside its name or from its menu, stored by colour name. `behavior.groupColorsAndEmoji`, on (D108) |
 | Folder preview on hover | None | Resting on a pinned folder opens its stack after 400 ms. `behavior.folderHoverPreview`, on |
 | Category suggestions | None | A newly pinned application joins the category group already on the bar, and its menu offers it by name. Nothing created, nothing scanned. `behavior.suggestCategoryGroups`, off (D109) |
+| Hide over full-screen apps | None | A display showing a native full-screen space shows no bar, and only that display. Read from the window list on a space change: no polling, no permission. `behavior.hideOverFullScreen`, on (D111) |
 | Inline group rename | None | The popover's title is the field, like an iOS folder. The panel is key only while it is open (D104) |
 
 ---

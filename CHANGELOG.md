@@ -6,6 +6,11 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- The bar hides on a display showing a native full-screen space, which is what the Dock does. Per
+  display: a full-screen window on one monitor leaves the other monitor's bar alone, and the
+  edge-reveal strip and reserved space go with it. Detected from the window list on
+  `activeSpaceDidChange` — no polling, no permission. `behavior.hideOverFullScreen`, default on,
+  Settings → Bar (D111).
 - The bar answers a drag properly (M24). An insertion caret is drawn where a reorder would land,
   on the edge the pointer chose, along whichever axis the bar runs. Resting a drag on the middle of
   a group opens its popover after 900 ms, so the drag can carry on inside and be let go on one of
@@ -38,6 +43,10 @@ this project follows [Semantic Versioning](https://semver.org).
   before it is announced. `make app` and `make dmg` call them.
 
 ### Fixed
+- The minus badge no longer flashes when the pointer moves onto it. It was centred on the icon's
+  corner and hung over the tile's edge, so hovering the badge read as leaving the tile — which hid
+  the badge, which put the pointer back over the tile. The badge is now kept wholly inside the row
+  it decorates, which fixes the bar's edit-mode badges at the same time (D110).
 - Grouping applications by dragging, which was "shaky and nearly impossible" (D103). The drag knew
   which row it was on and nothing about where in it, so it reordered the preview on every pointer
   update, which moved the rows under a still pointer, which restarted the 600 ms dwell timer that

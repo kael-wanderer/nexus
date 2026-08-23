@@ -464,3 +464,64 @@ So: off by default, and when it is on it only ever uses a group that is **alread
 created, nothing is scanned, and no background pass looks over the dock. Pinning an application whose
 category has a group joins it; the row's context menu offers the same group by name for the ones
 already pinned. With no such group the behaviour is what it always was.
+
+## D110. A badge that hangs over the edge of a row is outside the row.
+
+The minus badge (D104, D107) is centred on the icon's top-left corner. On a popover tile that corner
+is five points from the top, and the badge is eighteen across — so four points of it hung outside the
+tile.
+
+Outside the tile is outside the tile's *hover region*, and the badge is drawn only while the tile is
+hovered. Moving the pointer onto the badge therefore read as leaving the tile: the badge hid, the
+pointer was over the tile again, the badge came back, and the pointer was over the badge again. That
+loop is what the user saw as flashing.
+
+The fix is arithmetic, not a grace timer: the badge's centre is clamped so the whole badge sits
+inside the row it decorates. A timer would have made the flashing slower rather than absent, and it
+would have left the second half of the same bug in place — the bar's edit-mode badges hung over a
+row's edge too, where a click outside the parent's bounds lands on nothing.
+
+`Design.removeBadgeCentre(icon:in:)` is a pure function so the containment is a test rather than a
+hand-check, and `RemoveBadge` has a fixed size, because where it goes is arithmetic and arithmetic
+needs a number rather than whatever the symbol happens to measure.
+
+## D111. Full screen means full screen: the bar steps aside, per display.
+
+The panels are `.fullScreenAuxiliary` (D3), which is what makes them show on every Space — and also
+what left a bar floating over a full-screen Chrome. The real Dock hides there, and so should Nexus.
+
+**The signal.** A display is showing a full-screen space when an on-screen, layer-0 window covers it
+whole. Three properties earn it the job:
+
+- `CGWindowListCopyWindowInfo(.optionOnScreenOnly)` lists only windows on a space that is *currently
+  showing*, which is what makes this per display rather than merely per application. A full-screen
+  window parked on a space nobody is looking at is not on screen and does not count.
+- No ordinary window can cover a display whole: AppKit will not put one over the menu bar. So a
+  maximised window — which stops below it — is never mistaken for a full-screen one, and that is the
+  whole distinction the feature needs.
+- It needs no permission and no coordinate conversion. Bounds and layer are readable without Screen
+  Recording (D5), and they are compared against `CGDisplayBounds`, which is in the same flipped
+  space.
+
+Rejected: `kAXFullScreenAttribute` on the focused window, which needs Accessibility for something
+that should work with everything denied, and which reports a window's own state rather than what the
+*visible* space on a given display is — a full-screen window on a hidden space would have hidden the
+bar with nothing in front of it.
+
+**The trigger** is `NSWorkspace.activeSpaceDidChangeNotification`: entering or leaving full screen
+*is* a space change, so the window server announces every transition that matters. Displays arriving
+or leaving recompute too. No polling, and the recomputation is skipped entirely when the set has not
+changed — switching between two ordinary Spaces reframes nothing.
+
+**Per display, throughout.** The bar on the full-screen monitor is ordered out and the one on the
+other monitor stays (M20 gives one panel per display). Its edge-reveal strip goes out with it, a bar
+that is not on screen reserves no space (M12), and `focusBar` refuses to put a focus ring on a bar
+nobody can see.
+
+`behavior.hideOverFullScreen`, default on, live. Off restores the old behaviour for anybody who wants
+the bar over their full-screen video.
+
+**No hover reveal, deliberately.** Revealing the bar over a full-screen space needs a second visible
+state — "temporarily over full screen" — with its own hide rule, since auto-hide's belongs to the
+auto-hide preference. That is more state than the gesture is worth, and a bar that reappears over a
+full-screen app is the bug this decision fixes. Recorded in ROADMAP as not built.
