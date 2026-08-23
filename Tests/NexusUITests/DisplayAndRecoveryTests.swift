@@ -188,3 +188,38 @@ struct CacheTests {
         await service.invalidateAll()
     }
 }
+
+@Suite("A bar on every display")
+@MainActor
+struct EveryDisplayTests {
+    @Test("Every display asks for one screen per monitor; the others ask for one")
+    func screenCounts() {
+        #expect(DisplayService.screens(for: .everyDisplay).count == NSScreen.screens.count)
+        #expect(DisplayService.screens(for: .main).count == 1)
+        #expect(DisplayService.screens(for: .withMouse).count == 1)
+        #expect(DisplayService.screens(for: .specific("nope")).count == 1)
+    }
+
+    @Test("The menu-bar display comes first, so the primary bar is the same bar either way")
+    func primaryFirst() {
+        #expect(DisplayService.screens(for: .everyDisplay).first === DisplayService.menuBarScreen)
+        #expect(DisplayService.screen(for: .everyDisplay) === DisplayService.menuBarScreen)
+    }
+
+    @Test("A disconnected specific display still falls back without rewriting the preference")
+    func specificFallback() {
+        let missing = DisplayPreference.specific("00000000-0000-0000-0000-000000000000")
+        #expect(DisplayService.screens(for: missing).first === DisplayService.menuBarScreen)
+        #expect(missing.isEveryDisplay == false)
+        #expect(DisplayPreference.everyDisplay.isEveryDisplay)
+    }
+
+    @Test("Every display survives a round trip through the configuration")
+    func codable() throws {
+        var configuration = NexusConfiguration()
+        configuration.appearance.display = .everyDisplay
+        let data = try JSONEncoder().encode(configuration)
+        let decoded = try JSONDecoder().decode(NexusConfiguration.self, from: data)
+        #expect(decoded.appearance.display == .everyDisplay)
+    }
+}

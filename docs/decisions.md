@@ -824,3 +824,37 @@ keystroke goes; the effect a user sees is a field that grows into a result list.
 
 `opensAtBar` is gone rather than migrated: it was one commit old, and the placement is now decided
 by *which surface asked* rather than by a setting.
+
+**D91. A bar per display, or a bar that follows the pointer — the user picks.**
+
+Nexus drew one bar on one display, so a second monitor had no dock at all: every Space on it, in
+Mission Control or out, showed nothing. `.withMouse` was supposed to cover that and did not — it
+resolved "the display with the pointer" only when something *else* caused a reframe, so the bar
+arrived on the other monitor minutes late, if ever.
+
+Both behaviours are legitimate and they are not the same product. The native Dock moves; a Windows
+taskbar is on every screen. So `appearance.display` gains `.everyDisplay` and the Settings picker
+offers three: the menu-bar display, the display with the pointer, every display.
+
+- **Following the pointer** needs to know the pointer crossed monitors, and macOS publishes no
+  notification for that. A global `.mouseMoved` monitor is installed *only* in this mode; it compares
+  two display identities and does nothing else, so the no-polling rule survives — this is an event,
+  not a timer.
+- **A bar per display** creates one panel per screen, all hosting the same model, so they show the
+  same applications and the same media row. Panels are created and destroyed only when a display
+  arrives or leaves; a reframe reuses them.
+- **One row budget, sized to the smallest screen.** The zones (M14) are shared state, and a budget
+  that fits the widest display would overflow the narrowest. Every bar therefore fits everywhere,
+  at the cost of some slots on the larger screen.
+- **Reserved Space now takes a list**, one geometry per bar, so a window is pushed off the bar on
+  *its* display. Each geometry's screen is resolved from where the bar actually is, not from the
+  preference's order: those disagree for a frame or two while a bar is moving between displays, and
+  a bar paired with the wrong screen tells Reserved Space that every window on that screen is in the
+  way. That bug pushed the Settings window onto the other monitor twice before it was caught.
+- **Flyouts follow the pointer, not the primary bar.** A window list or a group popover anchors to
+  whichever bar the pointer is on, so clicking an application on the second monitor does not open
+  its windows on the first.
+
+Not done: a per-display edge or width. `DisplayOverride` exists in the configuration and stays
+unused — revealing one bar reveals them all, and they share one edge, because a second bar is for
+reaching the same dock without crossing monitors.

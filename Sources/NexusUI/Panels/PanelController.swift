@@ -13,8 +13,15 @@ public final class PanelController {
     private let configuration: ConfigurationController
     private let events: EventBus
 
-    private var sidebarPanel: NonActivatingPanel?
-    private var edgePanel: EdgeTriggerPanel?
+    /// One bar per screen the display preference asks for — usually one, and one per monitor under
+    /// `.everyDisplay` (D91). The first is the primary: the menu-bar display's bar, or the only one.
+    private var bars: [NonActivatingPanel] = []
+    private var edges: [EdgeTriggerPanel] = []
+    /// Follows the pointer across monitors, installed only while the preference asks for it.
+    private var pointerMonitor: Any?
+    private var pointerScreen: DisplayIdentity?
+
+    private var sidebarPanel: NonActivatingPanel? { bars.first }
     private var flyoutPanel: NonActivatingPanel?
     private var flyoutHosting: NSView?
     private var flyoutHideTask: Task<Void, Never>?
@@ -59,14 +66,6 @@ public final class PanelController {
         model.layoutDidChange = { [weak self] in self?.reframe(animated: false) }
         model.onHoverChange = { [weak self] hovering in self?.hoverChanged(hovering) }
 
-        let panel = NonActivatingPanel(
-            contentView: FirstMouseHostingView(rootView: SidebarView(model: model)),
-            title: String(localized: "Nexus")
-        )
-        sidebarPanel = panel
-
-        let edge = EdgeTriggerPanel { [weak self] in self?.reveal() }
-        edgePanel = edge
 
         model.showWindows = { [weak self] identity in self?.showFlyout(for: identity) }
         model.scheduleFlyoutHide = { [weak self] in self?.scheduleFlyoutHide() }
@@ -117,9 +116,10 @@ public final class PanelController {
 
         isRevealed = !configuration.configuration.behavior.autoHide
         reframe(animated: false)
-        panel.orderFrontRegardless()
+        for bar in bars { bar.orderFrontRegardless() }
         updateEdgePanel()
-        Log.sidebar.notice("Sidebar panel shown")
+        updatePointerFollowing()
+        Log.sidebar.notice("Sidebar panels shown: \(self.bars.count, privacy: .public)")
     }
 
     public func stop() {
@@ -130,8 +130,10 @@ public final class PanelController {
         groupHideTask?.cancel()
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
-        sidebarPanel?.orderOut(nil)
-        edgePanel?.orderOut(nil)
+        if let pointerMonitor { NSEvent.removeMonitor(pointerMonitor) }
+        pointerMonitor = nil
+        for bar in bars { bar.orderOut(nil) }
+        for edge in edges { edge.orderOut(nil) }
         flyoutPanel?.orderOut(nil)
         groupPanel?.orderOut(nil)
     }
@@ -316,7 +318,7 @@ public final class PanelController {
     /// there is no visible bar to anchor to — the bar is suppressed, hidden by auto-hide, or has no
     /// Search row — and the palette falls back to the middle of the screen.
     public func searchRowAnchor() -> SidebarLayout.BarAnchor? {
-        guard let panel = sidebarPanel, let screen = targetScreen,
+        guard let (panel, screen) = barUnderPointer(),
               !isSuppressed, isRevealed,
               let section = model.searchSectionIndex
         else { return nil }
@@ -331,6 +333,19 @@ public final class PanelController {
             ),
             position: model.appearance.position
         )
+    }
+
+    /// The bar the pointer is on, and its screen — which is the bar a flyout or a popover belongs
+    /// to. With one bar this is always that bar; with a bar per display (D91) it is the one that was
+    /// actually clicked, so a window list does not open on the other monitor.
+    private func barUnderPointer() -> (NonActivatingPanel, NSScreen)? {
+        let screens = targetScreens
+        let pairs = Array(zip(bars, screens))
+        guard !pairs.isEmpty else { return nil }
+        let pointer = NSEvent.mouseLocation
+        return pairs.first { $0.0.frame.contains(pointer) }
+            ?? pairs.first { $0.1.frame.contains(pointer) }
+            ?? pairs.first
     }
 
     /// Distance to the centre of the row that *draws* `id` — which for an application inside a
@@ -362,12 +377,12 @@ public final class PanelController {
     public func toggleSidebar() {
         isSuppressed.toggle()
         if isSuppressed {
-            sidebarPanel?.orderOut(nil)
-            edgePanel?.orderOut(nil)
+            for bar in bars { bar.orderOut(nil) }
+            for edge in edges { edge.orderOut(nil) }
             onBarFrameChange?()
         } else {
             reframe(animated: false)
-            sidebarPanel?.orderFrontRegardless()
+            for bar in bars { bar.orderFrontRegardless() }
             updateEdgePanel()
         }
     }
@@ -375,50 +390,88 @@ public final class PanelController {
     // MARK: - Geometry
 
     /// Target screen for the sidebar, honouring the stored display preference (D11).
-    private var targetScreen: NSScreen? {
-        DisplayService.screen(for: configuration.configuration.appearance.display)
+    private var targetScreen: NSScreen? { targetScreens.first }
+
+    /// Every screen that should carry a bar: one, or all of them under `.everyDisplay` (D91).
+    private var targetScreens: [NSScreen] {
+        DisplayService.screens(for: configuration.configuration.appearance.display)
+    }
+
+    /// Creates and destroys panels so there is exactly one bar per target screen. Panels are reused
+    /// across reframes — the hotkey path must never pay for window creation (`design/mvp.md` §2.3)
+    /// — so this only runs when a display arrives or leaves.
+    private func syncPanels(to screens: [NSScreen]) {
+        while bars.count > screens.count {
+            bars.removeLast().orderOut(nil)
+            if edges.count > screens.count { edges.removeLast().orderOut(nil) }
+        }
+        while bars.count < screens.count {
+            let bar = NonActivatingPanel(
+                contentView: FirstMouseHostingView(rootView: SidebarView(model: model)),
+                title: String(localized: "Nexus")
+            )
+            bars.append(bar)
+            if !isSuppressed { bar.orderFrontRegardless() }
+        }
+        while edges.count < screens.count {
+            edges.append(EdgeTriggerPanel { [weak self] in self?.reveal() })
+        }
     }
 
     public func reframe(animated: Bool) {
-        guard let panel = sidebarPanel, let screen = targetScreen, !isSuppressed else { return }
+        let screens = targetScreens
+        syncPanels(to: screens)
+        guard !screens.isEmpty, !isSuppressed else { return }
         let appearance = model.appearance
         // The bar's zones depend on how much screen there is along its own axis (M14), which only
-        // this knows.
-        let visible = screen.visibleFrame
-        model.availableExtent = (appearance.position.isVertical ? visible.height : visible.width)
-            - SidebarLayout.screenMargin * 2
+        // this knows. With a bar on every display it is the *smallest* of them: one row budget is
+        // shared by every bar, and a budget that fits the widest screen would overflow the others.
+        let extents = screens.map { screen -> CGFloat in
+            let visible = screen.visibleFrame
+            return (appearance.position.isVertical ? visible.height : visible.width)
+                - SidebarLayout.screenMargin * 2
+        }
+        model.availableExtent = extents.min() ?? 0
         let size = SidebarLayout.size(
             zones: model.zones,
             appearance: appearance,
             expanded: model.isExpanded
         )
-        let frame = SidebarLayout.frame(
-            size: size,
-            in: screen.visibleFrame,
-            position: appearance.position,
-            hidden: !isRevealed
-        )
-        setFrame(frame, on: panel, animated: animated)
+        for (index, screen) in screens.enumerated() where index < bars.count {
+            let frame = SidebarLayout.frame(
+                size: size,
+                in: screen.visibleFrame,
+                position: appearance.position,
+                hidden: !isRevealed
+            )
+            setFrame(frame, on: bars[index], animated: animated)
+        }
         updateEdgePanel()
         onBarFrameChange?()
         if groupModel.group != nil { layoutGroup() }
     }
 
-    /// What Reserved Space needs to know: where the bar is, and on which screen. `nil` whenever
-    /// the bar is not really there — suppressed, hidden, or auto-hiding, which reserves nothing.
-    public var reservedSpaceGeometry: ReservedSpaceController.Geometry? {
-        guard let panel = sidebarPanel,
-              let screen = targetScreen,
-              !isSuppressed,
-              isRevealed,
-              !configuration.configuration.behavior.autoHide
-        else { return nil }
-        return ReservedSpaceController.Geometry(
-            bar: panel.frame,
-            visible: screen.visibleFrame,
-            display: screen.frame,
-            position: model.appearance.position
-        )
+    /// What Reserved Space needs to know: where each bar is, and on which screen. Empty whenever
+    /// the bars are not really there — suppressed, hidden, or auto-hiding, which reserves nothing.
+    /// One entry per display carrying a bar (D91), so a window is pushed off the bar it is actually
+    /// under rather than off a bar on another monitor.
+    public var reservedSpaceGeometries: [ReservedSpaceController.Geometry] {
+        guard !isSuppressed, isRevealed, !configuration.configuration.behavior.autoHide
+        else { return [] }
+        // The screen is taken from where each bar *is*, not from the preference's order: those two
+        // disagree for a frame or two whenever a bar is moving between displays, and a bar paired
+        // with the wrong screen tells Reserved Space that every window on that screen is in the
+        // way — which pushes windows onto the other monitor (D91).
+        return bars.compactMap { bar in
+            guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(bar.frame) })
+            else { return nil }
+            return ReservedSpaceController.Geometry(
+                bar: bar.frame,
+                visible: screen.visibleFrame,
+                display: screen.frame,
+                position: model.appearance.position
+            )
+        }
     }
 
     private func setFrame(_ frame: NSRect, on panel: NSPanel, animated: Bool) {
@@ -434,25 +487,64 @@ public final class PanelController {
     }
 
     private func updateEdgePanel() {
-        guard let edge = edgePanel, let screen = targetScreen else { return }
         let autoHide = configuration.configuration.behavior.autoHide
         guard autoHide, !isSuppressed else {
-            edge.orderOut(nil)
+            for edge in edges { edge.orderOut(nil) }
             return
         }
-        edge.setFrame(
-            SidebarLayout.edgeTriggerFrame(
-                in: screen.visibleFrame,
-                position: model.appearance.position
-            ),
-            display: false
-        )
-        edge.orderFrontRegardless()
+        // A trigger strip per bar: the edge of the display you are on is the one that should
+        // reveal, and revealing shows every bar, because they are one bar in three places.
+        for (index, screen) in targetScreens.enumerated() where index < edges.count {
+            edges[index].setFrame(
+                SidebarLayout.edgeTriggerFrame(
+                    in: screen.visibleFrame,
+                    position: model.appearance.position
+                ),
+                display: false
+            )
+            edges[index].orderFrontRegardless()
+        }
+    }
+
+    // MARK: - Following the pointer
+
+    /// `.withMouse` used to mean "whichever display the pointer was on the last time something else
+    /// caused a reframe", which is not what it says. A global mouse-moved monitor is the only way
+    /// macOS offers to know the pointer crossed monitors — there is no notification for it — and it
+    /// is installed *only* in this mode, does nothing but compare two display identities, and
+    /// reframes on a change (D91).
+    private func updatePointerFollowing() {
+        let follows = configuration.configuration.appearance.display == .withMouse
+        guard follows else {
+            if let pointerMonitor { NSEvent.removeMonitor(pointerMonitor) }
+            pointerMonitor = nil
+            pointerScreen = nil
+            return
+        }
+        guard pointerMonitor == nil else { return }
+        pointerScreen = DisplayService.screenContainingMouse().flatMap(DisplayService.identity(of:))
+        Log.sidebar.notice("Following the pointer across displays")
+        pointerMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pointerMoved() }
+        }
+    }
+
+    private func pointerMoved() {
+        guard let screen = DisplayService.screenContainingMouse(),
+              let identity = DisplayService.identity(of: screen),
+              identity != pointerScreen
+        else { return }
+        pointerScreen = identity
+        Log.sidebar.notice("Pointer moved to another display; the bar follows")
+        reframe(animated: true)
     }
 
     // MARK: - Auto-hide
 
     private func applyBehavior() {
+        updatePointerFollowing()
         let autoHide = configuration.configuration.behavior.autoHide
         if !autoHide, !isRevealed { reveal() }
         if autoHide, isRevealed { scheduleHide() }
@@ -475,7 +567,7 @@ public final class PanelController {
         guard !isRevealed else { return }
         isRevealed = true
         reframe(animated: true)
-        sidebarPanel?.orderFrontRegardless()
+        for bar in bars { bar.orderFrontRegardless() }
     }
 
     private func scheduleHide() {

@@ -140,13 +140,13 @@ private func makeController(
     // the identity, so the fixtures below read as what the code actually compares.
     controller.primaryHeight = { 0 }
     controller.runningApplications = { [ApplicationIdentity(bundleIdentifier: "com.example.editor")] }
-    controller.geometry = {
-        ReservedSpaceController.Geometry(
+    controller.geometries = {
+        [ReservedSpaceController.Geometry(
             bar: CGRect(x: 8, y: -700, width: 64, height: 600),
             visible: CGRect(x: 0, y: -875, width: 1_440, height: 875),
             display: CGRect(x: 0, y: -900, width: 1_440, height: 900),
             position: .left
-        )
+        )]
     }
     return (controller, service, configuration)
 }
@@ -179,7 +179,7 @@ struct ReservedSpaceControllerTests {
     func moves() async {
         let (controller, service, _) = makeController(windows: [window(1, CGRect(x: 10, y: 100, width: 600, height: 400))])
 
-        await controller.sweep(geometry)
+        await controller.sweep([geometry])
 
         let set = await service.framesSet
         #expect(set.count == 1)
@@ -210,7 +210,7 @@ struct ReservedSpaceControllerTests {
             window(2, CGRect(x: 10, y: 100, width: 600, height: 400), minimized: true),
         ])
 
-        await controller.sweep(geometry)
+        await controller.sweep([geometry])
 
         let set = await service.framesSet
         #expect(set.isEmpty)
@@ -223,7 +223,7 @@ struct ReservedSpaceControllerTests {
         let (controller, service, _) = makeController(windows: [window(1, CGRect(x: 10, y: 100, width: 600, height: 400))])
         await service.putBack(1)
 
-        for _ in 0..<8 { await controller.sweep(geometry) }
+        for _ in 0..<8 { await controller.sweep([geometry]) }
 
         let set = await service.framesSet
         #expect(set.count == ReservedSpaceController.maximumAttempts)
@@ -234,7 +234,7 @@ struct ReservedSpaceControllerTests {
         let (controller, service, _) = makeController(windows: [window(1, CGRect(x: 10, y: 100, width: 600, height: 400))])
         await service.refuse(1)
 
-        for _ in 0..<5 { await controller.sweep(geometry) }
+        for _ in 0..<5 { await controller.sweep([geometry]) }
 
         let set = await service.framesSet
         #expect(set.count == 1)
@@ -252,5 +252,89 @@ struct ReservedSpaceControllerTests {
         configuration.update { $0.behavior.reserveSpace = false }
         controller.apply()
         #expect(observed == [true, false])
+    }
+}
+
+@MainActor
+@Suite("Reserved space with a bar on every display")
+struct ReservedSpaceMultiDisplayTests {
+    /// Two 1440-wide displays side by side, each with a 64 pt bar on its left edge, in Accessibility
+    /// coordinates (the fixtures above use a zero primary height, so the flip is the identity).
+    private var bars: [ReservedSpaceController.Geometry] {
+        [
+            ReservedSpaceController.Geometry(
+                bar: CGRect(x: 8, y: -700, width: 64, height: 600),
+                visible: CGRect(x: 0, y: -875, width: 1_440, height: 875),
+                display: CGRect(x: 0, y: -900, width: 1_440, height: 900),
+                position: .left
+            ),
+            ReservedSpaceController.Geometry(
+                bar: CGRect(x: 1_448, y: -700, width: 64, height: 600),
+                visible: CGRect(x: 1_440, y: -875, width: 1_440, height: 875),
+                display: CGRect(x: 1_440, y: -900, width: 1_440, height: 900),
+                position: .left
+            ),
+        ]
+    }
+
+    @Test("A window over the second display's bar is pushed off that bar, and stays on it")
+    func secondDisplay() async {
+        let (controller, service, _) = makeController(
+            windows: [window(1, CGRect(x: 1_450, y: 100, width: 600, height: 400))]
+        )
+        controller.geometries = { self.bars }
+
+        await controller.sweep(bars)
+
+        let set = await service.framesSet
+        #expect(set.count == 1)
+        #expect(set.first?.frame == CGRect(x: 1_512, y: 100, width: 600, height: 400))
+    }
+
+    @Test("A window clear of both bars is left where it is")
+    func untouched() async {
+        let (controller, service, _) = makeController(
+            windows: [window(2, CGRect(x: 1_600, y: 100, width: 600, height: 400))]
+        )
+        controller.geometries = { self.bars }
+
+        await controller.sweep(bars)
+
+        #expect(await service.framesSet.isEmpty)
+    }
+
+    @Test("One sweep clears both displays")
+    func bothDisplays() async {
+        let (controller, service, _) = makeController(
+            windows: [
+                window(3, CGRect(x: 10, y: 100, width: 600, height: 400)),
+                window(4, CGRect(x: 1_450, y: 100, width: 600, height: 400)),
+            ]
+        )
+        controller.geometries = { self.bars }
+
+        await controller.sweep(bars)
+
+        let moved = await service.framesSet
+        #expect(moved.count == 2)
+        #expect(moved.contains { $0.frame.minX == 72 })
+        #expect(moved.contains { $0.frame.minX == 1_512 })
+    }
+
+    @Test("No bars on screen means nothing is swept and no observers are installed")
+    func noBars() async {
+        let (controller, service, _) = makeController(
+            windows: [window(5, CGRect(x: 10, y: 100, width: 600, height: 400))]
+        )
+        controller.geometries = { [] }
+        var observed: [Bool] = []
+        controller.observeGeometry = { observed.append($0) }
+
+        controller.apply()
+
+        // Same shape as the gated cases: nothing to keep clear of, so no observers are installed
+        // and no window is touched.
+        #expect(observed.isEmpty)
+        #expect(await service.framesSet.isEmpty)
     }
 }

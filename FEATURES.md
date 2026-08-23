@@ -32,7 +32,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 19 | Basic actions | M5 | None | See the Actions table below |
 | 20 | Settings | M6 | None | General / Appearance / Behavior / Search / Permissions |
 | 21 | Persistence | M1 | None | Versioned `Codable` in `UserDefaults` |
-| 22 | Multi-monitor awareness | M2 (basic) → M7 (full) | None | Placement at M2; reconnect stability and per-display config at M7 |
+| 22 | Multi-monitor awareness | M2 (basic) → M7 (full) → M20 (bars) | None | Placement at M2; reconnect stability at M7; a bar per display, or one that follows the pointer, at M20 (D91) |
 | 23 | Dark/light mode | M2 | None | System materials, no hard-coded colors |
 | 24 | Keyboard navigation | M5 (palette) → M7 (sidebar) | None | Palette is keyboard-first from day one |
 | 25 | Accessibility basics | every milestone | None | Labels written with the view, not retrofitted; audited at M7 |

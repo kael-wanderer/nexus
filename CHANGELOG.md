@@ -6,6 +6,11 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- A bar on every monitor (M20): `appearance.display` gains **Every display**, so a second screen is
+  no longer a dock-free zone — one panel per display over the same model, on every Space of each.
+  **Display with the pointer** now really follows it, through a global mouse-moved monitor installed
+  only in that mode. Reserved Space takes one geometry per bar, and flyouts open on the bar the
+  pointer is on (D91).
 - Search scope (M19): one filter over a search — Everything, Applications, Files & Folders, Files,
   Folders, Settings — on `⌃1`…`⌃6`, `⇥` / `⇧⇥` or the chip's menu. Files versus folders is one
   Spotlight clause on the query the file provider already runs, not a second search. The first

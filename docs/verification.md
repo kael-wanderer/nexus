@@ -18,7 +18,7 @@ applications.
 | Press the shortcut, search applications / windows / files, run an action | Pass | `⌥Space` opened the palette; `nexus` returned a Windows result (`Code — DECISIONS.md — Nexus`), file results and actions in one merge |
 | Configure the sidebar | Pass | Settings panes, live-applied; exercised through this session's own toggles |
 | Restart and retain configuration | Pass | `defaults export` before and after a restart: the stored JSON is byte-identical, version 4 |
-| Use Nexus across multiple displays | **Not verified** | One display attached, and `CGDisplayCopyAllDisplayModes` reports a single mode, so there is nothing to unplug and no resolution to change. The logic has tests — UUID identity, identity round trip, a disconnected preference falling back to the menu-bar screen, and a preference that is never rewritten on resolve — but the hardware pass needs a second monitor |
+| Use Nexus across multiple displays | Partly, see below | Verified on two 2560×1440 displays after M20; disconnect and reconnect still needs a hand at the cable |
 | Use Nexus comfortably with keyboard navigation | Pass, after a fix | The palette was already keyboard-first. The bar was not reachable at all by VoiceOver: `AXPress` returned success and did nothing, because no row in a panel that cannot become key is a SwiftUI `Button`. Fixed in D88 and re-checked — pressing the launcher opens the start menu, pressing Search opens the palette, and every bar row and palette result now lists `AXPress` |
 
 ### Accessibility detail
@@ -55,3 +55,21 @@ Read as: no unbounded growth — the slope decays by two orders of magnitude ove
 descriptor count stops moving — but not a flat line either. The residual 32 KB/min is worth
 re-measuring after a change to the search path.
 
+
+
+## Two monitors — 2026-08-23, after M20
+
+Displays: 0 (menu bar) 2560×1440 @2x at the origin, 1 the same to its right. Bottom bar, Dock
+Replacement Mode on.
+
+| Check | Result |
+|---|---|
+| One bar, "Main display" | Bar stays on display 0; the Settings window on display 1 does not drag it across |
+| "Display with the pointer" | Pointer moved to display 1 → bar reframed to x 2583 within a second; back to display 0 → x 23. Log: `Pointer moved to another display; the bar follows` |
+| "Every display" | Two panels, `23,-22 2513x94` on display 0 and `2583,-22 2513x94` on display 1, both drawing the full bar — start menu, pinned, running, media player with the live YouTube title, Trash and the search box |
+| Reserved Space, per display | Unit-tested: a window over display 1's bar is pushed to x 1512 and stays on display 1; a window clear of both is untouched; one sweep clears both. Live: found and fixed a bug where a bar paired with the wrong screen pushed the Settings window onto the other monitor |
+| Disconnect / reconnect | **Still not verified** — needs someone to pull the cable. The logic has tests; the hardware pass does not |
+
+Note on reading window geometry with two displays: `CGWindowListCopyWindowInfo` bounds include the
+panel's shadow, so a bar 8 pt above the screen edge reads as hanging 22 pt below it. The window's own
+frame is the truth — `{23, 8, 2513, 64}` for the numbers above.

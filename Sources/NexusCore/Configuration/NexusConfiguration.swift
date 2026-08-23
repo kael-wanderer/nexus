@@ -53,6 +53,12 @@ public enum DisplayPreference: Codable, Sendable, Equatable {
     case main
     case withMouse
     case specific(String)   // display UUID (D11)
+    /// A bar on every attached display, all showing the same thing (D91).
+    case everyDisplay
+
+    /// Whether this preference puts a bar on more than one screen, which is what decides whether
+    /// the panels are kept in sync as displays come and go.
+    public var isEveryDisplay: Bool { self == .everyDisplay }
 }
 
 public struct DisplayOverride: Codable, Sendable, Equatable {

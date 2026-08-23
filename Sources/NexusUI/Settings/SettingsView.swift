@@ -243,7 +243,11 @@ struct AppearancePane: View {
                 Picker(String(localized: "Display"), selection: displayBinding) {
                     Text("Main display").tag(DisplayPreferenceChoice.main)
                     Text("Display with the pointer").tag(DisplayPreferenceChoice.withMouse)
+                    Text("Every display").tag(DisplayPreferenceChoice.everyDisplay)
                 }
+                Text("With the pointer, the bar follows it across monitors. Every display gives each monitor its own bar, all showing the same applications.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section {
                 slider(String(localized: "Sidebar width"), \.appearance.width, AppearanceConfiguration.widthRange, step: 2)
@@ -305,16 +309,26 @@ struct AppearancePane: View {
         limit == 0 ? String(localized: "Fit the screen") : "\(limit)"
     }
 
-    private enum DisplayPreferenceChoice: Hashable { case main, withMouse }
+    private enum DisplayPreferenceChoice: Hashable { case main, withMouse, everyDisplay }
 
     private var displayBinding: Binding<DisplayPreferenceChoice> {
         Binding(
             get: {
-                if case .withMouse = configuration.configuration.appearance.display { return .withMouse }
-                return .main
+                switch configuration.configuration.appearance.display {
+                case .withMouse: .withMouse
+                case .everyDisplay: .everyDisplay
+                // A specific display, chosen in an older build or by hand, reads as Main here
+                // rather than silently rewriting itself (D11).
+                case .main, .specific: .main
+                }
             },
             set: { choice in
-                configuration.update { $0.appearance.display = choice == .withMouse ? .withMouse : .main }
+                let preference: DisplayPreference = switch choice {
+                case .withMouse: .withMouse
+                case .everyDisplay: .everyDisplay
+                case .main: .main
+                }
+                configuration.update { $0.appearance.display = preference }
             }
         )
     }

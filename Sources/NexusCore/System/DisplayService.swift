@@ -21,8 +21,23 @@ public enum DisplayService {
     /// currently disconnected falls back to the main display, **without** touching the stored
     /// preference — reconnecting restores the sidebar to it.
     public static func screen(for preference: DisplayPreference) -> NSScreen? {
+        screens(for: preference).first
+    }
+
+    /// Every screen the preference asks for, in order — one, except for `.everyDisplay` (D91).
+    /// The menu-bar display comes first there too, so "the primary bar" means the same thing
+    /// whatever the preference is.
+    public static func screens(for preference: DisplayPreference) -> [NSScreen] {
+        if case .everyDisplay = preference {
+            let ordered = NSScreen.screens
+            return ordered.isEmpty ? [menuBarScreen].compactMap(\.self) : ordered
+        }
+        return [singleScreen(for: preference)].compactMap(\.self)
+    }
+
+    private static func singleScreen(for preference: DisplayPreference) -> NSScreen? {
         switch preference {
-        case .main:
+        case .everyDisplay, .main:
             return menuBarScreen
         case .withMouse:
             return screenContainingMouse() ?? menuBarScreen

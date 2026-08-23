@@ -133,7 +133,7 @@ final class Composition {
         }
         // Reserved space needs the bar's geometry, and installs the move/resize observers only
         // while it is switched on (M12).
-        reservedSpace.geometry = { [weak self] in self?.panels.reservedSpaceGeometry }
+        reservedSpace.geometries = { [weak self] in self?.panels.reservedSpaceGeometries ?? [] }
         reservedSpace.observeGeometry = { [weak self] observes in
             self?.windowMonitor.setObservesGeometry(observes)
         }

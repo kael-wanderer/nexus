@@ -38,7 +38,9 @@ public final class ReservedSpaceController {
 
     /// Set by the composition root: the bar's own geometry, and the switch that installs the
     /// move/resize observers only while this is running.
-    public var geometry: (() -> Geometry?)?
+    /// One entry per bar on screen: with a bar per display (D91) a window has to be measured
+    /// against the bar on *its* display, and empty means there is nothing to keep clear of.
+    public var geometries: (() -> [Geometry])?
     public var observeGeometry: ((Bool) -> Void)?
     /// Trust check, injected so tests do not depend on the machine's Accessibility grant.
     public var isTrusted: () -> Bool = { AX.isTrusted }
@@ -105,7 +107,8 @@ public final class ReservedSpaceController {
 
     /// Turns the whole thing on or off from current state, and sweeps once when it is on.
     public func apply() {
-        guard isEnabled, let geometry = geometry?() else {
+        let bars = geometries?() ?? []
+        guard isEnabled, !bars.isEmpty else {
             setObserving(false)
             attempts.removeAll()
             return
@@ -113,7 +116,7 @@ public final class ReservedSpaceController {
         setObserving(true)
         sweepTask?.cancel()
         sweepTask = Task { [weak self] in
-            await self?.sweep(geometry)
+            await self?.sweep(bars)
         }
     }
 
@@ -127,10 +130,13 @@ public final class ReservedSpaceController {
 
     // MARK: - Nudging
 
-    /// Sweeps every application. Used on enable, on a bar move and on a display change.
-    func sweep(_ geometry: Geometry) async {
+    /// Sweeps every application against every bar. Used on enable, on a bar move and on a display
+    /// change.
+    func sweep(_ bars: [Geometry]) async {
         for identity in runningApplications() {
-            await nudge(identity, geometry)
+            for geometry in bars {
+                await nudge(identity, geometry)
+            }
         }
     }
 
@@ -164,8 +170,11 @@ public final class ReservedSpaceController {
     }
 
     private func schedule(_ identity: ApplicationIdentity) {
-        guard isEnabled, let geometry = geometry?() else { return }
-        Task { [weak self] in await self?.nudge(identity, geometry) }
+        let bars = geometries?() ?? []
+        guard isEnabled, !bars.isEmpty else { return }
+        Task { [weak self] in
+            for geometry in bars { await self?.nudge(identity, geometry) }
+        }
     }
 
     private func shouldNudge(_ key: String) -> Bool {

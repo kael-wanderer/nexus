@@ -14,6 +14,7 @@ One file per feature.
 | [`now-playing.md`](now-playing.md) | What is playing, and the transport controls — without the private framework that would break on the next update. |
 | [`media-player-row.md`](media-player-row.md) | The now-playing row as an actual player: inline controls, a draggable timeline, and no window previews. |
 | [`search-scope.md`](search-scope.md) | Opening the palette at the bar, and telling it what kind of thing to look for. |
+| [`multi-display.md`](multi-display.md) | Which monitors carry a bar: the menu-bar display, the one with the pointer, or every one of them. |
 | [`app-groups.md`](app-groups.md) | Folders in the dock, and the configuration migration they bring with them. |
 
 New feature? New file here, named after the feature. Keep it to what is specific — the focus,

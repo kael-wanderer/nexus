@@ -441,3 +441,26 @@ Spec: none — the Makefile target and `LoginItemService` are the whole of it (D
 drawn there could not be typed into (`design/mvp.md` §2.1).
 
 Spec: `docs/design/search-scope.md`.
+
+## Milestone 20 — More than one monitor  ← post-MVP
+
+**Shipped** 2026-08-23.
+
+**Scope**
+- `appearance.display` gains **Every display**: one bar per monitor, all over the same model, so the
+  second screen is not a dock-free zone.
+- **Display with the pointer** actually follows it, through a global mouse-moved monitor installed
+  only in that mode — an event, not a timer.
+- Reserved Space takes one geometry per bar, each paired with the screen its bar is really on.
+- Flyouts, the group popover and the palette anchor to the bar under the pointer.
+
+**Permissions:** none new.
+
+**Acceptance criteria**
+- Every display puts a bar on both monitors, both showing the same applications and the same media
+  row, and every Space on each monitor has one.
+- Moving the pointer across monitors moves the bar in that mode, and only in that mode.
+- A window is pushed off the bar on its own display, and never onto the other monitor.
+- One row budget, sized to the smallest screen, so no bar overflows.
+
+Spec: `docs/design/multi-display.md`.
