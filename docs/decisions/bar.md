@@ -387,3 +387,80 @@ Three details the implementation turns on:
   what was typed. A name typed and left alone is a name that was meant.
 
 The alert stays where it still fits: the row's own context menu, which has nowhere to put a field.
+
+## D105. A drag can leave the bar, and it can open a group on the way.
+
+Two more things a drag can mean, both of which the Dock has always meant.
+
+**Off the bar is off the bar.** Letting go of a pinned row outside every window Nexus owns unpins it,
+with `NSAnimationEffect.disappearingItemDefault` — the poof — at the point the pointer let go. Old
+API, and exactly right: the alternative is animating a sprite inside a panel that has just been told
+to forget the row. "Outside every window Nexus owns" rather than "outside the bar" because the group
+popover and the folder stack are windows of their own, and letting go over one of those must not
+throw the row off the bar. A row that was never pinned — a running application — has nothing to
+leave, so for it the same gesture is a cancel.
+
+This composes with the bar-wide drop target (D103) rather than fighting it: inside the bar commits
+the preview, outside it unpins, and the two cannot both happen because the operation the drag ends
+with is either `.move` or nothing.
+
+**Resting on a group opens it.** 900 ms on the middle of a group row and its popover opens under the
+drag, which can then be carried inside and let go on a member — the application lands *at that
+member's place* rather than at the end. Finder's spring-loaded folders, and iOS's. Sliding off the
+middle cancels it, because the middle is what said "into this group" in the first place.
+
+Dropping on the popover's padding rather than on a tile is a cancel, deliberately: the tiles are the
+positions, and a drop with no position is a drop with nothing to say.
+
+## D107. Press and hold to edit, and any other click to stop.
+
+iOS's jiggle mode, and it earns its place for the same reason it does there: taking six applications
+off the bar is six context menus otherwise.
+
+600 ms of pressing a pinned row without moving turns it on — long enough that it never fires on the
+way to a drag, which cancels the timer the moment the press travels. Every pinned row then draws a
+minus badge on its icon's corner and leans two degrees, animated back and forth. The badge is the
+control; the jiggle only says the badge is there, which is why Reduce Motion keeps the badges and
+drops the movement.
+
+Leaving is over-determined, the same way the keyboard mode's is (D99): a click on any row, the
+pointer leaving the bar, and twenty seconds of nothing. There is deliberately no Escape: Escape
+belongs to the window with the keyboard, and the bar has it only in keyboard mode (D3). A mode with
+no way out is worse than a mode with three.
+
+The badge has to be the *last* layer on the row. `nexusRow` overlays an `NSView` to catch clicks in a
+panel that can never become key, so a badge added before it sits underneath and its click launches
+the application instead of removing it — which is exactly the bug the group popover's minus badge
+had (D104). One preference anchor publishes where the icon is, and the badge is drawn on top from it.
+
+## D108. A group's colour and emoji are stored by name, and shown where its name is edited.
+
+A group of nine icons at 64 points is nine icons at 20 points, and telling two such tiles apart is
+work. A colour and an emoji are the cheapest way out, and both are optional — a group has neither
+until somebody picks one.
+
+Stored **by name** (`blue`, not `#0A84FF`): the name survives a change of palette, reads in
+`defaults read`, and lets the system pick the shade that suits dark mode and Increase Contrast. The
+emoji is trimmed to one character on the way in, so a field somebody has pasted a sentence into
+cannot become a tile nobody can read.
+
+`ApplicationGroup` gained two optional fields, which is why the tolerant decoder (D67) was worth
+having: a group written before they existed decodes with both `nil` and nothing else changes.
+
+They are edited where the name is (D104) — the popover's header, with a row of swatches and a small
+emoji field — because "everything about how this group looks" is one place, and because the context
+menu cannot draw a colour it can only name. The menu still offers the colours by name, ticked, for
+anybody who never opens the popover.
+
+The preference that switches the whole idea off hides both without forgetting either.
+
+## D109. A category suggestion is an offer, not a rearrangement.
+
+Nexus knows what category an application declares — that is where group names come from (M13). The
+obvious next step is to put a newly pinned application into the group its category already has, and
+the obvious risk is a dock that rearranges itself.
+
+So: off by default, and when it is on it only ever uses a group that is **already there**. Nothing is
+created, nothing is scanned, and no background pass looks over the dock. Pinning an application whose
+category has a group joins it; the row's context menu offers the same group by name for the ones
+already pinned. With no such group the behaviour is what it always was.

@@ -138,3 +138,8 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D102** | A horizontal bar's thickness is its icons' business, and an alert opens where the click was | [The bar](decisions/bar.md) |
 | **D103** | Grouping is a place inside a row, not a pause on top of one | [The bar](decisions/bar.md) |
 | **D104** | The group popover takes the keyboard to be typed into, and only then | [The bar](decisions/bar.md) |
+| **D105** | A drag can leave the bar, and it can open a group on the way | [The bar](decisions/bar.md) |
+| **D106** | Badge counts are read off the Dock, because there is nowhere else to read them | [The system around Nexus](decisions/system.md) |
+| **D107** | Press and hold to edit, and any other click to stop | [The bar](decisions/bar.md) |
+| **D108** | A group's colour and emoji are stored by name, and shown where its name is edited | [The bar](decisions/bar.md) |
+| **D109** | A category suggestion is an offer, not a rearrangement | [The bar](decisions/bar.md) |

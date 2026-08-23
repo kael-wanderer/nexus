@@ -55,12 +55,14 @@ NexusCore/
   Windows/               WindowService (actor), WindowMonitor (AXObserver), WindowPreviewService
   Search/                SearchEngine (actor), SearchProvider, {Application,Window,File,Action}Provider,
                          Ranking, Frecency
-  System/                DisplayService, HotKeyService, PermissionService, LoginItemService
+  System/                DisplayService, HotKeyService, PermissionService, LoginItemService,
+                         DockBadgeService (reads the Dock's own AX tree — D106)
   Utilities/             AXValue bridging, image cache, debounce, string matching
 
 NexusUI/
   Panels/                SidebarPanel, SearchPanel, PanelController
-  Sidebar/               SidebarView, SidebarViewModel, item views, window flyout
+  Sidebar/               SidebarView, SidebarViewModel, item views, window flyout,
+                         RowDecorations (drop caret, badges, jiggle, poof)
   Search/                SearchPaletteView, SearchViewModel, result rows
   Settings/              SettingsWindow, per-pane views, ShortcutRecorder
   Onboarding/            OnboardingWindow, step views
@@ -169,6 +171,11 @@ Sources — all push, zero timers:
 
 The last row is the single sanctioned poll: macOS has no TCC-grant notification, and §111.6
 requires a live checkmark. 1 Hz, scoped to a visible screen, cancelled on dismiss.
+
+Two later readings have no event to hang on either, and both are hung on a *user* event instead
+rather than on a timer: window counts and Dock badges are re-read when the pointer enters the bar,
+because macOS publishes no notification for another application opening a window and the Dock's
+Accessibility tree refuses `AXObserver` registration for badge changes altogether (D61, D106).
 
 Subscribers get their own `AsyncStream` with `.bufferingNewest(64)`; a slow consumer drops
 events rather than back-pressuring producers. Consumers re-read authoritative state from the

@@ -6,6 +6,59 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- The bar answers a drag properly (M24). An insertion caret is drawn where a reorder would land,
+  on the edge the pointer chose, along whichever axis the bar runs. Resting a drag on the middle of
+  a group opens its popover after 900 ms, so the drag can carry on inside and be let go on one of
+  the tiles — the application lands at that tile's place rather than at the end (D105). A row let go
+  outside every Nexus window leaves the bar with the Dock's own puff of smoke; a running row, which
+  was never on it, cancels instead (D105).
+- Press and hold a pinned row for 600 ms and the bar goes into edit mode: every pinned row grows a
+  minus badge on its icon's corner and leans a couple of degrees. Any other click, the pointer
+  leaving the bar, or twenty seconds of nothing turns it off. Reduce Motion keeps the badges and
+  drops the movement (D107).
+- Dock badges (D106): the red label an application puts on its own Dock icon — Mail's unread count,
+  a download in progress — mirrored onto the bar's rows, and onto a group when any member has one.
+  Read from the Dock's own Accessibility tree, which is the only public route there is; without the
+  Accessibility grant there are simply no badges. Never on a timer: it is read when the pointer
+  enters the bar and when an application launches or quits.
+- Launch feedback: an application that has been asked to launch dims and hops once until it turns
+  up, and stops the moment it does. Reduce Motion keeps the dimming and drops the hop.
+- A group can carry a colour and an emoji, picked in its popover beside its name or from its context
+  menu by name. Stored by colour name rather than as a hex value, and the emoji trimmed to one
+  character. `behavior.groupColorsAndEmoji`, default on (D108).
+- Hovering a pinned folder shows its stack, after 400 ms, without a click.
+  `behavior.folderHoverPreview`, default on (Settings → Bar).
+- A newly pinned application joins the group its category already has, and its context menu offers
+  that group by name. Nothing is created and nothing is scanned — only a group already on the bar is
+  ever used. `behavior.suggestCategoryGroups`, default off (D109).
+- `scripts/build-app.sh` and `scripts/make-dmg.sh`: the bundle assembly, the architecture and
+  minimum-system guards, the signing chain that keeps TCC grants, and the styled
+  drag-to-Applications image, all runnable outside `make`. One architecture per artifact
+  (`NEXUS_ARCH`), and the disk image is verified from its own mount — architecture and signature —
+  before it is announced. `make app` and `make dmg` call them.
+
+### Fixed
+- Grouping applications by dragging, which was "shaky and nearly impossible" (D103). The drag knew
+  which row it was on and nothing about where in it, so it reordered the preview on every pointer
+  update, which moved the rows under a still pointer, which restarted the 600 ms dwell timer that
+  was the only way to ask for a group. Position is now the input: the middle of a row groups, either
+  end inserts before or after, the dwell timer is gone, and the same intent is never acted on twice.
+  Nothing moves while a group is on offer.
+- Two running applications can be grouped. `canGroup` required the target to be in the dock, so two
+  loose icons could never become a folder — the one place everybody expects it to work. The target is
+  pinned in the same write (D103).
+- A drag let go in the gap between two rows, on the section padding, or past the last row no longer
+  reverts the whole drag: the bar itself is a drop target, and anywhere inside it commits the
+  preview. Outside the bar is still not (D103).
+- A folder row could not be dragged at all — `beginDrag` accepted applications and group ids only,
+  and a folder wears neither — which is what "reordering a folder silently reverts" was.
+- The minus badge in a group's popover did nothing. `nexusRow` overlays an AppKit view to catch
+  clicks, and the tile's own catcher was applied after the badge, so it sat on top and the click
+  launched the application instead of removing it (D104).
+- Renaming a group happens in its title, inline, like an iOS folder: click the name, type, Return.
+  The popover takes the keyboard for exactly as long as the field is open and hands it straight back
+  to whatever had it — the same bargain the bar's keyboard mode makes. Escape cancels, clicking away
+  commits. The alert stays for the row's context menu, which has nowhere to put a field (D104).
 - Keyboard control of the bar (M23): `⌃⌥Space` puts the keyboard on the bar. Arrows walk it on either axis, Home and End jump, Return opens the focused
   row, Escape hands the keyboard back to whatever had it. The panel becomes key only while that
   mode is on and stops being key on Escape, on opening a row, on losing key status, or after ten

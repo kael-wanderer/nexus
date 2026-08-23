@@ -38,9 +38,14 @@ test that matters is a v1 file loading into v2 with the same dock, in the same o
 
 ## Interaction
 
-- **Create**: drop an application onto another application. Both leave their slots, a group takes
-  the target's position — the drag preview (D59) already shows exactly this, since a group is one
-  row like any other.
+- **Create**: drop an application onto **the middle of** another application — the middle 40 % of the
+  row along the bar's axis, which is what says "these two together" rather than "put me here"
+  (D103). Both leave their slots, a group takes the target's position. The target may be a running
+  application rather than a pinned one; it is pinned on the way, because two loose icons making a
+  folder is the one place everybody expects grouping to work.
+- **Spring-loaded**: resting a drag on the middle of an existing group for 900 ms opens its popover,
+  and the drag can carry on inside it. Letting go on a member puts the application at that member's
+  place rather than at the end (D105).
 - **Capacity**: 9 (3×3) by default, 16 (4×4) as a setting. A drop onto a full group is refused
   visually — the row does not accept the drag — rather than silently dropped.
 - **Open**: click opens a popover of the group's applications on a grid, positioned like the window
@@ -52,9 +57,17 @@ test that matters is a v1 file loading into v2 with the same dock, in the same o
 - **Or take it out where it is**: hovering a member shows a minus badge, and clicking that removes
   it. Dragging one tile out of nine or sixteen is precise work; the badge is the answer iOS gives to
   the same problem, and it is the same action either way.
-- **Rename from the popover**: its title is the control — click the name (it carries a pencil) and
-  the rename alert opens, on the screen the click came from (D102). The row's context menu still has
-  Rename… for anybody who never opens the popover.
+- **Rename from the popover**: its title *is* the field — click the name (it carries a pencil) and it
+  becomes an editable one, with the name selected. Return commits, Escape cancels, clicking away
+  commits what was typed. The panel takes the keyboard for exactly as long as the field is open and
+  hands it straight back (D104). The row's context menu still has Rename… — an alert, since a menu
+  has nowhere to put a field — for anybody who never opens the popover.
+- **Colour and emoji**: optional, both, chosen beside the name while it is being edited or from the
+  row's context menu by colour name. The tile carries the tint and the emoji sits in its corner
+  (D108). `behavior.groupColorsAndEmoji` switches the whole idea off without forgetting either.
+- **Category suggestions**: with `behavior.suggestCategoryGroups` on, a newly pinned application
+  joins the group its category already has and the row's menu offers that group by name. Only a
+  group already on the bar is ever used — nothing is created and nothing is scanned (D109).
 
 ## Auto-naming
 

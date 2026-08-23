@@ -96,6 +96,22 @@ permission and belong to the automation engine (§46, out of scope).
 
 ---
 
+## Added after the MVP (M24)
+
+| Feature | Permission | Notes |
+|---|---|---|
+| Drag intent zones | None | The middle of a row groups, either end reorders, with an insertion caret on the edge the drop would land on. Anywhere inside the bar commits the drag; outside it unpins a pinned row, with the Dock's poof (D103, D105) |
+| Spring-loaded groups | None | Resting a drag on a group opens it, and letting go on a member puts the application at that member's place (D105) |
+| Edit mode | None | Press and hold a pinned row for 600 ms: minus badges and a small jiggle, off on any other click. Reduce Motion keeps the badges (D107) |
+| Dock badges | **Accessibility** | The red badge label an application sets on its own Dock icon, mirrored onto the bar's rows and onto a group when any member has one. Read from the Dock's Accessibility tree — the only public route — never on a timer, and simply absent without the grant (D106) |
+| Launch feedback | None | A launching application dims and hops once until it appears. Reduce Motion keeps the dimming |
+| Group colours and emoji | None | Optional per group, edited beside its name or from its menu, stored by colour name. `behavior.groupColorsAndEmoji`, on (D108) |
+| Folder preview on hover | None | Resting on a pinned folder opens its stack after 400 ms. `behavior.folderHoverPreview`, on |
+| Category suggestions | None | A newly pinned application joins the category group already on the bar, and its menu offers it by name. Nothing created, nothing scanned. `behavior.suggestCategoryGroups`, off (D109) |
+| Inline group rename | None | The popover's title is the field, like an iOS folder. The panel is key only while it is open (D104) |
+
+---
+
 ## Explicitly out of the MVP (§28, §101)
 
 AI · full automation engine · plugin marketplace · widget system · workspaces and workspace

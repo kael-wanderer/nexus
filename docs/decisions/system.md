@@ -106,3 +106,38 @@ offers three: the menu-bar display, the display with the pointer, every display.
 Not done: a per-display edge or width. `DisplayOverride` exists in the configuration and stays
 unused — revealing one bar reveals them all, and they share one edge, because a second bar is for
 reaching the same dock without crossing monitors.
+
+## D106. Badge counts are read off the Dock, because there is nowhere else to read them.
+
+Mail's unread count is real information and the bar had none of it. The investigation is the decision
+here, because every route but one is closed:
+
+- `NSDockTile` and `UNNotificationContent.badge` are **write-only and per-process**: an application
+  can set its own badge and read nothing about anybody else's.
+- `NSRunningApplication` has no badge property. `NSWorkspace` publishes no notification for one.
+- Notification Center's own store is not public API and is protected besides.
+- The Dock's Accessibility tree publishes `AXStatusLabel` on each `AXDockItem`, which is exactly the
+  string the owning application set.
+
+So the badges come from the Dock, via public Accessibility API, and three properties of that route
+shape the feature:
+
+**It needs Accessibility.** Without the grant every call answers `kAXErrorAPIDisabled` and there are
+no badges. That is the whole failure mode: a decoration is missing, and nothing else in the bar
+depends on it.
+
+**It cannot be observed.** `AXObserverAddNotification` answers `kAXErrorNotificationUnsupported` for
+value and title changes on dock items — tested, not assumed. Reading is the only route, so Nexus
+reads on the events it already has: the pointer entering the bar, and an application launching or
+quitting. There is no timer, because a timer for a decoration is a timer too many.
+
+**The value is text.** "9999+" is a badge. So is "!". It is mirrored as a string and never parsed:
+summing something the application chose the wording of is a bug waiting to be filed.
+
+Two real limits, neither worth working around. An application with no dock item — not in the real
+Dock and not running — has no badge to read, and a quit application's badge is stale by definition.
+And identity comes from `AXURL`, not `AXTitle`: the title is a localised display name, and some
+processes report the name of a helper binary instead.
+
+Nexus hiding the Dock (M20) does not take the badges with it — the Dock keeps its Accessibility tree
+whether or not it is on screen, which was tested with the Dock autohidden.

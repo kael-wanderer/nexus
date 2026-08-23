@@ -79,6 +79,12 @@ If it misbehaves, the fallback is a manual reorder in the hosting `NSView` drive
 `mouseDown`/`mouseDragged` — ~60 lines, no focus implications. Decided at implementation time
 and recorded in the decision log (`../decisions.md`).
 
+*It misbehaved, and the fallback is what shipped* (D39): `PanelRowInteraction` claims every
+mouse-down, runs the drag as an `NSDraggingSession`, and reports where in the row the pointer is —
+which is what tells grouping from reordering (D103). The bar's own hosting view is a drop target too,
+so a drag let go anywhere inside the bar commits rather than reverting, and one let go outside it
+unpins (D105).
+
 **Auto-hide reveal without polling.** While hidden, a 2 pt wide, fully transparent
 `EdgeTriggerPanel` sits on the configured screen edge with an `NSTrackingArea`. `mouseEntered`
 reveals the sidebar; `mouseExited` on the sidebar plus a 400 ms grace hides it. No global event

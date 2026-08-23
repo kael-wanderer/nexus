@@ -554,6 +554,22 @@ Not a milestone, but shipped alongside the polish round that followed it:
 - **Editing a group in its popover**: the title renames, a badge on each member removes it.
 - **A horizontal bar sizes its own thickness** to the icons it holds (D102).
 
+## After Milestone 23, round two
+
+The hand-testing round that followed M23 found the drag gesture to be the weakest part of the bar,
+and the fixes turned into a small milestone of their own (M24). What shipped:
+
+- **Drag intent by position** (D103): the middle of a row groups, either end reorders, with an
+  insertion caret where the drop would land. No dwell timer, no preview reset, and two running
+  applications can now be grouped.
+- **Anywhere in the bar is a drop** (D103), and outside it unpins with the Dock's poof (D105).
+- **Spring-loaded groups** (D105), **edit mode** (D107), **Dock badges** (D106), **launch
+  feedback**, **group colours and emoji** (D108), **folder previews on hover**, and **category
+  suggestions** (D109).
+- **Inline group rename** in the popover's own title (D104).
+- **`scripts/build-app.sh` and `scripts/make-dmg.sh`**, so assembling and packaging a signed build is
+  one command each and `make` is only the front door.
+
 ## What is not built, and why
 
 - **Per-display edge and width.** Deleted rather than left half-built: multi-display shipped with
@@ -561,5 +577,8 @@ Not a milestone, but shipped alongside the polish round that followed it:
 - **Typing directly into the bar.** Impossible as designed — the panel can never take focus while
   it is a bar (D3). The box in the bar opens the palette beside itself instead (D90).
 - **Notarisation.** Needs a paid Developer ID.
+- **Update checks.** Blocked, not deferred: there is nowhere to check. It needs a hosted endpoint
+  publishing the current version, and no such URL exists yet. Everything else about it — the
+  Settings row, the "you are up to date" state — is an afternoon once there is something to ask.
 - **Drill-down inside a folder stack, and pagination inside a group.** Both would add a navigation
   stack to a panel that cannot take focus, to save one click to Finder.
