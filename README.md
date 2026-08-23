@@ -30,6 +30,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Now playing** | Optional: the track and transport controls in the bar, for any player — Music and Spotify publish theirs, and everything else is named by its window. *(Accessibility for the latter)* |
 | **Always in reach** | Trash and Search sit in a zone that never scrolls. The applications between them fill the edge — as many rows as the screen holds — and scroll only once it is full. |
 | **Groups** | Drag one icon onto another and hold to make a folder. Auto-named from the applications' own category, renameable, 9 or 16 per group. |
+| **Keyboard control** | `⌃F3` puts the keyboard on the bar — arrows walk it, Return opens, Escape gives it straight back. The bar takes focus only while you ask it to. |
 | **Minimized windows** | The windows you minimise get rows of their own before the Trash — newest first, at most three — and a click puts one back. *(Accessibility)* |
 | **Folder stacks** | Drag a folder from Finder onto the bar. Clicking it shows what is inside on a grid — folders first, a file opens in its own application, a subfolder opens in Finder. |
 | **Reserved space** | Optional: windows that overlap the bar are moved off it, full-screen windows left alone. *(Accessibility)* |

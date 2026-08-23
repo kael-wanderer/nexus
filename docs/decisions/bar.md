@@ -267,3 +267,24 @@ reading `{"folder": …}` **throws** while decoding the dock, and a throw quaran
 resets the dock. A version it does not recognise is the one case the store handles gently: run on
 defaults, overwrite nothing. So the number moves, with an empty migration, and a downgrade costs a
 session rather than a dock.
+
+## D99. The bar takes the keyboard only when asked, and gives it back four ways.
+
+The sidebar panel can never become key (D3), which is the guarantee that keeps clicking the bar from
+disturbing what you were typing. Keyboard control needs the opposite of that, so it takes the
+palette's bargain rather than breaking the rule: the panel becomes key **because the user pressed a
+shortcut**, and stops being key the moment they leave.
+
+`acceptsKeyboardFocus` on the panel is the whole mechanism — `canBecomeKey` returns it, and nothing
+sets it except entering the mode. Leaving it is deliberately over-determined: Escape or the shortcut
+again, opening the focused row (its action usually puts another application in front, and keeping
+the keyboard after that would take it back from the thing just asked for), the panel losing key
+status to anything else, and ten seconds of no keys at all.
+
+That last one is insurance, not a feature. A bar still holding the keyboard because something went
+wrong is a machine that will not type, and no amount of purity is worth that.
+
+`⌃F3` because macOS uses it to focus its own Dock, and the real Dock is hidden while Nexus is the
+dock. A shortcut another application already owns fails to register, which is logged and otherwise
+ignored: the bar is a pointer target either way. `HotKeyService` grew a slot per shortcut to make
+room for it — Carbon identifies a hotkey by number, so the slot *is* that number.

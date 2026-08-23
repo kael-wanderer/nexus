@@ -41,6 +41,7 @@ struct SidebarFolderView: View {
                 .fill(isHovered ? AnyShapeStyle(.quinary) : AnyShapeStyle(.clear))
         }
         .contentShape(Rectangle())
+        .nexusFocusRing(model.focusedRowID == folder.id)
         .opacity(model.draggingIdentifier == folder.id ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {

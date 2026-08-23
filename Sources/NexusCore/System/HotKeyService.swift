@@ -13,25 +13,37 @@ public final class HotKeyService {
 
     private static let signature = FourCharCode(0x4E_58_53_31)   // 'NXS1'
 
-    private var hotKeyRef: EventHotKeyRef?
-    private var eventHandler: EventHandlerRef?
-    private var current: KeyboardShortcut?
+    /// What a registered shortcut is for. Carbon identifies a hotkey by a number, so this is that
+    /// number — one per thing Nexus can be asked to do from anywhere (M23).
+    public enum Slot: UInt32, Sendable, CaseIterable {
+        case search = 1
+        case focusBar = 2
+    }
 
-    /// Invoked on the main actor when the hotkey fires.
-    public var onPressed: (() -> Void)?
+    private var hotKeyRefs: [Slot: EventHotKeyRef] = [:]
+    private var eventHandler: EventHandlerRef?
+    private var current: [Slot: KeyboardShortcut] = [:]
+
+    /// Invoked on the main actor when a hotkey fires, with the slot that fired.
+    public var onPressed: ((Slot) -> Void)?
 
     public init() {}
 
-    public var registeredShortcut: KeyboardShortcut? { current }
+    public var registeredShortcut: KeyboardShortcut? { current[.search] }
+
+    public func registeredShortcut(_ slot: Slot) -> KeyboardShortcut? { current[slot] }
 
     @discardableResult
-    public func register(_ shortcut: KeyboardShortcut) -> Result<Void, RegistrationError> {
+    public func register(
+        _ shortcut: KeyboardShortcut,
+        for slot: Slot = .search
+    ) -> Result<Void, RegistrationError> {
         guard shortcut.isValid else { return .failure(.invalidShortcut) }
-        unregister()
+        unregister(slot)
         installHandlerIfNeeded()
 
         var reference: EventHotKeyRef?
-        let identifier = EventHotKeyID(signature: Self.signature, id: 1)
+        let identifier = EventHotKeyID(signature: Self.signature, id: slot.rawValue)
         let status = RegisterEventHotKey(
             shortcut.keyCode,
             shortcut.modifiers,
@@ -44,20 +56,24 @@ public final class HotKeyService {
             Log.system.error("RegisterEventHotKey failed with \(status, privacy: .public)")
             return .failure(.systemRefused(status))
         }
-        hotKeyRef = reference
-        current = shortcut
-        Log.system.notice("Global shortcut registered (key \(shortcut.keyCode, privacy: .public), modifiers \(shortcut.modifiers, privacy: .public))")
+        hotKeyRefs[slot] = reference
+        current[slot] = shortcut
+        Log.system.notice("Global shortcut registered for \(String(describing: slot), privacy: .public) (key \(shortcut.keyCode, privacy: .public), modifiers \(shortcut.modifiers, privacy: .public))")
         return .success(())
     }
 
-    public func unregister() {
-        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
-        hotKeyRef = nil
-        current = nil
+    public func unregister(_ slot: Slot = .search) {
+        if let reference = hotKeyRefs[slot] { UnregisterEventHotKey(reference) }
+        hotKeyRefs[slot] = nil
+        current[slot] = nil
+    }
+
+    public func unregisterAll() {
+        for slot in Slot.allCases { unregister(slot) }
     }
 
     public func stop() {
-        unregister()
+        unregisterAll()
         if let eventHandler { RemoveEventHandler(eventHandler) }
         eventHandler = nil
     }
@@ -79,8 +95,9 @@ public final class HotKeyService {
         )
     }
 
-    fileprivate func fire() {
-        onPressed?()
+    fileprivate func fire(_ identifier: UInt32) {
+        guard let slot = Slot(rawValue: identifier) else { return }
+        onPressed?(slot)
     }
 }
 
@@ -99,7 +116,7 @@ private let hotKeyEventHandler: EventHandlerUPP = { _, event, context in
     guard status == noErr else { return status }
     // Carbon dispatches this on the main run loop, so the service really is main-actor bound.
     let service = Unmanaged<HotKeyService>.fromOpaque(context).takeUnretainedValue()
-    MainActor.assumeIsolated { service.fire() }
+    MainActor.assumeIsolated { service.fire(identifier.id) }
     return noErr
 }
 

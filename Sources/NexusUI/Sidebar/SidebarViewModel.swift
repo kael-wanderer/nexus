@@ -135,6 +135,13 @@ public final class SidebarViewModel {
     /// something. Older windows stay reachable in their application's flyout.
     public static let minimizedLimit = 3
 
+    /// The row the keyboard is on, or `nil` when the bar is not in keyboard mode (M23). Every row
+    /// that can be clicked can be focused, in the order they are drawn.
+    public private(set) var focusedRowID: String?
+
+    /// Asks the panel to take, or give back, the keyboard. Set by `PanelController`.
+    @ObservationIgnored public var setKeyboardFocus: ((Bool) -> Void)?
+
     /// Drives which Trash icon the utility row draws.
     public private(set) var trashIsEmpty = TrashService.isEmpty
 
@@ -649,6 +656,93 @@ public final class SidebarViewModel {
 
     public func openGroup(_ group: SidebarGroup) {
         showGroup?(group)
+    }
+
+    // MARK: - Keyboard navigation (M23)
+
+    /// Everything the keyboard can land on, in drawing order: the launcher, the dock, the running
+    /// applications, the minimized windows, Trash, Search. The now-playing row is deliberately not
+    /// here — its buttons are three targets in one row, and the transport keys already reach the
+    /// player from anywhere.
+    public var focusableRowIDs: [String] {
+        var ids: [String] = []
+        if showsStartMenuRow { ids.append(Self.startMenuRowID) }
+        ids += pinned.map(\.id)
+        if behavior.showRunningApplications { ids += running.map(\.id) }
+        ids += minimizedRows.map(\.id)
+        ids.append(Self.trashRowID)
+        if openSearch != nil { ids.append(Self.searchRowID) }
+        return ids
+    }
+
+    public static let startMenuRowID = "row:startMenu"
+    public static let trashRowID = "row:trash"
+    public static let searchRowID = "row:search"
+
+    public var isKeyboardNavigating: Bool { focusedRowID != nil }
+
+    /// Enters keyboard mode on the first row, or leaves it if it is already on.
+    public func toggleKeyboardNavigation() {
+        if isKeyboardNavigating { endKeyboardNavigation() } else { beginKeyboardNavigation() }
+    }
+
+    public func beginKeyboardNavigation() {
+        guard let first = focusableRowIDs.first else { return }
+        focusedRowID = first
+        setKeyboardFocus?(true)
+    }
+
+    public func endKeyboardNavigation() {
+        guard focusedRowID != nil else { return }
+        focusedRowID = nil
+        setKeyboardFocus?(false)
+    }
+
+    /// Walks the rows. Stops at each end rather than wrapping: a bar is a line, and wrapping from
+    /// Search back to the launcher reads as a jump rather than a move.
+    public func moveFocus(by delta: Int) {
+        let ids = focusableRowIDs
+        guard let current = focusedRowID, let index = ids.firstIndex(of: current) else {
+            beginKeyboardNavigation()
+            return
+        }
+        let next = min(max(index + delta, 0), ids.count - 1)
+        focusedRowID = ids[next]
+    }
+
+    public func focusFirstRow() {
+        guard isKeyboardNavigating, let first = focusableRowIDs.first else { return }
+        focusedRowID = first
+    }
+
+    public func focusLastRow() {
+        guard isKeyboardNavigating, let last = focusableRowIDs.last else { return }
+        focusedRowID = last
+    }
+
+    /// Does what clicking the focused row does, then leaves keyboard mode — the row's own action
+    /// is usually to put another application in front, and holding the keyboard after that would
+    /// take it from the thing the user just asked for.
+    public func activateFocusedRow() {
+        guard let id = focusedRowID else { return }
+        endKeyboardNavigation()
+        switch id {
+        case Self.startMenuRowID: openStartMenu?()
+        case Self.trashRowID: openTrash()
+        case Self.searchRowID: openSearch?()
+        default:
+            if let row = pinned.first(where: { $0.id == id }) {
+                switch row {
+                case .application(let item): activateOrLaunch(item)
+                case .group(let group): openGroup(group)
+                case .folder(let folder): openFolder(folder)
+                }
+            } else if let item = running.first(where: { $0.id == id }) {
+                activateOrLaunch(item)
+            } else if let window = minimized.first(where: { $0.id == id }) {
+                restore(window)
+            }
+        }
     }
 
     // MARK: - Folders

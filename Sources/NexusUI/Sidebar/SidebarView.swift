@@ -138,7 +138,8 @@ public struct SidebarView: View {
             iconSize: model.appearance.iconSize,
             expanded: model.isExpanded,
             isVertical: isVertical,
-            hint: String(localized: "Opens the start menu")
+            hint: String(localized: "Opens the start menu"),
+            isFocused: model.focusedRowID == SidebarViewModel.startMenuRowID
         ) {
             model.openStartMenu?()
         }
@@ -202,7 +203,8 @@ public struct SidebarView: View {
                     ClosureMenuItem(title: String(localized: "Open Trash")) { model.openTrash() },
                     ClosureMenuItem(title: String(localized: "Empty Trash…")) { confirmEmptyTrash() },
                 ]
-            }
+            },
+            isFocused: model.focusedRowID == SidebarViewModel.trashRowID
         ) {
             model.openTrash()
         }
@@ -238,7 +240,8 @@ public struct SidebarView: View {
             iconSize: model.appearance.iconSize,
             expanded: model.isExpanded,
             isVertical: isVertical,
-            hint: String(localized: "Opens the Nexus search palette")
+            hint: String(localized: "Opens the Nexus search palette"),
+            isFocused: model.focusedRowID == SidebarViewModel.searchRowID
         ) {
             model.openSearch?()
         }
@@ -320,6 +323,7 @@ struct SidebarItemView: View {
             }
         }
         .contentShape(Rectangle())
+        .nexusFocusRing(model.focusedRowID == item.id)
         .opacity(model.draggingIdentifier == item.id ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
@@ -460,6 +464,8 @@ struct SidebarGlyphRow: View {
     let isVertical: Bool
     let hint: String
     var menu: () -> [NSMenuItem] = { [] }
+    /// Whether the keyboard is on this row (M23).
+    var isFocused = false
     let action: () -> Void
 
     @State private var isHovered = false
@@ -494,6 +500,7 @@ struct SidebarGlyphRow: View {
                 .fill(isHovered ? AnyShapeStyle(.quinary) : AnyShapeStyle(.clear))
         }
         .contentShape(Rectangle())
+        .nexusFocusRing(isFocused)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering
@@ -555,6 +562,7 @@ struct SidebarSearchBox: View {
                 .padding(isVertical ? .horizontal : .vertical, 8)
         }
         .contentShape(Rectangle())
+        .nexusFocusRing(model.focusedRowID == SidebarViewModel.searchRowID)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering

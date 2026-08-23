@@ -331,14 +331,29 @@ final class Composition {
     // MARK: - Hotkey
 
     func registerHotKey() {
-        hotKeys.onPressed = { [weak self] in self?.searchPanel.toggle() }
+        hotKeys.onPressed = { [weak self] slot in
+            guard let self else { return }
+            switch slot {
+            case .search: searchPanel.toggle()
+            case .focusBar: panels.focusBar()
+            }
+        }
         guard configuration.configuration.general.globalShortcutEnabled else {
-            hotKeys.unregister()
+            hotKeys.unregisterAll()
             return
         }
         let shortcut = configuration.configuration.search.shortcut
-        if case .failure(let error) = hotKeys.register(shortcut) {
+        if case .failure(let error) = hotKeys.register(shortcut, for: .search) {
             Log.system.error("Could not register the global shortcut: \(String(describing: error), privacy: .public)")
+        }
+        // The bar's own shortcut (M23). Optional, and a machine where something else already owns
+        // it simply does not get it — the bar is still a pointer target either way.
+        if let focus = configuration.configuration.general.focusBarShortcut {
+            if case .failure(let error) = hotKeys.register(focus, for: .focusBar) {
+                Log.system.error("Could not register the bar shortcut: \(String(describing: error), privacy: .public)")
+            }
+        } else {
+            hotKeys.unregister(.focusBar)
         }
     }
 

@@ -15,6 +15,7 @@ One file per feature.
 | [`media-player-row.md`](media-player-row.md) | The now-playing row as an actual player: inline controls, a draggable timeline, and no window previews. |
 | [`search-scope.md`](search-scope.md) | Opening the palette at the bar, and telling it what kind of thing to look for. |
 | [`multi-display.md`](multi-display.md) | Which monitors carry a bar: the menu-bar display, the one with the pointer, or every one of them. |
+| [`keyboard-navigation.md`](keyboard-navigation.md) | `⌃F3` and the arrows: how a bar that can never take focus takes the keyboard anyway, and gives it straight back. |
 | [`minimized-windows.md`](minimized-windows.md) | Where a window goes when you minimise it: three rows in the tail, newest first, and why not more. |
 | [`folder-stacks.md`](folder-stacks.md) | A folder in the bar: drop one in, click it, see what is inside — and what a stack does when macOS will not let it read. |
 | [`app-groups.md`](app-groups.md) | Folders in the dock, and the configuration migration they bring with them. |

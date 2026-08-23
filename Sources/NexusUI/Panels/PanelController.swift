@@ -21,6 +21,10 @@ public final class PanelController {
     /// Follows the pointer across monitors, installed only while the preference asks for it.
     private var pointerMonitor: Any?
     private var pointerScreen: DisplayIdentity?
+    /// Whoever had the keyboard before the bar took it (M23).
+    private var keyboardReturnsTo: NSRunningApplication?
+    private var keyboardIdleTask: Task<Void, Never>?
+    private var keyboardResignObserver: (any NSObjectProtocol)?
 
     private var sidebarPanel: NonActivatingPanel? { bars.first }
     private var flyoutPanel: NonActivatingPanel?
@@ -99,6 +103,7 @@ public final class PanelController {
             title: String(localized: "Nexus group")
         )
 
+        model.setKeyboardFocus = { [weak self] focused in self?.setKeyboardFocus(focused) }
         model.showFolder = { [weak self] folder in self?.showFolder(folder) }
         folderModel.onDismiss = { [weak self] in self?.hideFolder() }
         let folderHostingView = FirstMouseHostingView(
@@ -147,6 +152,8 @@ public final class PanelController {
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         groupHideTask?.cancel()
         folderHideTask?.cancel()
+        keyboardIdleTask?.cancel()
+        model.endKeyboardNavigation()
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
         if let pointerMonitor { NSEvent.removeMonitor(pointerMonitor) }
@@ -460,6 +467,83 @@ public final class PanelController {
         return (model.appearance.position.isVertical ? panel.frame.height : panel.frame.width) / 2
     }
 
+    // MARK: - Keyboard navigation (M23)
+
+    /// The shortcut asked for the bar. Takes the keyboard, or gives it back if the bar already has
+    /// it — the same toggle the palette's shortcut is.
+    public func focusBar() {
+        guard !isSuppressed, let panel = sidebarPanel else { return }
+        if model.isKeyboardNavigating {
+            model.endKeyboardNavigation()
+            return
+        }
+        if !isRevealed { reveal() }
+        keyboardReturnsTo = NSApp.isActive ? nil : NSWorkspace.shared.frontmostApplication
+        panel.acceptsKeyboardFocus = true
+        NSApp.activate()
+        panel.makeKeyAndOrderFront(nil)
+        model.beginKeyboardNavigation()
+        armKeyboardIdleTimeout()
+        // Clicking into anything else takes the keyboard back, and the ring has to go with it.
+        keyboardResignObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.model.endKeyboardNavigation() }
+        }
+    }
+
+    /// One key press while the bar has the keyboard. `false` lets the key travel on, which is what
+    /// keeps every other key — a typed character, a system shortcut — working normally.
+    private func handleKey(_ command: BarHostingView<SidebarView>.KeyCommand) -> Bool {
+        guard model.isKeyboardNavigating else { return false }
+        armKeyboardIdleTimeout()
+        switch command {
+        case .previous: model.moveFocus(by: -1)
+        case .next: model.moveFocus(by: 1)
+        case .first: model.focusFirstRow()
+        case .last: model.focusLastRow()
+        case .activate: model.activateFocusedRow()
+        case .cancel: model.endKeyboardNavigation()
+        }
+        return true
+    }
+
+    /// Hands the keyboard back: to whoever had it, or to nobody.
+    private func setKeyboardFocus(_ focused: Bool) {
+        keyboardIdleTask?.cancel()
+        keyboardIdleTask = nil
+        guard let panel = sidebarPanel else { return }
+        if focused {
+            armKeyboardIdleTimeout()
+            return
+        }
+        if let keyboardResignObserver {
+            NotificationCenter.default.removeObserver(keyboardResignObserver)
+        }
+        keyboardResignObserver = nil
+        panel.acceptsKeyboardFocus = false
+        if let application = keyboardReturnsTo,
+           application.bundleIdentifier != Bundle.main.bundleIdentifier {
+            application.activate()
+        } else {
+            NSApp.deactivate()
+        }
+        keyboardReturnsTo = nil
+    }
+
+    /// Insurance, not a feature: a bar left holding the keyboard because something went wrong is
+    /// a machine that will not type. Any key press restarts the clock.
+    private func armKeyboardIdleTimeout() {
+        keyboardIdleTask?.cancel()
+        keyboardIdleTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(10))
+            guard !Task.isCancelled else { return }
+            self?.model.endKeyboardNavigation()
+        }
+    }
+
     /// Whether the bar is on screen at all — what the menu item's own title reports.
     public var isBarVisible: Bool { !isSuppressed }
 
@@ -495,8 +579,10 @@ public final class PanelController {
             if edges.count > screens.count { edges.removeLast().orderOut(nil) }
         }
         while bars.count < screens.count {
+            let hosting = BarHostingView(rootView: SidebarView(model: model))
+            hosting.onKey = { [weak self] command in self?.handleKey(command) ?? false }
             let bar = NonActivatingPanel(
-                contentView: FirstMouseHostingView(rootView: SidebarView(model: model)),
+                contentView: hosting,
                 title: String(localized: "Nexus")
             )
             bars.append(bar)

@@ -45,6 +45,7 @@ struct MinimizedWindowRow: View {
                 .fill(isHovered ? AnyShapeStyle(.quinary) : AnyShapeStyle(.clear))
         }
         .contentShape(Rectangle())
+        .nexusFocusRing(model.focusedRowID == window.id)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering

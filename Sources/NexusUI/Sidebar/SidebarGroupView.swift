@@ -47,6 +47,7 @@ struct SidebarGroupView: View {
             }
         }
         .contentShape(Rectangle())
+        .nexusFocusRing(model.focusedRowID == group.id)
         .opacity(model.draggingIdentifier == group.id ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {

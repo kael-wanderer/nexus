@@ -514,3 +514,26 @@ Spec: `docs/design/folder-stacks.md`.
 - Switching the setting off gives the rows back to the applications.
 
 Spec: `docs/design/minimized-windows.md`.
+
+## Milestone 23 — Keyboard control of the bar  ← post-MVP
+
+**Shipped** 2026-08-23 (live pass pending, with M21 and M22).
+
+**Scope**
+- `⌃F3` — what macOS uses for its own Dock — puts the keyboard on the bar. Arrows walk it on both
+  axes, Home and End jump, Return opens the focused row, Escape gives the keyboard back.
+- The sidebar panel becomes key **only** while that mode is on: `acceptsKeyboardFocus`, cleared by
+  Escape, by opening a row, by losing key status, and by ten seconds of silence.
+- The focused row draws a tinted ring, a shape hover never draws.
+- `HotKeyService` registers a shortcut per slot rather than one in total.
+- `general.focusBarShortcut`, on by default, with a recorder in Settings → Behavior.
+
+**Permissions:** none. The hotkey is Carbon's, like the palette's.
+
+**Acceptance criteria**
+- `⌃F3` rings the first row and arrows move the ring; Return opens what it is on.
+- Escape returns the keyboard to the application that had it, with no click in between.
+- A shortcut another application owns fails to register and is logged; the bar still works.
+- With the setting off, `⌃F3` does nothing.
+
+Spec: `docs/design/keyboard-navigation.md`.

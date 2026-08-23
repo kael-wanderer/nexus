@@ -132,3 +132,4 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D96** | A folder in the dock is a path, and what it cannot read it says out loud | [The bar](decisions/bar.md) |
 | **D97** | Three minimized windows, in the tail, in an order Nexus keeps itself | [Windows](decisions/windows.md) |
 | **D98** | System Settings panes are read from the extension directory, not asked of Spotlight | [Search](decisions/search.md) |
+| **D99** | The bar takes the keyboard only when asked, and gives it back four ways | [The bar](decisions/bar.md) |

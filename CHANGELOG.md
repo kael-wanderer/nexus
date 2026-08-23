@@ -6,6 +6,11 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- Keyboard control of the bar (M23): `⌃F3` — the shortcut macOS uses for its own Dock — puts the
+  keyboard on the bar. Arrows walk it on either axis, Home and End jump, Return opens the focused
+  row, Escape hands the keyboard back to whatever had it. The panel becomes key only while that
+  mode is on and stops being key on Escape, on opening a row, on losing key status, or after ten
+  seconds of silence (D99). `general.focusBarShortcut`, on by default, Settings → Behavior.
 - The Settings scope searches System Settings (D98): every pane — Displays, Keyboard, Screen Time —
   is a result that opens it, read from `/System/Library/ExtensionKit/Extensions` because Spotlight
   does not index the panes on the system volume at all. The scope is renamed **Settings & Actions**,

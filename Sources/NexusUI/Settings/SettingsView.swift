@@ -423,6 +423,35 @@ struct BehaviorPane: View {
                 Toggle(String(localized: "Show favourites"), isOn: configuration.binding(\.behavior.showFavorites))
             }
             Section {
+                Toggle(
+                    String(localized: "Keyboard access to the bar"),
+                    isOn: Binding(
+                        get: { configuration.configuration.general.focusBarShortcut != nil },
+                        set: { on in
+                            configuration.update {
+                                $0.general.focusBarShortcut = on ? .focusBarDefault : nil
+                            }
+                        }
+                    )
+                )
+                if let current = configuration.configuration.general.focusBarShortcut {
+                    LabeledContent(String(localized: "Focus the bar")) {
+                        ShortcutRecorder(
+                            shortcut: Binding(
+                                get: { current },
+                                set: { new in
+                                    configuration.update { $0.general.focusBarShortcut = new }
+                                }
+                            ),
+                            validate: { _ in nil }
+                        )
+                    }
+                }
+                Text("Puts the keyboard on the bar: arrows move along it, Return opens what is focused, Escape gives the keyboard back. It also returns on its own after ten seconds of nothing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Picker(
                     String(localized: "Applications per group"),
                     selection: configuration.binding(\.behavior.groupCapacity)

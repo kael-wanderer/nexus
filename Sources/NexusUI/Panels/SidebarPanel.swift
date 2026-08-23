@@ -3,7 +3,17 @@ import AppKit
 /// The sidebar and the window flyout. Never key, never main — the other application's
 /// insertion point is never disturbed (D3).
 public final class NonActivatingPanel: NSPanel {
-    public override var canBecomeKey: Bool { false }
+    /// The one exception to "never key" (D3), and it is the palette's bargain: the user asked for
+    /// the keyboard, explicitly, with a shortcut. It goes back to false the moment they leave
+    /// (M23) — nothing that happens by itself can set it.
+    public var acceptsKeyboardFocus = false {
+        didSet {
+            guard oldValue != acceptsKeyboardFocus, !acceptsKeyboardFocus, isKeyWindow else { return }
+            resignKey()
+        }
+    }
+
+    public override var canBecomeKey: Bool { acceptsKeyboardFocus }
     public override var canBecomeMain: Bool { false }
 
     /// `title` is never drawn — the panel is borderless — but it is what VoiceOver announces when
