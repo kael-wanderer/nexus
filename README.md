@@ -30,6 +30,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Now playing** | Optional: the track and transport controls in the bar, for any player — Music and Spotify publish theirs, and everything else is named by its window. *(Accessibility for the latter)* |
 | **Always in reach** | Trash and Search sit in a zone that never scrolls. The applications between them fill the edge — as many rows as the screen holds — and scroll only once it is full. |
 | **Groups** | Drag one icon onto another and hold to make a folder. Auto-named from the applications' own category, renameable, 9 or 16 per group. |
+| **Folder stacks** | Drag a folder from Finder onto the bar. Clicking it shows what is inside on a grid — folders first, a file opens in its own application, a subfolder opens in Finder. |
 | **Reserved space** | Optional: windows that overlap the bar are moved off it, full-screen windows left alone. *(Accessibility)* |
 | **Search** | A command palette on a global shortcut, centred like Spotlight — or opened from a search box in the bar, beside it. Applications, windows, files and actions, ranked by match quality, provider weight and frecency, with one scope filter — `⌃1`…`⌃6` or `⇥` — for applications, files or folders only. |
 | **Dock replacement** | Optional: the macOS Dock hides while Nexus runs and comes back when it quits. Your Dock settings are saved first and restored exactly. |

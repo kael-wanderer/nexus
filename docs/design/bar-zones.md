@@ -17,7 +17,7 @@ The bar becomes three parts, and only the middle one scrolls:
 ┌──────────┐   fixed head      start menu (when on)
 │ ▦ Apps   │   ───────────
 ├──────────┤
-│ ▣ Safari │   scrolling       pinned applications and groups, up to `pinnedLimit`
+│ ▣ Safari │   scrolling       pinned applications, groups and folders, up to `pinnedLimit`
 │ ▣ Xcode  │   middle          ───────────
 │ ▣ Slack  │                   running applications, up to `runningLimit`
 │ ▣ Music  │

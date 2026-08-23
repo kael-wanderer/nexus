@@ -81,3 +81,16 @@ frame is the truth — `{23, 8, 2513, 64}` for the numbers above.
 | Closing Settings keeps both bars | Fixed and re-checked: bars still at `23,8` and `2583,8` after the window closes, focus back to Chrome, and the accessibility tree still lists 60 buttons (D93) |
 | A paused browser shows a play triangle | Measured first: paused, CoreAudio still reports Chrome's renderer as outputting, while the window title drops `Audio playing`. After the fix the button reads Play when paused and Pause when playing, on both bars (D92) |
 | The bar's Search part | Both styles live: an icon in one slot, or the box across three that opens the palette beside it |
+
+## Milestones 21 and the two fixes before it — 2026-08-23, 17:00
+
+One 1920×1080 display by then; the two 2560×1440 monitors of the earlier session were gone.
+
+| Check | Result |
+|---|---|
+| The menu-bar item says which way it toggles | Driven through the accessibility tree: the item read `Hide Nexus Bar`, clicking it took the bar off screen, reopening the menu read `Show Nexus Bar`, and clicking that put the bar back (D94) |
+| A quit player loses its media row | VLC playing a generated WAV: row showed `long` with a 0:34 / −0:53 timeline. `quit` VLC → the row was gone within three seconds (D95) |
+| Closing a browser tab clears the row | Measured *before* fixing anything, since that was the report. A YouTube video, an `<audio>` element and a WebAudio tone, each closed as the only tab, as one tab of several, while playing and while paused: CoreAudio stopped naming Chrome within two seconds every time, and the row went with it. The reported symptom did not reproduce on this build |
+| Configuration migrates 4 → 5 | `defaults export` after installing M21: `version: 5`, the five pinned applications unchanged, no new `configuration.corrupt.*` key (D96) |
+| Nexus starts on the new build | `Nexus launched in 924 ms`, `Sidebar panels shown: 1`, `Sidebar rows: 5 pinned, 17 running` |
+| Dragging a folder from Finder onto the bar | **Not verified.** The machine's displays changed mid-session, `screencapture` began returning wallpaper with no windows and System Events lost Finder — the signature of Screen Recording and Accessibility being toggled in System Settings, which was frontmost. Driving synthetic drags through that would have proved nothing. The drop handler, the listing, the refusal and the missing-folder cases are unit-tested; the Finder drag itself is the one part of M21 with no live pass |

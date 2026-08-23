@@ -13,7 +13,9 @@ Today a pinned entry is a bundle identifier:
 public var pinnedApplications: [String] = []
 ```
 
-A group is not an application, so the list becomes a list of entries:
+A group is not an application, so the list becomes a list of entries — the same list a folder
+stack later joins as a third kind (`folder-stacks.md`), and groups stay groups *of applications*:
+dropping something on a folder reorders it rather than grouping with it.
 
 ```swift
 public enum DockEntry: Codable, Sendable, Equatable, Identifiable {
