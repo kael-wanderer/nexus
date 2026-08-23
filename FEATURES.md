@@ -36,6 +36,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 23 | Dark/light mode | M2 | None | System materials, no hard-coded colors |
 | 24 | Keyboard navigation | M5 (palette) → M7 (sidebar) | None | Palette is keyboard-first from day one |
 | 25 | Accessibility basics | every milestone | None | Labels written with the view, not retrofitted; audited at M7 |
+| 26 | Install and launch at login | M6 (toggle) → M18 (install) | None | `make install` puts the signed bundle in `/Applications`; `SMAppService.mainApp` registers it there, and the toggle warns when Nexus is running from anywhere else (D86) |
 
 ### Basic actions shipped in the MVP (§13)
 

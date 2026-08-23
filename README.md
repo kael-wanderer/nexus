@@ -62,7 +62,19 @@ cd Nexus
 make run
 ```
 
-`make run` builds `build/Nexus.app`, signs it, and launches it.
+`make run` builds `build/Nexus.app`, signs it, and launches it — that is the development loop.
+To keep Nexus:
+
+```sh
+make install
+```
+
+That puts the signed bundle in `/Applications` and launches it from there. Do this before turning
+on **Launch Nexus at login**: macOS registers the login item at the path the application is running
+from, so a login item registered out of `build/` breaks the moment you `make clean` (D86). The
+Settings toggle says as much when Nexus is running from anywhere else.
+
+Uninstalling is the usual drag to the Trash; macOS drops the login item with it.
 
 **Signing matters.** macOS ties Accessibility and Screen Recording grants to the code
 signature. An ad-hoc signature changes on **every rebuild**, so every permission you grant is
@@ -126,6 +138,7 @@ swift test           # run the unit tests
 make lint            # rebuild from scratch and fail on any warning
 make app             # assemble and sign build/Nexus.app
 make run             # stop any running instance, rebuild, relaunch
+make install         # copy the signed bundle to /Applications and run it from there
 make signing-info    # show which identity will be used
 make clean
 ```

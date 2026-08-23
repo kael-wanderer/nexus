@@ -120,6 +120,11 @@ struct LaunchAtLoginToggle: View {
         // External changes (the user toggling the login item in System Settings) show up when
         // this pane comes back into view.
         .onAppear { loginState = LoginItemService.state }
+        if !LoginItemService.isInInstallLocation {
+            Text("Nexus is not in your Applications folder, so login would launch it from wherever it is running now. Move Nexus to Applications first.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
         if loginState == .requiresApproval {
             Text("Approve Nexus in System Settings → General → Login Items.")
                 .font(.caption)

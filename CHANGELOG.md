@@ -6,6 +6,10 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- `make install`: the signed bundle goes to `/Applications` and runs from there, with the
+  signature preserved so Accessibility and Screen Recording grants survive the move. It refuses to
+  install an ad-hoc build (D86). Launch at login is only registered where it can be honoured — the
+  Settings toggle says so when Nexus is running from anywhere but an Applications folder.
 - Sidebar on any screen edge: `top` and `bottom` join `left` and `right`. Horizontal bars lay
   rows out along their width; hover-expand is vertical-only (D53).
 - Dock Replacement Mode (D51/D52): the macOS Dock hides while Nexus runs and is restored exactly

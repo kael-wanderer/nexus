@@ -394,7 +394,29 @@ Spec: `docs/design/media-player-row.md`.
 
 Spec: `docs/design/media-player-row.md` §The wide player.
 
-## Milestone 18 — Search scope, and opening at the bar  ← post-MVP
+## Milestone 18 — Install and launch at login  ← post-MVP
+
+**Shipped** 2026-08-23.
+
+**Scope**
+- `make install` copies the signed bundle to `/Applications` with `ditto` and runs it from there;
+  the running instance is stopped first, because the single-instance guard would otherwise hand the
+  launch back to the copy in `build/`. An ad-hoc build is refused.
+- Launch at login registers the bundle where it stands, so the Settings toggle says when Nexus is
+  running from somewhere a login item cannot survive.
+
+**Permissions:** none new. The signature is unchanged by the move, so existing grants carry over.
+
+**Acceptance criteria**
+- The installed application keeps the Accessibility grant — window observers install on first launch
+  from `/Applications` without a new prompt.
+- Launching the copy in `build/` while the installed one runs activates the installed one and exits.
+- Turning on launch at login from `/Applications` leaves `SMAppService` in `.enabled`, and the same
+  toggle from a build directory carries the warning instead.
+
+Spec: none — the Makefile target and `LoginItemService` are the whole of it (D86).
+
+## Milestone 19 — Search scope, and opening at the bar  ← post-MVP
 
 **Scope**
 - The palette can open anchored to the Search row instead of mid-screen (`search.opensAtBar`).

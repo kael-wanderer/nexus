@@ -70,3 +70,40 @@ struct KeyboardShortcutDisplayTests {
         #expect(KeyboardShortcut(keyCode: 0, modifiers: KeyboardShortcut.optionKey).displayString == "⌥A")
     }
 }
+
+@Suite("LoginItemService")
+@MainActor
+struct LoginItemLocationTests {
+    @Test("An app in /Applications is in its install location")
+    func applications() {
+        #expect(LoginItemService.isInstallLocation(URL(fileURLWithPath: "/Applications/Nexus.app")))
+    }
+
+    @Test("A build directory is not")
+    func buildDirectory() {
+        #expect(
+            LoginItemService.isInstallLocation(
+                URL(fileURLWithPath: "/Users/someone/code/Nexus/build/Nexus.app")
+            ) == false
+        )
+    }
+
+    @Test("Nor is a subfolder of Applications, which login items would not survive tidying")
+    func nested() {
+        #expect(
+            LoginItemService.isInstallLocation(
+                URL(fileURLWithPath: "/Applications/Utilities/Nexus.app")
+            ) == false
+        )
+    }
+
+    @Test("The user's own Applications folder counts")
+    func userDomain() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        #expect(
+            LoginItemService.isInstallLocation(
+                home.appendingPathComponent("Applications/Nexus.app")
+            )
+        )
+    }
+}

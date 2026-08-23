@@ -724,3 +724,23 @@ bar where the row is 64 points wide. That moved into the row's context menu as a
 right-click the player and it says what is playing. The group popover and the window flyout keep
 their panels: those show things that genuinely do not fit in a bar.
 
+
+**D86. Nexus installs into /Applications, and says so when it has not.**
+
+Launch at login is `SMAppService.mainApp`, which registers *the bundle where it stands*. Registered
+from `build/Nexus.app` — where every developer and, until now, the only user ran it from — the login
+item points into a build directory that `make clean` deletes, and macOS then launches nothing at
+login with no error anywhere the user can see.
+
+`make install` copies the signed bundle to `/Applications` with `ditto`, so the signature is
+untouched and the Accessibility and Screen Recording grants survive the move; the running instance is
+stopped first, because the single-instance guard would otherwise hand the launch straight back to the
+copy in `build/`. It refuses outright to install an ad-hoc build: a signature that changes on every
+rebuild is exactly what an installed application must not have.
+
+The toggle in Settings carries the other half. When the running bundle is not in either Applications
+folder, it says so under the switch rather than registering a path that will not survive. The check
+is the parent directory against `FileManager.urls(for: .applicationDirectory, in:)` for both domains,
+with symlinks resolved — `/Applications/Utilities/Nexus.app` is not an install location either,
+because a login item that survives someone tidying their Applications folder into subfolders is a
+claim we cannot keep.

@@ -25,6 +25,22 @@ public enum LoginItemService {
 
     public static var isEnabled: Bool { state == .enabled }
 
+    /// Whether the running bundle sits in an Applications folder.
+    ///
+    /// `SMAppService` registers the bundle *where it stands*. Registered from a build directory,
+    /// launch at login points at a path the next `make clean` deletes, and macOS then silently
+    /// launches nothing. The toggle says so rather than lying about it.
+    public static var isInInstallLocation: Bool {
+        isInstallLocation(Bundle.main.bundleURL)
+    }
+
+    static func isInstallLocation(_ bundle: URL) -> Bool {
+        let parent = bundle.resolvingSymlinksInPath().deletingLastPathComponent().path
+        return FileManager.default
+            .urls(for: .applicationDirectory, in: [.localDomainMask, .userDomainMask])
+            .contains { $0.resolvingSymlinksInPath().path == parent }
+    }
+
     /// Throws rather than silently disagreeing with the toggle: the caller re-reads `state` and
     /// shows what macOS actually did.
     public static func setEnabled(_ enabled: Bool) throws {

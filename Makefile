@@ -10,6 +10,8 @@ BUILD_DIR   := $(shell swift build -c $(CONFIG) --show-bin-path)
 APP_NAME    := Nexus
 APP         := build/$(APP_NAME).app
 BUNDLE_ID   := com.congbui.nexus
+INSTALL_DIR ?= /Applications
+INSTALLED   := $(INSTALL_DIR)/$(APP_NAME).app
 
 # Auto-detect, in order: an "Apple Development" certificate, then ANY valid codesigning
 # identity, then ad-hoc. Stability is what matters to TCC, not who issued the certificate.
@@ -23,7 +25,7 @@ ifeq ($(strip $(SIGNING_IDENTITY)),)
 SIGNING_IDENTITY := -
 endif
 
-.PHONY: all build release test lint app run stop clean signing-info reset-config logs
+.PHONY: all build release test lint app install run stop clean signing-info reset-config logs
 
 all: app
 
@@ -66,6 +68,22 @@ app: build signing-info
 	codesign --force --sign "$(SIGNING_IDENTITY)" --identifier $(BUNDLE_ID) $(APP)
 	@codesign -dv $(APP) 2>&1 | head -5
 	@echo "Built $(APP)"
+
+## Install into /Applications and run from there. Launch at login registers the bundle where it
+## stands, so a login item is only meaningful once Nexus lives somewhere permanent — not in build/,
+## which `make clean` deletes. `ditto` preserves the signature, so TCC grants survive the move.
+install: app
+	@if [ "$(SIGNING_IDENTITY)" = "-" ]; then \
+	  echo "Refusing to install an ad-hoc build: its signature changes on every rebuild, so every"; \
+	  echo "Accessibility and Screen Recording grant would reset. See 'make signing-info'."; \
+	  exit 1; \
+	fi
+	@$(MAKE) --no-print-directory stop
+	@rm -rf "$(INSTALLED)"
+	@ditto $(APP) "$(INSTALLED)"
+	@codesign --verify --strict "$(INSTALLED)" && echo "Signature verified"
+	@open "$(INSTALLED)"
+	@echo "Installed $(INSTALLED). Turn on Launch at login in Settings > General."
 
 run: stop app
 	open $(APP)
