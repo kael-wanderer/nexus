@@ -32,11 +32,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func install() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(
+        // The bundled template image; the SF Symbol is the fallback for an unbundled dev build,
+        // where there are no resources to load.
+        let image = NSImage(named: "NexusTemplate") ?? NSImage(
             systemSymbolName: "square.grid.2x2",
             accessibilityDescription: String(localized: "Nexus")
         )
-        item.button?.image?.isTemplate = true
+        image?.isTemplate = true
+        image?.accessibilityDescription = String(localized: "Nexus")
+        item.button?.image = image
         item.button?.setAccessibilityLabel(String(localized: "Nexus"))
         let menu = buildMenu()
         menu.delegate = self

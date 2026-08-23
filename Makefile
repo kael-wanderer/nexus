@@ -59,6 +59,7 @@ app: build signing-info
 	@cp Resources/Info.plist $(APP)/Contents/Info.plist
 	@cp $(BUILD_DIR)/NexusApp $(APP)/Contents/MacOS/NexusApp
 	@cp Resources/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
+	@cp Resources/NexusTemplate.png Resources/NexusTemplate@2x.png $(APP)/Contents/Resources/
 	@if [ -d "$(BUILD_DIR)/Nexus_NexusUI.bundle" ]; then cp -R "$(BUILD_DIR)/Nexus_NexusUI.bundle" $(APP)/Contents/Resources/; fi
 	@if [ -d "$(BUILD_DIR)/Nexus_NexusCore.bundle" ]; then cp -R "$(BUILD_DIR)/Nexus_NexusCore.bundle" $(APP)/Contents/Resources/; fi
 	@printf 'APPL????' > $(APP)/Contents/PkgInfo
