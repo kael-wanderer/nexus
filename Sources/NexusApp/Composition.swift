@@ -93,7 +93,7 @@ final class Composition {
             events: events,
             windows: windows
         )
-        searchPanel = SearchPanelController(model: searchModel)
+        searchPanel = SearchPanelController(model: searchModel, configuration: configuration)
         startMenuModel = StartMenuViewModel(
             index: applicationIndex.snapshot,
             configuration: configuration,
@@ -162,6 +162,9 @@ final class Composition {
         searchModel.frontmostApplication = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
         searchModel.onExecute = { [weak self] result, secondary in self?.execute(result, secondary: secondary) }
         searchPanel.willShow = { [weak self] in self?.prepareSearch() }
+        // The palette can open at the bar's Search row rather than mid-screen (M19). The bar's
+        // geometry belongs to the panel controller, so the palette asks for it when it opens.
+        searchPanel.barAnchor = { [weak self] in self?.panels.searchRowAnchor() }
 
         sidebarModel.start()
         flyoutModel.start()

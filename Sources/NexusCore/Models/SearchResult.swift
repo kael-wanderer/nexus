@@ -132,10 +132,14 @@ public struct SearchQuery: Sendable, Equatable {
     public let text: String
     /// Monotonic; snapshots carrying a stale token are dropped at the view-model boundary.
     public let token: UInt64
+    /// What this one search is allowed to look at (M19). Applied before ranking, so a scope
+    /// narrows the candidate set and cannot reorder what survives it.
+    public let scope: SearchScope
 
-    public init(text: String, token: UInt64) {
+    public init(text: String, token: UInt64, scope: SearchScope = .everything) {
         self.text = text
         self.token = token
+        self.scope = scope
     }
 
     public var trimmed: String {

@@ -40,6 +40,7 @@ public final class SearchPanelController {
     }
 
     private let model: SearchViewModel
+    private let configuration: ConfigurationController
     private var panel: SearchPanel?
     private var hosting: NSView?
     private var previousApplication: NSRunningApplication?
@@ -52,9 +53,14 @@ public final class SearchPanelController {
     public private(set) var isVisible = false
     /// Injected so the palette can refresh the window snapshot the moment it opens.
     public var willShow: (() -> Void)?
+    /// Where the bar's Search row is, when there is a bar on screen. Supplied by the controller
+    /// that owns the bar; `nil` means "no bar to anchor to", and the palette goes back to the
+    /// middle of the screen (M19).
+    public var barAnchor: (() -> SidebarLayout.BarAnchor?)?
 
-    public init(model: SearchViewModel) {
+    public init(model: SearchViewModel, configuration: ConfigurationController) {
         self.model = model
+        self.configuration = configuration
     }
 
     public func start() {
@@ -63,6 +69,15 @@ public final class SearchPanelController {
         panel = SearchPanel(contentView: hostingView)
         model.onResultsChanged = { [weak self] in self?.resize() }
         model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
+        // Picking a scope from the menu takes first responder; the field gets it straight back —
+        // without selecting what is in it, which would make the next keystroke replace the query.
+        model.onScopeChanged = { [weak self] in
+            guard let self, let panel = self.panel, self.isVisible,
+                  let field = Self.firstTextField(in: panel.contentView),
+                  panel.firstResponder !== field.currentEditor()
+            else { return }
+            panel.makeFirstResponder(field)
+        }
     }
 
     public func stop() {
@@ -181,9 +196,14 @@ public final class SearchPanelController {
 
     // MARK: - Geometry
 
-    /// Always on the display containing the pointer, regardless of the sidebar's display —
-    /// that is where the user is looking.
+    /// Beside the bar's Search row when the setting asks for it, and otherwise on the display
+    /// containing the pointer, regardless of the sidebar's display — that is where the user is
+    /// looking.
     private func position(_ panel: SearchPanel) {
+        if let anchor = currentAnchor() {
+            panel.setFrame(anchor.frame(for: panel.frame.size), display: true)
+            return
+        }
         guard let screen = DisplayService.screenContainingMouse() ?? NSScreen.main else { return }
         let frame = screen.visibleFrame
         let size = panel.frame.size
@@ -195,15 +215,27 @@ public final class SearchPanelController {
         )
     }
 
+    private func currentAnchor() -> SidebarLayout.BarAnchor? {
+        guard configuration.configuration.search.opensAtBar else { return nil }
+        return barAnchor?()
+    }
+
     private func resize() {
         guard let panel, let hosting, isVisible else { return }
         hosting.layoutSubtreeIfNeeded()
         let height = max(hosting.fittingSize.height, SearchPaletteView.fieldHeight)
         guard abs(height - panel.frame.height) > 0.5 else { return }
+        let size = CGSize(width: SearchPaletteView.width, height: height)
+        // Anchored to a row, the palette is re-placed rather than grown: a list that gets longer
+        // has to stay attached to the bar, which for a bottom bar means growing *upwards*.
+        if let anchor = currentAnchor() {
+            panel.setFrame(anchor.frame(for: size), display: true)
+            return
+        }
         // Grow downwards from a stable top edge.
         let top = panel.frame.maxY
         panel.setFrame(
-            NSRect(x: panel.frame.minX, y: top - height, width: SearchPaletteView.width, height: height),
+            NSRect(x: panel.frame.minX, y: top - height, width: size.width, height: height),
             display: true
         )
     }
@@ -223,18 +255,28 @@ public final class SearchPanelController {
         return nil
     }
 
-    // MARK: - ⌘1…⌘9
+    // MARK: - ⌘1…⌘9 and ⌃1…⌃6
 
+    /// Two digit chords, and they must not be the same one: `⌘` runs the numbered result, `⌃`
+    /// picks a scope (D87). The menu carries the same shortcuts for display, and repeating a
+    /// scope that is already set is a no-op, so a double delivery costs nothing.
     private func installDigitMonitor() {
         removeDigitMonitor()
         digitMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.isVisible,
-                  event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
                   let characters = event.charactersIgnoringModifiers,
-                  let digit = Int(characters), (1...9).contains(digit)
+                  let digit = Int(characters)
             else { return event }
-            self.model.selectRow(digit - 1)
-            return nil
+            switch event.modifierFlags.intersection(.deviceIndependentFlagsMask) {
+            case .command where (1...9).contains(digit):
+                self.model.selectRow(digit - 1)
+                return nil
+            case .control where SearchScope.scope(forShortcut: digit) != nil:
+                self.model.selectScope(shortcut: digit)
+                return nil
+            default:
+                return event
+            }
         }
     }
 

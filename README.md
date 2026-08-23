@@ -31,7 +31,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Always in reach** | Trash and Search sit in a zone that never scrolls. The applications between them fill the edge — as many rows as the screen holds — and scroll only once it is full. |
 | **Groups** | Drag one icon onto another and hold to make a folder. Auto-named from the applications' own category, renameable, 9 or 16 per group. |
 | **Reserved space** | Optional: windows that overlap the bar are moved off it, full-screen windows left alone. *(Accessibility)* |
-| **Search** | A command palette on a global shortcut. Applications, windows, files and actions, ranked by match quality, provider weight and frecency. |
+| **Search** | A command palette on a global shortcut, opening beside the bar's Search row. Applications, windows, files and actions, ranked by match quality, provider weight and frecency, with one scope filter — `⌃1`…`⌃6` or `⇥` — for applications, files or folders only. |
 | **Dock replacement** | Optional: the macOS Dock hides while Nexus runs and comes back when it quits. Your Dock settings are saved first and restored exactly. |
 | **Settings** | General, Dock, Appearance, Behavior, Search, Permissions. Everything applies live. |
 | **Onboarding** | Six skippable steps. Skipping all of them still leaves a working launcher. |

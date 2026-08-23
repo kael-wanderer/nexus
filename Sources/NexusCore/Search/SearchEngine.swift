@@ -34,7 +34,9 @@ public actor SearchEngine {
         cancelAll()
 
         let active = providers.filter {
-            enabled.contains($0.identifier) && query.trimmed.count >= $0.minimumCharacters
+            enabled.contains($0.identifier)
+                && query.scope.providers.contains($0.identifier)
+                && query.trimmed.count >= $0.minimumCharacters
         }
         let maximumResults = self.maximumResults
 

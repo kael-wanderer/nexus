@@ -11,6 +11,9 @@ struct NativeSearchField: NSViewRepresentable {
     var onMove: (Int) -> Void
     var onSubmit: (Bool) -> Void
     var onCancel: () -> Void
+    /// `⇥` and `⇧⇥`. The field editor reports them as commands, so they never reach a key monitor
+    /// and never move focus out of a palette that has exactly one control.
+    var onCycleScope: ((Int) -> Void)?
 
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField(string: text)
@@ -63,6 +66,12 @@ struct NativeSearchField: NSViewRepresentable {
                 parent.onSubmit(true)
             case #selector(NSResponder.cancelOperation(_:)):
                 parent.onCancel()
+            case #selector(NSResponder.insertTab(_:)):
+                guard let cycle = parent.onCycleScope else { return false }
+                cycle(1)
+            case #selector(NSResponder.insertBacktab(_:)):
+                guard let cycle = parent.onCycleScope else { return false }
+                cycle(-1)
             default:
                 return false
             }

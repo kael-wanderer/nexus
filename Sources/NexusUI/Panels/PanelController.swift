@@ -303,6 +303,27 @@ public final class PanelController {
         )
     }
 
+    /// Where the palette should sit to look like it came out of the Search row (M19). `nil` when
+    /// there is no visible bar to anchor to — the bar is suppressed, hidden by auto-hide, or has no
+    /// Search row — and the palette falls back to the middle of the screen.
+    public func searchRowAnchor() -> SidebarLayout.BarAnchor? {
+        guard let panel = sidebarPanel, let screen = targetScreen,
+              !isSuppressed, isRevealed,
+              let section = model.searchSectionIndex
+        else { return nil }
+        return SidebarLayout.BarAnchor(
+            bar: panel.frame,
+            screen: screen.visibleFrame,
+            rowCentre: SidebarLayout.rowCentre(
+                sectionRowCounts: model.sectionRowCounts,
+                section: section,
+                row: 0,
+                appearance: model.appearance
+            ),
+            position: model.appearance.position
+        )
+    }
+
     /// Distance to the centre of the row that *draws* `id` — which for an application inside a
     /// group is the group's row, not one of its own.
     private func anchorOffset(forRow id: String) -> CGFloat {

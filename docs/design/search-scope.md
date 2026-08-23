@@ -14,8 +14,15 @@ of at 62% of the screen height — beside a vertical bar, above or below a horiz
 where the window flyout appears. The palette is already its own activating panel; only its position
 changes.
 
-`search.opensAtBar`, default **on** once this ships. The centred position stays available, because
-on a large display the middle of the screen is where the eye already is.
+`search.opensAtBar`, default **on**. The centred position stays available, because on a large
+display the middle of the screen is where the eye already is; it is also the fallback whenever there
+is no bar to anchor to — suppressed from the status menu, hidden by auto-hide, or a build with no
+Search row.
+
+Anchoring reuses `SidebarLayout.flyoutFrame`, the same placement the window flyout and the group
+popover use, so a palette that grows as results arrive stays attached to the row: it grows *upwards*
+off a bottom bar, and it is clamped on screen, which is why the palette beside the last row of a
+1,868-point bar sits at the screen's edge rather than half off it.
 
 ## Scope
 
@@ -28,19 +35,31 @@ One filter, applied before ranking:
 | Files & folders | Both |
 | Files | Files, no folders |
 | Folders | Folders only |
-| Settings | System Settings panes and Nexus's own actions |
+| Settings | Nexus's actions and the ones that open System Settings |
 
-- **Chosen with the keyboard**: `⌘1`…`⌘6` while the palette is open, and `⇥` cycles. The current
-  scope is a chip in the field, and Escape clears the scope before it closes the palette — the same
-  two-stage Escape a browser's find bar uses.
-- **Remembered per session, not stored.** A scope chosen for one search is the wrong default for the
-  next one; the palette opens on Everything unless `search.defaultScope` says otherwise.
+- **Chosen with the keyboard**: `⌃1`…`⌃6` while the palette is open, and `⇥` / `⇧⇥` cycle. Not
+  `⌘1`…`⌘6` — those already run the numbered result, and each row draws that badge (D87). The
+  current scope is a chip in the field, and Escape clears the scope before it closes the palette —
+  the same two-stage Escape a browser's find bar uses.
+- **Also a menu.** The chip is the control that changes the scope, carrying the same `⌃N`
+  shortcuts, so nothing here needs the keyboard.
+- **Not remembered.** The palette opens on Everything every time: a scope chosen for one search is
+  rarely the right default for the next, and a stored one is a filter the user cannot see the
+  reason for three days later.
 - **Files versus folders** is a Spotlight predicate, not a post-filter:
   `kMDItemContentTypeTree == "public.folder"` picks folders out and its negation picks files. The
   file provider already runs a metadata query, so this is one clause, not a new search.
 
+Windows are reachable only from Everything. A window is not a category anybody goes hunting in — it
+is the application they already named — and a seventh scope for it would cost a shortcut to save
+nobody a keystroke.
+
 Scope also answers a question the provider toggles could not: those switch a provider off for
 everybody, forever. A scope is for this search.
+
+**Not built:** a Settings scope that enumerates System Settings panes. Today it reaches the action
+provider, which includes the actions that open System Settings; indexing panes is a new provider,
+and nothing has asked for one yet.
 
 ## Rules it inherits
 
@@ -52,6 +71,6 @@ everybody, forever. A scope is for this search.
 
 - Each scope excludes what it should and keeps what it should.
 - Folders-only and files-only are complements over the same query.
-- `⌘3` selects a scope and re-runs the query without a keystroke of input.
+- `⌃3` selects a scope and re-runs the query without a keystroke of input.
 - Escape with a scope set clears the scope; Escape again closes the palette.
 - Opening at the bar puts the palette beside the Search row on all four edges, clamped on screen.

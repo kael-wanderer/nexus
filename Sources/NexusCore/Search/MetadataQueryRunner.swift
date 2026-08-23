@@ -22,18 +22,44 @@ public enum MetadataScope: Sendable {
     }
 }
 
+/// Whether a file query wants files, folders, or both (M19).
+public enum FileKind: String, Sendable, Hashable {
+    case any
+    case filesOnly
+    case foldersOnly
+
+    /// `kMDItemContentTypeTree` rather than `kMDItemContentType`: a folder's own content type is
+    /// whatever kind of folder it is — a bundle, a package, a plain directory — and the tree is
+    /// where `public.folder` is common to all of them.
+    var predicate: NSPredicate? {
+        switch self {
+        case .any:
+            nil
+        case .foldersOnly:
+            NSPredicate(format: "kMDItemContentTypeTree == %@", "public.folder")
+        case .filesOnly:
+            NSCompoundPredicate(
+                notPredicateWithSubpredicate:
+                    NSPredicate(format: "kMDItemContentTypeTree == %@", "public.folder")
+            )
+        }
+    }
+}
+
 public enum MetadataSearch: Sendable {
     case applicationBundles
     /// Display-name prefix match. The text is bound as a predicate argument, never interpolated
     /// into the format string.
-    case displayNamePrefix(String)
+    case displayNamePrefix(String, kind: FileKind = .any)
 
     var predicate: NSPredicate {
         switch self {
         case .applicationBundles:
-            NSPredicate(format: "kMDItemContentType == %@", "com.apple.application-bundle")
-        case .displayNamePrefix(let text):
-            NSPredicate(format: "kMDItemDisplayName LIKE[cd] %@", "\(text)*")
+            return NSPredicate(format: "kMDItemContentType == %@", "com.apple.application-bundle")
+        case .displayNamePrefix(let text, let kind):
+            let name = NSPredicate(format: "kMDItemDisplayName LIKE[cd] %@", "\(text)*")
+            guard let kindPredicate = kind.predicate else { return name }
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [name, kindPredicate])
         }
     }
 }

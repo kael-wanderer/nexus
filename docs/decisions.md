@@ -744,3 +744,20 @@ is the parent directory against `FileManager.urls(for: .applicationDirectory, in
 with symlinks resolved — `/Applications/Utilities/Nexus.app` is not an install location either,
 because a login item that survives someone tidying their Applications folder into subfolders is a
 claim we cannot keep.
+
+**D87. Scopes are `⌃1`…`⌃6`, not `⌘1`…`⌘6`.**
+
+`design/search-scope.md` asked for `⌘1`…`⌘6`. Those keys were already taken, and visibly so: every
+result row in the palette draws its own `⌘N` badge and running the numbered result is how the
+keyboard-first path works. A chord that means "run result 3" in one build and "search folders only"
+in the next is worse than a chord nobody guesses first time.
+
+So the digits move one modifier over: `⌘N` runs a result, `⌃N` picks a scope, and `⇥` / `⇧⇥` cycle
+through the six for the hand that is already on the keyboard. `⇥` is handled in the field editor's
+`doCommandBy` rather than a key monitor, because the palette has exactly one control and Tab would
+otherwise walk focus out of it.
+
+The chip that shows the current scope is also the menu that changes it, so the whole feature is
+reachable with the mouse — and picking from that menu hands first responder back to the field
+without selecting what is in it, or the next keystroke would replace the query the scope was chosen
+for.

@@ -99,12 +99,12 @@ public struct FileSearchProvider: SearchProvider {
     public let debounce = Duration.milliseconds(120)
     public let minimumCharacters = 2
 
-    private let run: @Sendable (String, Int) async -> [MetadataItem]
+    private let run: @Sendable (String, Int, FileKind) async -> [MetadataItem]
 
     public init(
-        run: @escaping @Sendable (String, Int) async -> [MetadataItem] = { text, limit in
+        run: @escaping @Sendable (String, Int, FileKind) async -> [MetadataItem] = { text, limit, kind in
             await MetadataQueryRunner.shared.run(
-                .displayNamePrefix(text),
+                .displayNamePrefix(text, kind: kind),
                 scope: .userHome,
                 limit: limit
             )
@@ -115,7 +115,7 @@ public struct FileSearchProvider: SearchProvider {
 
     public func results(for query: SearchQuery, context: SearchContext) async -> [SearchResult] {
         let text = query.trimmed
-        let items = await run(text, SearchCategory.file.resultCap * 4)
+        let items = await run(text, SearchCategory.file.resultCap * 4, query.scope.fileKind)
 
         return items.compactMap { item in
             guard let matchScore = StringMatch.score(query: text, candidate: item.displayName)

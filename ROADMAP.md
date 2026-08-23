@@ -418,10 +418,13 @@ Spec: none — the Makefile target and `LoginItemService` are the whole of it (D
 
 ## Milestone 19 — Search scope, and opening at the bar  ← post-MVP
 
+**Shipped** 2026-08-23.
+
 **Scope**
 - The palette can open anchored to the Search row instead of mid-screen (`search.opensAtBar`).
 - A scope filter — Everything, Applications, Files & folders, Files, Folders, Settings — chosen with
-  `⌘1`…`⌘6` or `⇥`, shown as a chip in the field, cleared by the first Escape.
+  `⌃1`…`⌃6`, `⇥` / `⇧⇥`, or the chip's own menu, shown as a chip in the field, cleared by the first
+  Escape. `⌘1`…`⌘6` were already taken by the numbered results (D87).
 - Files versus folders is a Spotlight predicate on the existing query, not a second search.
 
 **Permissions:** none new.

@@ -43,11 +43,14 @@ public struct SearchPaletteView: View {
                 .accessibilityHidden(true)
             NativeSearchField(
                 text: $model.query,
-                placeholder: String(localized: "Search apps, files, windows…"),
+                placeholder: model.scope == .everything
+                    ? String(localized: "Search apps, files, windows…")
+                    : String(localized: "Search \(model.scope.title.lowercased())…"),
                 fontSize: 20,
                 onMove: { model.moveSelection(by: $0) },
                 onSubmit: { model.execute(secondary: $0) },
-                onCancel: { model.close() }
+                onCancel: { model.cancel() },
+                onCycleScope: { model.cycleScope(by: $0) }
             )
             .frame(height: 26)
             if model.isSearching {
@@ -55,9 +58,43 @@ public struct SearchPaletteView: View {
                     .controlSize(.small)
                     .accessibilityLabel(String(localized: "Searching"))
             }
+            scopeChip
         }
         .padding(.horizontal, 16)
         .frame(height: Self.fieldHeight)
+    }
+
+    /// The scope, as a chip that is also how you change it with the mouse. `⇥` cycles and
+    /// `⌃1`…`⌃6` pick one directly; the menu is for the times the keyboard is not where the hand
+    /// already is.
+    private var scopeChip: some View {
+        Menu {
+            ForEach(SearchScope.allCases, id: \.self) { scope in
+                Button {
+                    model.scope = scope
+                } label: {
+                    Label(scope.title, systemImage: scope.symbol)
+                }
+                .keyboardShortcut(
+                    KeyEquivalent(Character("\(scope.shortcut)")),
+                    modifiers: .control
+                )
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: model.scope.symbol)
+                    .font(.system(size: 11))
+                Text(model.scope.title)
+                    .font(.caption)
+            }
+            .foregroundStyle(model.scope == .everything ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.borderless)
+        .fixedSize()
+        .accessibilityLabel(String(localized: "Search scope"))
+        .accessibilityValue(model.scope.title)
+        .accessibilityHint(String(localized: "Narrows the search to one kind of result"))
     }
 
     private var list: some View {

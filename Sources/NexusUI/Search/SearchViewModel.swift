@@ -13,6 +13,18 @@ public final class SearchViewModel {
         }
     }
 
+    /// The scope this search is running in (M19). Set it and the query re-runs; it goes back to
+    /// `.everything` every time the palette opens, because a scope chosen for one search is
+    /// rarely the right default for the next.
+    public var scope: SearchScope = .everything {
+        didSet {
+            guard scope != oldValue else { return }
+            selectionIsPinned = false
+            runSearch()
+            onScopeChanged?()
+        }
+    }
+
     public private(set) var results: [SearchResult] = []
     public private(set) var selectedID: String?
     public private(set) var isSearching = false
@@ -29,6 +41,9 @@ public final class SearchViewModel {
     @ObservationIgnored public var onClose: (() -> Void)?
     @ObservationIgnored public var onResultsChanged: (() -> Void)?
     @ObservationIgnored public var frontmostApplication: (() -> String?)?
+    /// The palette hands the keyboard back to the field: picking a scope from the menu with the
+    /// mouse takes first responder away from it, and the next keystroke would go nowhere.
+    @ObservationIgnored public var onScopeChanged: (() -> Void)?
 
     public init(
         engine: SearchEngine,
@@ -55,6 +70,7 @@ public final class SearchViewModel {
 
     public func prepareForDisplay() {
         selectionIsPinned = false
+        scope = .everything
         runSearch()
     }
 
@@ -62,6 +78,7 @@ public final class SearchViewModel {
         searchTask?.cancel()
         searchTask = nil
         query = ""
+        scope = .everything
         results = []
         selectedID = nil
         isSearching = false
@@ -72,10 +89,10 @@ public final class SearchViewModel {
     private func runSearch() {
         searchTask?.cancel()
         token &+= 1
-        let current = SearchQuery(text: query, token: token)
+        let current = SearchQuery(text: query, token: token, scope: scope)
 
         guard !current.isEmpty else {
-            results = recentResults()
+            results = scope.providers.contains(.application) ? recentResults() : []
             selectedID = results.first?.id
             isSearching = false
             onResultsChanged?()
@@ -169,6 +186,29 @@ public final class SearchViewModel {
         guard let result = selectedResult else { return }
         configuration.update { $0.frecency[result.id, default: FrecencyEntry()].bump() }
         onExecute?(result, secondary)
+    }
+
+    // MARK: - Scope
+
+    public func cycleScope(by delta: Int) {
+        scope = scope.cycled(by: delta)
+    }
+
+    /// `⌃1`…`⌃6`. Out-of-range numbers are ignored rather than clamped: a fifth scope key on a
+    /// four-scope build should do nothing, not pick the last one.
+    public func selectScope(shortcut number: Int) {
+        guard let next = SearchScope.scope(forShortcut: number) else { return }
+        scope = next
+    }
+
+    /// Escape in two stages, the way a browser's find bar does it: the first one gives back the
+    /// whole haystack, the second one closes the palette.
+    public func cancel() {
+        if scope != .everything {
+            scope = .everything
+        } else {
+            close()
+        }
     }
 
     public func close() {

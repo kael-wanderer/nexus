@@ -6,6 +6,12 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- Search scope (M19): one filter over a search — Everything, Applications, Files & Folders, Files,
+  Folders, Settings — on `⌃1`…`⌃6`, `⇥` / `⇧⇥` or the chip's menu. Files versus folders is one
+  Spotlight clause on the query the file provider already runs, not a second search. The first
+  Escape clears the scope, the second closes the palette.
+- The palette can open beside the bar's Search row instead of mid-screen (`search.opensAtBar`,
+  on by default), growing away from the bar as results arrive and clamped on screen.
 - `make install`: the signed bundle goes to `/Applications` and runs from there, with the
   signature preserved so Accessibility and Screen Recording grants survive the move. It refuses to
   install an ad-hoc build (D86). Launch at login is only registered where it can be honoured — the

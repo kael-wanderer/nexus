@@ -289,6 +289,12 @@ public final class SidebarViewModel {
     /// Section indices for the flyout anchor. `SidebarLayout` skips empty sections, so these are
     /// counted the same way.
     public var pinnedSectionIndex: Int { showsStartMenuRow ? 1 : 0 }
+    /// The Search row is the last section when there is one at all — it is appended last and it is
+    /// never empty, so it cannot be dropped by the empty-section filter.
+    public var searchSectionIndex: Int? {
+        guard openSearch != nil else { return nil }
+        return sectionRowCounts.filter { $0 > 0 }.count - 1
+    }
     public var runningSectionIndex: Int { pinnedSectionIndex + (pinned.isEmpty ? 0 : 1) }
 
     public var showsPlaceholder: Bool {

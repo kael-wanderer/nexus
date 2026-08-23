@@ -459,6 +459,15 @@ struct SearchPane: View {
                 }
             }
             Section {
+                Toggle(
+                    String(localized: "Open search at the bar"),
+                    isOn: configuration.binding(\.search.opensAtBar)
+                )
+                Text("The palette appears beside the Search row instead of the middle of the screen. Press ⇥ inside it, or ⌃1…⌃6, to narrow a search to applications, files or folders.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Toggle(String(localized: "Search applications"), isOn: configuration.binding(\.search.searchApplications))
                 Toggle(String(localized: "Search windows"), isOn: configuration.binding(\.search.searchWindows))
                 Toggle(String(localized: "Search files"), isOn: configuration.binding(\.search.searchFiles))

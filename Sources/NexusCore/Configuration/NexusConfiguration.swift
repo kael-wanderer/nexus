@@ -247,6 +247,9 @@ public struct SearchConfiguration: Codable, Sendable, Equatable {
     public var searchFiles = true
     public var searchActions = true
     public var maximumResults = 20
+    /// Where the palette opens: beside the bar's Search row, or in the middle of the screen.
+    /// On by default — the row the user clicked is where they are looking (M19).
+    public var opensAtBar = true
     public init() {}
 
     /// Tolerant decode: a key added in a later version must not reset the rest (D67).
@@ -258,6 +261,7 @@ public struct SearchConfiguration: Codable, Sendable, Equatable {
         searchFiles = try container.decodeIfPresent(Bool.self, forKey: .searchFiles) ?? true
         searchActions = try container.decodeIfPresent(Bool.self, forKey: .searchActions) ?? true
         maximumResults = try container.decodeIfPresent(Int.self, forKey: .maximumResults) ?? 20
+        opensAtBar = try container.decodeIfPresent(Bool.self, forKey: .opensAtBar) ?? true
     }
 }
 

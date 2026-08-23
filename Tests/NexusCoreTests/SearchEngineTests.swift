@@ -253,7 +253,7 @@ struct ProviderTests {
 
     @Test("The file provider is the only debounced one and needs two characters")
     func fileProviderShape() {
-        let provider = FileSearchProvider(run: { _, _ in [] })
+        let provider = FileSearchProvider(run: { _, _, _ in [] })
         #expect(provider.debounce == .milliseconds(120))
         #expect(provider.minimumCharacters == 2)
         #expect(provider.requiredPermission == nil)
@@ -263,7 +263,7 @@ struct ProviderTests {
     func fileProvider() async {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let url = home.appendingPathComponent("Projects/Bugler.swift")
-        let provider = FileSearchProvider(run: { _, _ in
+        let provider = FileSearchProvider(run: { _, _, _ in
             [MetadataItem(url: url, displayName: "Bugler.swift")]
         })
         let results = await provider.results(

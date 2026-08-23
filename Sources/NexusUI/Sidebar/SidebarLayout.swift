@@ -238,6 +238,33 @@ public enum SidebarLayout {
         return offset
     }
 
+    /// Where a panel should sit to look attached to one row of the bar: the bar's frame, the
+    /// screen it is on, and the row centre to line up with. Everything `flyoutFrame` needs, in one
+    /// value, so a controller that does not own the bar can still anchor to it (M19).
+    public struct BarAnchor: Sendable, Equatable {
+        public var bar: CGRect
+        public var screen: CGRect
+        public var rowCentre: CGFloat
+        public var position: SidebarPosition
+
+        public init(bar: CGRect, screen: CGRect, rowCentre: CGFloat, position: SidebarPosition) {
+            self.bar = bar
+            self.screen = screen
+            self.rowCentre = rowCentre
+            self.position = position
+        }
+
+        public func frame(for size: CGSize) -> CGRect {
+            SidebarLayout.flyoutFrame(
+                size: size,
+                beside: bar,
+                anchor: rowCentre,
+                in: screen,
+                position: position
+            )
+        }
+    }
+
     /// Places a flyout beside the bar — to its side when vertical, above or below it when
     /// horizontal — anchored on `anchor` (a `rowCentre`) and clamped on screen.
     public static func flyoutFrame(
