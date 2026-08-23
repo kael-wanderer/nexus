@@ -15,6 +15,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         var restoreDock: (() -> Void)?
     }
 
+    /// Point size the template icon is drawn at. `NSStatusBar.system.thickness` is the ceiling.
+    private static let iconHeight: CGFloat = 18
+
     private var statusItem: NSStatusItem?
     private var actions: Actions
 
@@ -38,6 +41,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             systemSymbolName: "square.grid.2x2",
             accessibilityDescription: String(localized: "Nexus")
         )
+        // The menu bar is `NSStatusBar.system.thickness` (22 pt) tall, so 18 is about as large as
+        // an icon gets before it touches the edges. The asset is 16 pt; drawing it at 18 matches
+        // the system icons beside it.
+        image?.size = NSSize(width: Self.iconHeight, height: Self.iconHeight)
         image?.isTemplate = true
         image?.accessibilityDescription = String(localized: "Nexus")
         item.button?.image = image
