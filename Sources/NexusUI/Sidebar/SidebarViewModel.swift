@@ -341,7 +341,7 @@ public final class SidebarViewModel {
         if behavior.showRunningApplications { counts.append(zones.runningRows) }
         if showsNowPlayingRow { counts.append(nowPlayingRowCount) }
         counts.append(1)                                    // Trash
-        if openSearch != nil { counts.append(searchRowCount) }
+        if showsSearchRow { counts.append(searchRowCount) }
         return counts
     }
 
@@ -354,7 +354,7 @@ public final class SidebarViewModel {
         (showsNowPlayingRow ? nowPlayingRowCount : 0)
             + minimizedRowCount
             + 1
-            + (openSearch == nil ? 0 : searchRowCount)
+            + (showsSearchRow ? searchRowCount : 0)
     }
 
     /// Rows the minimized section draws: none when it is switched off, when Accessibility is not
@@ -375,6 +375,12 @@ public final class SidebarViewModel {
     /// icon. Same trick as the wide player — one view across three rows' extent (D82) — so the
     /// layout maths stays row-based.
     public var searchRowCount: Int { isSearchFieldWide ? 3 : 1 }
+
+    /// Whether the bar offers Search at all: it needs the palette wired up (Milestone 5), and the
+    /// setting has to be asking for a slot. Every part of the bar — row counts, zones, keyboard
+    /// order, the flyout anchor — asks this one question, so switching it off cannot leave a
+    /// phantom row behind in one of them.
+    public var showsSearchRow: Bool { openSearch != nil && search.barStyle != .disabled }
 
     /// A box only where a box fits. A vertical bar is 64 points across, and three rows of *height*
     /// buy nothing a search box can use, so it stays an icon unless hover has expanded the bar.
@@ -409,7 +415,7 @@ public final class SidebarViewModel {
         if showsNowPlayingRow { rows.append(nowPlayingRowCount) }
         rows.append(1)                                      // Trash
         if showsMinimizedRows { rows.append(minimizedRowCount) }
-        if openSearch != nil { rows.append(searchRowCount) }
+        if showsSearchRow { rows.append(searchRowCount) }
         return rows
     }
 
@@ -434,7 +440,7 @@ public final class SidebarViewModel {
     /// The Search row is the last section when there is one at all — it is appended last and it is
     /// never empty, so it cannot be dropped by the empty-section filter.
     public var searchSectionIndex: Int? {
-        guard openSearch != nil else { return nil }
+        guard showsSearchRow else { return nil }
         return sectionRowCounts.filter { $0 > 0 }.count - 1
     }
     public var runningSectionIndex: Int { pinnedSectionIndex + (pinned.isEmpty ? 0 : 1) }
@@ -774,7 +780,7 @@ public final class SidebarViewModel {
         if behavior.showRunningApplications { ids += running.map(\.id) }
         ids += minimizedRows.map(\.id)
         ids.append(Self.trashRowID)
-        if openSearch != nil { ids.append(Self.searchRowID) }
+        if showsSearchRow { ids.append(Self.searchRowID) }
         return ids
     }
 

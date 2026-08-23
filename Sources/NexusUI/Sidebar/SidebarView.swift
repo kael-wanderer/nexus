@@ -163,7 +163,7 @@ public struct SidebarView: View {
                 separator
             }
             trashRow
-            if model.openSearch != nil {
+            if model.showsSearchRow {
                 separator
                 searchRow
             }

@@ -188,6 +188,20 @@ struct SearchBarStyleTests {
         #expect(makeModel(style: .field, position: .bottom).searchRowCount == 3)
     }
 
+    @Test("Switched off, the bar keeps no room for Search anywhere it counts rows")
+    func disabled() {
+        let model = makeModel(style: .disabled, position: .bottom)
+        let icon = makeModel(style: .icon, position: .bottom)
+
+        #expect(model.showsSearchRow == false)
+        #expect(icon.showsSearchRow)
+        #expect(icon.tailRowCount - model.tailRowCount == 1)
+        #expect(model.searchSectionIndex == nil)
+        #expect(!model.focusableRowIDs.contains(SidebarViewModel.searchRowID))
+        #expect(icon.focusableRowIDs.contains(SidebarViewModel.searchRowID))
+        #expect(model.sectionRowCounts.count == icon.sectionRowCounts.count - 1)
+    }
+
     @Test("A narrow vertical bar keeps the icon, however the setting is set")
     func verticalStaysNarrow() {
         let model = makeModel(style: .field, position: .left)

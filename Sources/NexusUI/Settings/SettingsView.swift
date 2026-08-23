@@ -432,7 +432,7 @@ struct SearchPane: View {
                         Text(style.title).tag(style)
                     }
                 }
-                Text("A box takes three slots and opens the palette beside itself; an icon takes one and opens it in the middle of the screen. The shortcut always opens it in the middle. Typing happens in the palette either way — the bar cannot take keyboard focus.")
+                Text("A box takes three slots and opens the palette beside itself; an icon takes one and opens it in the middle of the screen. Nothing takes the part off the bar altogether — the shortcut still opens the palette. The shortcut always opens it in the middle. Typing happens in the palette either way — the bar cannot take keyboard focus.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text("Inside the palette, ⇥ or ⌃1…⌃6 narrows a search to applications, files or folders.")

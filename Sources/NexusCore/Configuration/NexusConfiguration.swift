@@ -282,11 +282,14 @@ public enum SearchBarStyle: String, Codable, Sendable, CaseIterable {
     /// It is a box, not a field: this panel can never become key, so a real `NSTextField` here
     /// could not be typed into (`design/mvp.md` §2.1). Every keystroke belongs to the palette.
     case field
+    /// No slot at all. The palette still opens on its shortcut; the bar just does not offer it.
+    case disabled
 
     public var title: String {
         switch self {
         case .icon: String(localized: "An icon")
         case .field: String(localized: "A search box")
+        case .disabled: String(localized: "Nothing")
         }
     }
 }
