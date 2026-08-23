@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| [`decisions.md`](decisions.md) | Every ambiguity call, newest last: what was decided, why, and what was rejected. One entry per call, numbered `D1`, `D2`, … and referenced from the code by number. |
+| [`decisions.md`](decisions.md) | The index of every ambiguity call: what was decided, why, and what was rejected. One entry per call, numbered `D1`, `D2`, … and referenced from the code by number. The entries themselves are in [`decisions/`](decisions/), six files by area, with the numbers global across them. |
 | [`design/`](design) | How each piece works. One file per feature. |
 | [`../ROADMAP.md`](../ROADMAP.md) | What is built and what is next, by milestone. Schedule, not design. |
 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) | The shape of the codebase: targets, layers, what may depend on what. |
@@ -20,8 +20,10 @@ cross-cutting document: panels and focus, permissions, layout vocabulary, displa
 logging, what is tested and how. Split a separate `conventions.md` out of it the first time a
 second feature document needs to restate one of its rules — not before.
 
-**A one-off call goes in `decisions.md`**, even if it also appears in a design document. The
-decision log is the place to look up *why*, and code comments cite it by number.
+**A one-off call goes in [`decisions/`](decisions)** — the area file it belongs to, with the next
+free number and a row in the [`decisions.md`](decisions.md) index — even if it also appears in a
+design document. The decision log is the place to look up *why*, and code comments cite it by
+number.
 
 Milestone plans live in `../ROADMAP.md`. A design document describes the thing as it is meant to
 work; it is not a schedule and does not need updating when a milestone slips.

@@ -77,7 +77,7 @@ Milestone 2 implements it with SwiftUI `.draggable`/`.dropDestination` and verif
 the acceptance criterion "clicking or dragging the sidebar never changes the frontmost app".
 If it misbehaves, the fallback is a manual reorder in the hosting `NSView` driven by
 `mouseDown`/`mouseDragged` — ~60 lines, no focus implications. Decided at implementation time
-and recorded in `DECISIONS.md`.
+and recorded in the decision log (`../decisions.md`).
 
 **Auto-hide reveal without polling.** While hidden, a 2 pt wide, fully transparent
 `EdgeTriggerPanel` sits on the configured screen edge with an `NSTrackingArea`. `mouseEntered`

@@ -57,7 +57,7 @@ put a machine back to a clean first-run state.
 ## Deciding things
 
 If a technical choice is ambiguous, take the simplest native macOS option that preserves
-extensibility, write it down in [`docs/decisions.md`](docs/decisions.md) in the existing format
+extensibility, write it down in the area file under [`docs/decisions/`](docs/decisions/) — foundation, bar, windows, search, media or system — with the next free number and a row in the [`docs/decisions.md`](docs/decisions.md) index, in the existing format
 (**decision — reason — alternative rejected**), and move on. Do not open a design discussion for
 a one-line call.
 
