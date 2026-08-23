@@ -16,6 +16,7 @@ public protocol ApplicationServing: Sendable {
 public actor ApplicationService: ApplicationServing {
     private var metadataCache: [String: NexusApplication] = [:]
     private var windowCounts: [pid_t: Int] = [:]
+    private var exactWindowCounts: [String: Int] = [:]
     private var activeBundleIdentifier: String?
 
     public init() {}
@@ -55,6 +56,12 @@ public actor ApplicationService: ApplicationServing {
 
     /// Window counts come from `CGWindowListCopyWindowInfo` (D5) and are pushed in by
     /// `ApplicationMonitor`; they need no permission and cost one call for every app at once.
+    /// Exact counts, from the Accessibility window list — the same source as the context menu, so
+    /// a badge can never disagree with the windows it offers (D61).
+    public func updateWindowCounts(byBundleIdentifier counts: [String: Int]) {
+        exactWindowCounts = counts
+    }
+
     public func updateWindowCounts(_ counts: [pid_t: Int]) {
         windowCounts = counts
     }
@@ -78,7 +85,9 @@ public actor ApplicationService: ApplicationServing {
                 bundleURL: url,
                 isRunning: true,
                 isActive: bundleIdentifier == activeBundleIdentifier,
-                windowCount: windowCounts[running.processIdentifier] ?? 0
+                windowCount: exactWindowCounts[bundleIdentifier]
+                    ?? windowCounts[running.processIdentifier]
+                    ?? 0
             )
         }
     }

@@ -48,6 +48,10 @@ public final class SidebarViewModel {
     /// configuration until it is.
     private var previewOrder: [String]?
 
+    /// Whether the counts are the exact Accessibility ones. A badge that cannot be trusted is
+    /// worse than no badge, so without Accessibility none is drawn (D61).
+    public var windowCountsAreExact = false
+
     /// Window titles per application, filled when the pointer enters a row so the context menu —
     /// which `NSMenu` builds synchronously — never waits on Accessibility (D60).
     public private(set) var windowsByApplication: [String: [NexusWindow]] = [:]
@@ -61,6 +65,10 @@ public final class SidebarViewModel {
     @ObservationIgnored private let events: EventBus
     @ObservationIgnored private var eventTask: Task<Void, Never>?
     @ObservationIgnored private var lastLayoutInputs: (AppearanceConfiguration, Bool, Bool)?
+    /// Every application the sidebar knows about, by bundle identifier, and the running ones in
+    /// display order. The two row lists are composed from these.
+    @ObservationIgnored private var items: [String: SidebarItem] = [:]
+    @ObservationIgnored private var runningOrder: [String] = []
 
     /// Called whenever the number of rows or the appearance changes, so the panel can reframe.
     @ObservationIgnored public var layoutDidChange: (() -> Void)?
@@ -133,31 +141,51 @@ public final class SidebarViewModel {
     }
 
     public func refresh() async {
-        let pinnedIdentifiers = configuration.configuration.pinnedApplications
+        let identifiers = pinnedIdentifiers
         let runningApplications = await applications.runningApplications()
-        let runningByIdentifier = Dictionary(
-            runningApplications.map { ($0.identity.bundleIdentifier, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
 
-        var resolvedPinned: [SidebarItem] = []
-        for identifier in pinnedIdentifiers {
+        var resolved: [String: SidebarItem] = [:]
+        for application in runningApplications {
+            resolved[application.identity.bundleIdentifier] = SidebarItem(application: application, isPinned: false)
+        }
+        for identifier in identifiers where resolved[identifier] == nil {
             let identity = ApplicationIdentity(bundleIdentifier: identifier)
-            if let live = runningByIdentifier[identifier] {
-                resolvedPinned.append(SidebarItem(application: live, isPinned: true))
-            } else if let metadata = await applications.application(for: identity) {
-                resolvedPinned.append(SidebarItem(application: metadata, isPinned: true))
+            if let metadata = await applications.application(for: identity) {
+                resolved[identifier] = SidebarItem(application: metadata, isPinned: true)
             }
         }
 
-        let pinnedSet = Set(pinnedIdentifiers)
-        let resolvedRunning = runningApplications
-            .filter { !pinnedSet.contains($0.identity.bundleIdentifier) }
+        items = resolved
+        runningOrder = runningApplications
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            .map { SidebarItem(application: $0, isPinned: false) }
+            .map(\.identity.bundleIdentifier)
+        rebuildRows()
+    }
+
+    /// The identifiers the pinned section shows: the stored order, or the drag preview while one
+    /// is in flight. A running application being dragged into the section appears here before it
+    /// is pinned, which is what lets the rows move under the drag (D59).
+    private var pinnedIdentifiers: [String] {
+        previewOrder ?? configuration.configuration.pinnedApplications
+    }
+
+    /// Composes the two row lists from the resolved items. Synchronous on purpose: a drag has to
+    /// reorder the rows in the same run loop turn as the pointer moves.
+    private func rebuildRows() {
+        let identifiers = pinnedIdentifiers
+        let pinnedSet = Set(identifiers)
+        var resolvedPinned: [SidebarItem] = []
+        for identifier in identifiers {
+            guard var item = items[identifier] else { continue }
+            item.isPinned = true
+            resolvedPinned.append(item)
+        }
+        let resolvedRunning = runningOrder
+            .filter { !pinnedSet.contains($0) }
+            .compactMap { items[$0] }
 
         let layoutChanged = resolvedPinned.count != pinned.count || resolvedRunning.count != running.count
-        pinned = ordered(resolvedPinned)
+        pinned = resolvedPinned
         running = resolvedRunning
         if layoutChanged {
             Log.sidebar.notice(
@@ -165,13 +193,6 @@ public final class SidebarViewModel {
             )
             layoutDidChange?()
         }
-    }
-
-    /// Applies the in-flight drag preview, if there is one, to a freshly built row list.
-    private func ordered(_ items: [SidebarItem]) -> [SidebarItem] {
-        guard let previewOrder else { return items }
-        let rank = Dictionary(uniqueKeysWithValues: previewOrder.enumerated().map { ($1, $0) })
-        return items.sorted { (rank[$0.id] ?? 0) < (rank[$1.id] ?? 0) }
     }
 
     public func configurationChanged() {
@@ -226,10 +247,10 @@ public final class SidebarViewModel {
 
     // MARK: - Dragging
 
-    /// A pinned row started moving. Only pinned rows get a preview: a running application has no
-    /// slot in the pinned section to preview it in, so it commits on drop instead.
+    /// A row started moving — pinned or running. A running application is previewed inside the
+    /// pinned section as soon as the drag reaches it, and dropping is what pins it there.
     public func beginDrag(_ identifier: String) {
-        guard configuration.configuration.pinnedApplications.contains(identifier) else { return }
+        guard items[identifier] != nil else { return }
         draggingIdentifier = identifier
         previewOrder = configuration.configuration.pinnedApplications
     }
@@ -239,14 +260,18 @@ public final class SidebarViewModel {
         guard let dragged = draggingIdentifier,
               dragged != target,
               var order = previewOrder,
-              let from = order.firstIndex(of: dragged),
               let to = order.firstIndex(of: target)
         else { return }
-        order.remove(at: from)
-        order.insert(dragged, at: to)
+        if let from = order.firstIndex(of: dragged) {
+            order.remove(at: from)
+            order.insert(dragged, at: to)
+        } else {
+            // A running application joining the pinned section for the first time.
+            order.insert(dragged, at: to)
+        }
         guard order != previewOrder else { return }
         previewOrder = order
-        pinned = ordered(pinned)
+        rebuildRows()
     }
 
     /// The drag ended. A cancelled drag — dropped outside, or on nothing — must leave the stored
@@ -256,15 +281,20 @@ public final class SidebarViewModel {
         draggingIdentifier = nil
         previewOrder = nil
         guard commit, let order, order != configuration.configuration.pinnedApplications else {
-            Task { await refresh() }
+            rebuildRows()
             return
         }
         configuration.update { $0.pinnedApplications = order }
+        rebuildRows()
     }
 
-    /// A row was dropped on `target`. Reordering pinned rows is the preview's job; this is the
-    /// other case — a running application dragged into the pinned section, which pins it there.
+    /// A row was dropped on `target`. The preview has normally already put it there; this covers
+    /// a drop that arrived without one — a drag begun before the row list was ready.
     public func dropPinned(_ identifier: String, on target: String) {
+        guard draggingIdentifier == nil else {
+            dragMoved(over: target)
+            return
+        }
         let order = configuration.configuration.pinnedApplications
         guard identifier != target, order.contains(target), !order.contains(identifier) else { return }
         pin(identifier)

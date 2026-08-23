@@ -190,7 +190,7 @@ struct SidebarItemView: View {
                 Image(nsImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize))
                     .resizable()
                     .frame(width: iconSize, height: iconSize)
-                if model.behavior.showWindowCount, item.windowCount > 1 {
+                if model.behavior.showWindowCount, model.windowCountsAreExact, item.windowCount > 1 {
                     Text("\(item.windowCount)")
                         .font(.system(size: max(8, iconSize * 0.24), weight: .semibold))
                         .padding(.horizontal, 4)

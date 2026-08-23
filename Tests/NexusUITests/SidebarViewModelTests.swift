@@ -126,6 +126,46 @@ struct SidebarViewModelTests {
         #expect(model.draggingIdentifier == nil)
     }
 
+    @Test("Dragging a running application into the pinned section previews and then pins it")
+    func dragRunningIntoPinned() async {
+        let (model, _, configuration) = makeModel(
+            [
+                makeApplication("a", name: "A"),
+                makeApplication("b", name: "B"),
+                makeApplication("new", name: "New", running: true),
+            ],
+            pinned: ["a", "b"]
+        )
+        await model.refresh()
+        #expect(model.running.map(\.id) == ["new"])
+
+        model.beginDrag("new")
+        model.dragMoved(over: "b")
+        // Previewed in the pinned section, gone from the running one, nothing stored yet.
+        #expect(model.pinned.map(\.id) == ["a", "new", "b"])
+        #expect(model.running.isEmpty)
+        #expect(configuration.configuration.pinnedApplications == ["a", "b"])
+
+        model.endDrag(commit: true)
+        #expect(configuration.configuration.pinnedApplications == ["a", "new", "b"])
+    }
+
+    @Test("A running application dragged and then dropped outside stays unpinned")
+    func dragRunningCancelled() async {
+        let (model, _, configuration) = makeModel(
+            [makeApplication("a", name: "A"), makeApplication("new", name: "New", running: true)],
+            pinned: ["a"]
+        )
+        await model.refresh()
+
+        model.beginDrag("new")
+        model.dragMoved(over: "a")
+        model.endDrag(commit: false)
+
+        #expect(configuration.configuration.pinnedApplications == ["a"])
+        #expect(model.running.map(\.id) == ["new"])
+    }
+
     @Test("A cancelled drag leaves the stored order untouched")
     func dragCancelled() async {
         let (model, _, configuration) = makeModel(
@@ -143,10 +183,11 @@ struct SidebarViewModelTests {
         #expect(model.draggingIdentifier == nil)
     }
 
-    @Test("Only pinned rows get a drag preview")
-    func runningRowHasNoPreview() async {
-        let (model, _, _) = makeModel([makeApplication("new", name: "New", running: true)], pinned: ["a"])
-        model.beginDrag("new")
+    @Test("A drag payload for an application the sidebar does not know is ignored")
+    func unknownDragPayload() async {
+        let (model, _, _) = makeModel([makeApplication("a", name: "A")], pinned: ["a"])
+        await model.refresh()
+        model.beginDrag("/Users/someone/Downloads/thing.txt")
         #expect(model.draggingIdentifier == nil)
     }
 

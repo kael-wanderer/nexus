@@ -97,7 +97,7 @@ final class Composition {
         // from the first launch onwards.
         configuration.flush()
 
-        sidebarModel.refreshWindowCounts = { [weak self] in self?.applicationMonitor.refresh() }
+        sidebarModel.refreshWindowCounts = { [weak self] in self?.refreshWindowCounts() }
         // Window titles for the context menu. Accessibility-gated, so a refusal simply leaves the
         // cache empty and the menu without a window section (D60).
         sidebarModel.loadWindows = { [weak self] identity in
@@ -129,6 +129,8 @@ final class Composition {
         applySearchConfiguration()
         registerHotKey()
         dockReplacement.start()
+        sidebarModel.windowCountsAreExact = permissions.status(of: .accessibility) == .granted
+        refreshWindowCounts()
 
         if !configuration.configuration.onboarding.hasCompleted {
             runOnboarding()
@@ -180,6 +182,26 @@ final class Composition {
         case .failure(.systemRefused):
             _ = hotKeys.register(configuration.configuration.search.shortcut)
             return String(localized: "That shortcut is already in use by another application.")
+        }
+    }
+
+    /// Window counts, from the same Accessibility list the context menu shows so the two can never
+    /// disagree (D61). `CGWindowListCopyWindowInfo` counts a browser's find bar and misses a
+    /// Finder window, which is why it is only the fallback — and why the badge is hidden entirely
+    /// while Accessibility is missing.
+    private func refreshWindowCounts() {
+        guard permissions.status(of: .accessibility) == .granted else {
+            applicationMonitor.refresh()
+            return
+        }
+        Task { [windows, applications, events] in
+            guard let all = try? await windows.allWindows() else { return }
+            var counts: [String: Int] = [:]
+            for window in all {
+                counts[window.identity.owner.bundleIdentifier, default: 0] += 1
+            }
+            await applications.updateWindowCounts(byBundleIdentifier: counts)
+            events.publish(.applicationsChanged)
         }
     }
 
@@ -259,9 +281,11 @@ final class Composition {
             for await event in stream {
                 guard let self else { return }
                 guard case .permissionChanged(.accessibility, let status) = event else { continue }
+                self.sidebarModel.windowCountsAreExact = status == .granted
                 switch status {
                 case .granted:
                     self.windowMonitor.start()
+                    self.refreshWindowCounts()
                 case .denied, .notDetermined:
                     self.windowMonitor.stop()
                     Log.permissions.notice("Accessibility not granted; window features degraded")

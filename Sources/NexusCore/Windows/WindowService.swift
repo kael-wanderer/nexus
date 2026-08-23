@@ -101,9 +101,11 @@ public actor WindowService: WindowServing {
             let origin = AX.point(element, kAXPositionAttribute) ?? .zero
             let size = AX.size(element, kAXSizeAttribute) ?? .zero
 
-            // A subrole check keeps sheets, popovers and toolbars out of the window list.
+            // Standard windows only. This keeps sheets, popovers and toolbars out (`AXUnknown`,
+            // e.g. Brave's find bar) and also the elements that carry no subrole at all, which is
+            // what Finder's desktop window is — it was showing up as a third "Finder" window.
             let subrole: String? = (try? AX.value(element, kAXSubroleAttribute)) ?? nil
-            if let subrole, subrole != kAXStandardWindowSubrole { continue }
+            guard subrole == kAXStandardWindowSubrole else { continue }
 
             let identifier: CGWindowID
             if let real = AX.windowID(of: element) {

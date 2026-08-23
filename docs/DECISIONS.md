@@ -434,3 +434,24 @@ the row; a row with nothing cached shows no window section rather than blocking.
 Accessibility there is no section at all, which is the same split as D5 — counts are
 permission-free, titles are not.
 
+**D61. Window-count badges come from the Accessibility list, and are hidden without it.**
+`CGWindowListCopyWindowInfo` is permission-free but counts the wrong things: measured here, Brave
+showed 2 because its 387×64 "Find in page" bar is an ordinary layer-0 window, and Finder showed 2
+where the menu listed 3. A badge that disagrees with the menu it sits next to is worse than no
+badge, so counts now come from the same AX sweep that fills the menu — refreshed on the events
+that already refresh counts, never on a timer — and the badge is not drawn at all while
+Accessibility is missing. `WindowCounts.byProcess()` stays as the fallback that feeds nothing
+visible; it is still what runs before the grant arrives.
+
+**D62. A window with no AX subrole is not a window.**
+The subrole filter accepted elements that answered nothing at all, which is exactly what Finder's
+desktop is — hence "Finder" appearing as a third window in its own menu. The filter now requires
+`AXStandardWindow`, which also keeps out `AXUnknown` panels like a browser's find bar.
+
+**D59 (extended). Running applications get the drag preview too.**
+The first cut previewed only pinned rows, so dragging a running application into the dock did
+nothing until the drop — the exact failure the preview was added to fix. The preview order is now
+a list of identifiers that may include an application that is not pinned yet; it leaves the
+running section as the drag reaches the pinned one, and the drop is what pins it. A cancelled drag
+puts it back.
+

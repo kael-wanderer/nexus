@@ -17,6 +17,15 @@ this project follows [Semantic Versioning](https://semver.org).
   counted with `stat` link counts, so it needs no Full Disk Access (D58).
 - An application's windows are now in its context menu, frontmost ticked, one click from the
   sidebar; the thumbnail flyout is renamed Show All Windows (D60).
+
+### Fixed
+- Window-count badges disagreed with the window list: they counted a browser's find bar and
+  missed a Finder window. Counts now come from the same Accessibility list the menu shows, and
+  the badge is hidden entirely while Accessibility is missing (D61).
+- Finder's desktop appeared as a third "Finder" window in its own menu — an element with no AX
+  subrole is no longer treated as a window (D62).
+- Dragging a running application into the pinned section showed no live preview; only already
+  pinned rows moved under the drag (D59).
 - Drag-to-reorder is back, as an AppKit dragging session (D56): drag a row onto another to move
   it, or drag a running application onto the pinned rows to pin it in that slot. The rows move
   live under the drag and the new order is stored only when the drop lands (D59).
