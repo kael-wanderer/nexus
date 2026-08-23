@@ -665,3 +665,23 @@ four-thousand-second one. And `NSAppleScript` is not thread-safe: run from an ac
 read nothing at all, and said nothing, because the failure path logged at `.debug` — the D66 lesson,
 learned twice.
 
+**D81. A click outside closes a popover, without waiting for the pointer to leave.**
+The window flyout, the group popover and the media player all hid on a 400 ms grace period after the
+pointer left, and on nothing else. A non-activating panel never loses key status — it never had any —
+so there was no resign-key to hook, and clicking somewhere else left the popover sitting there. The
+same global mouse monitor the palette needed (a click in another application never reaches a panel
+that is not theirs) closes whichever popover is open, with the bar itself excluded: clicking the
+media row is what opened it.
+
+**D82. The wide media player spans four rows rather than becoming a section of its own.**
+Two tiles with the scrubber hidden in a popover lasted an hour of real use. Four tiles is right on a
+horizontal bar — but a section with its own pitch would have meant teaching `sectionExtent`, the
+`slots` arithmetic and `rowCentre` to work in points instead of rows, which is the maths every other
+part of the bar depends on.
+
+So the wide player is one view sized to four rows' worth of extent. Everything stays row-based, the
+change is a view and a row count, and the space it costs is visible in the same arithmetic as
+everything else: four slots that the applications no longer get (D74). Which is also why it is a
+setting — and why a narrow vertical bar ignores it, since four rows of height cannot hold a scrubber
+worth dragging.
+

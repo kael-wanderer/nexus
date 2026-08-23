@@ -148,8 +148,12 @@ public struct SidebarView: View {
     private var utilitySection: some View {
         axis {
             if model.showsNowPlayingRow {
-                NowPlayingRow(model: model, expanded: model.isExpanded)
-                NowPlayingControlsRow(model: model)
+                if model.isMediaPlayerWide {
+                    NowPlayingWidePlayer(model: model)
+                } else {
+                    NowPlayingRow(model: model, expanded: model.isExpanded)
+                    NowPlayingControlsRow(model: model)
+                }
                 separator
             }
             trashRow

@@ -270,6 +270,27 @@ struct AppearancePane: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section {
+                Picker(
+                    String(localized: "Media player"),
+                    selection: configuration.binding(\.appearance.mediaWidth)
+                ) {
+                    Text("Wide").tag(MediaWidth.wide)
+                    Text("Compact").tag(MediaWidth.compact)
+                }
+                if configuration.configuration.appearance.mediaWidth == .wide {
+                    Picker(
+                        String(localized: "Wide player shows"),
+                        selection: configuration.binding(\.appearance.mediaContent)
+                    ) {
+                        Text("Progress bar").tag(MediaContent.progress)
+                        Text("What is playing").tag(MediaContent.title)
+                    }
+                }
+                Text("A wide player takes four slots and shows the progress bar or the track inline. A left or right bar is always compact — a scrubber that narrow cannot be dragged.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }

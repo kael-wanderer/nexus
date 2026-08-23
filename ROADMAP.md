@@ -392,3 +392,24 @@ drawn there could not be typed into (`design/mvp.md` §2.1).
 
 Spec: `docs/design/search-scope.md`.
 
+## Milestone 17 — The wide media player  ← post-MVP
+
+**Shipped** 2026-08-23.
+
+**Scope**
+- Four slots of bar, with the progress bar and its clocks or the track name inline, an 18 pt player
+  icon, and the transport buttons — all without a hover. `appearance.mediaWidth`,
+  `appearance.mediaContent`.
+- One view spanning four rows' extent, so the layout maths stays row-based (D82).
+- A narrow vertical bar stays compact; hover-expanding it makes it wide.
+- Popovers close on a click outside (D81).
+
+**Permissions:** none new.
+
+**Acceptance criteria**
+- A horizontal bar shows the scrubber, both clocks and the buttons inline, and dragging seeks.
+- A 64 pt vertical bar never draws the wide player.
+- Clicking anywhere but the bar closes an open popover.
+
+Spec: `docs/design/media-player-row.md` §The wide player.
+

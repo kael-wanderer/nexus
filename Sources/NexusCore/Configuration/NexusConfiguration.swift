@@ -22,6 +22,20 @@ public enum SidebarPosition: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// How much of the bar the media player takes (M17).
+public enum MediaWidth: String, Codable, Sendable, CaseIterable {
+    /// Two tiles: artwork with a progress line on it, and the transport buttons.
+    case compact
+    /// Four tiles: a small icon, the progress bar or the track name, and the buttons, all inline.
+    case wide
+}
+
+/// What the wide player spends its middle on.
+public enum MediaContent: String, Codable, Sendable, CaseIterable {
+    case progress
+    case title
+}
+
 /// Which corner the start menu opens from.
 public enum StartMenuCorner: String, Codable, Sendable, CaseIterable {
     case bottomLeading
@@ -133,6 +147,10 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
     /// promise — the screen still wins.
     public var pinnedLimit = 0
     public var runningLimit = 0
+    /// The media player's width, and what it fills it with (M17). A narrow vertical bar is always
+    /// compact whatever this says — four tiles of *height* cannot hold a scrubber worth dragging.
+    public var mediaWidth: MediaWidth = .wide
+    public var mediaContent: MediaContent = .progress
     public init() {}
 
     public static let widthRange: ClosedRange<Double> = 44...120
@@ -157,6 +175,8 @@ public struct AppearanceConfiguration: Codable, Sendable, Equatable {
         startMenuCorner = try container.decodeIfPresent(StartMenuCorner.self, forKey: .startMenuCorner) ?? .bottomLeading
         pinnedLimit = try container.decodeIfPresent(Int.self, forKey: .pinnedLimit) ?? 0
         runningLimit = try container.decodeIfPresent(Int.self, forKey: .runningLimit) ?? 0
+        mediaWidth = try container.decodeIfPresent(MediaWidth.self, forKey: .mediaWidth) ?? .wide
+        mediaContent = try container.decodeIfPresent(MediaContent.self, forKey: .mediaContent) ?? .progress
     }
 
     /// Values arriving from a decoded file or a future migration are clamped rather than trusted.

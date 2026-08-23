@@ -69,7 +69,16 @@ this project follows [Semantic Versioning](https://semver.org).
   interfaces, once a second while the player is on screen and never otherwise; a player that will
   not say gets the row without a scrubber rather than a fake one (D80).
 
+- The media player can take four slots and show everything inline (M17): a 18 pt icon, the progress
+  bar with its clocks — or the track name — and ⏮ ⏯ ⏭, no hover involved.
+  `appearance.mediaWidth` (wide, the default, or compact) and `appearance.mediaContent` (progress or
+  title). A left or right bar stays compact unless hover has expanded it, because a 56 pt scrubber
+  cannot be dragged (D82).
+
 ### Fixed
+- Popovers — the window flyout, a group, the media player — now close on a click outside instead of
+  only when the pointer leaves. A non-activating panel has no key status to lose, so this needs the
+  same global mouse monitor the palette does (D81).
 - The search palette stayed on screen when it lost the keyboard: a click in another application, or
   ⌘Tab, now dismisses it, as well as Escape. `hidesOnDeactivate` is off by necessity, so this needs
   a global mouse monitor and a resign-key observer rather than coming for free.

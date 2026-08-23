@@ -368,7 +368,7 @@ struct NowPlayingControlsRow: View {
     }
 }
 
-private struct MiniTransportButton: View {
+struct MiniTransportButton: View {
     let symbol: String
     let label: String
     let size: CGFloat
@@ -395,5 +395,150 @@ private struct MiniTransportButton: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(label)
             .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// The wide player (M17): a small icon, the progress bar or the track name, and the three transport
+/// buttons, inline in the bar. One view spanning four rows' worth of extent, which is what keeps the
+/// rest of the layout maths row-based.
+struct NowPlayingWidePlayer: View {
+    @Bindable var model: SidebarViewModel
+
+    @State private var isHovered = false
+    @State private var dragFraction: Double?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var iconSize: CGFloat { model.appearance.iconSize }
+    private var isVertical: Bool { model.appearance.position.isVertical }
+    private var playing: NowPlaying { model.nowPlaying }
+    private var position: MediaPosition? { model.nowPlayingPosition }
+
+    /// Four rows' worth along the bar's axis, gaps included.
+    private var extent: CGFloat {
+        SidebarLayout.sectionExtent(rows: model.nowPlayingRowCount, appearance: model.appearance)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(nsImage: model.nowPlayingArtwork(size: 18))
+                .resizable()
+                .frame(width: 18, height: 18)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            middle
+            controls
+        }
+        .padding(.horizontal, 8)
+        .frame(
+            width: isVertical ? nil : extent,
+            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+        )
+        .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
+                .fill(isHovered ? AnyShapeStyle(.quinary) : AnyShapeStyle(.clear))
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
+                isHovered = hovering
+            }
+            model.nowPlayingHoverChanged(hovering)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(playing.title ?? String(localized: "Now playing"))
+    }
+
+    /// Progress or the name, whichever the setting says — and the name when there is no progress to
+    /// show, because an empty track is worse than a title nobody asked for.
+    @ViewBuilder
+    private var middle: some View {
+        if model.appearance.mediaContent == .progress, let position, position.hasTimeline {
+            InlineTimeline(
+                position: position,
+                dragFraction: $dragFraction,
+                onSeek: { model.seekPlayback(to: $0) }
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(playing.title ?? String(localized: "Playing"))
+                    .font(.caption)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let artist = playing.artist {
+                    Text(artist)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var controls: some View {
+        HStack(spacing: 2) {
+            MiniTransportButton(symbol: "backward.fill", label: String(localized: "Previous"), size: 22) {
+                model.previousTrack()
+            }
+            MiniTransportButton(
+                symbol: playing.isPlaying ? "pause.fill" : "play.fill",
+                label: playing.isPlaying ? String(localized: "Pause") : String(localized: "Play"),
+                size: 22
+            ) {
+                model.togglePlayback()
+            }
+            MiniTransportButton(symbol: "forward.fill", label: String(localized: "Next"), size: 22) {
+                model.nextTrack()
+            }
+        }
+    }
+}
+
+/// The bar's own scrubber. Coarser than the popover's — a 40-minute film across 200 points is about
+/// twelve seconds per point — so the popover stays for precision.
+private struct InlineTimeline: View {
+    let position: MediaPosition
+    @Binding var dragFraction: Double?
+    let onSeek: (Double) -> Void
+
+    private var fraction: Double { dragFraction ?? position.fraction }
+
+    var body: some View {
+        VStack(spacing: 2) {
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.quaternary).frame(height: 4)
+                    Capsule().fill(.tint).frame(width: max(0, width * fraction), height: 4)
+                    Circle()
+                        .fill(.white)
+                        .shadow(radius: 1, y: 0.5)
+                        .frame(width: 9, height: 9)
+                        .offset(x: max(0, min(width - 9, width * fraction - 4.5)))
+                }
+                .frame(height: 10)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { dragFraction = min(max($0.location.x / width, 0), 1) }
+                        .onEnded { _ in
+                            if let dragFraction { onSeek(position.duration * dragFraction) }
+                            dragFraction = nil
+                        }
+                )
+            }
+            .frame(height: 10)
+            HStack {
+                Text(MediaPosition.clock(position.duration * fraction))
+                Spacer(minLength: 4)
+                Text("-" + MediaPosition.clock(position.duration - position.duration * fraction))
+            }
+            .font(.system(size: 9).monospacedDigit())
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Timeline"))
+        .accessibilityValue(MediaPosition.clock(position.position))
     }
 }

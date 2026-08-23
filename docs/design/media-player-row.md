@@ -96,6 +96,37 @@ in the bar, and the popover shows `Loki S01 - Newmoon21`, `VLC`, a scrubber at `
 to go, and ⏮ ⏯ ⏭. Position comes from VLC's own scripting dictionary once a second while the player
 is on screen, and stops the moment it is not.
 
+## The wide player (M17)
+
+The trade above — two tiles, scrubber in the popover — held for about an hour of use. Four tiles is
+the right answer on a horizontal bar, and the layout maths did not have to change to get it: the
+wide player is **one view spanning four rows' worth of extent**, so `sectionExtent`, `slots` and
+`rowCentre` stay row-based. No variable-pitch sections, which is what made this cheap (D82).
+
+```
+┌──────────────────────────────────────────┐
+│ ▣  ────────●──────────   ⏮ ⏯ ⏭          │   appearance.mediaContent == .progress
+│    27:13        -18:09                   │
+└──────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ ▣  Loki S01 - Newmoon21  ⏮ ⏯ ⏭          │   appearance.mediaContent == .title
+│    VLC                                   │
+└──────────────────────────────────────────┘
+```
+
+- `appearance.mediaWidth` ∈ {`wide`, `compact`}, default **wide**. Compact is the two-tile player.
+- `appearance.mediaContent` ∈ {`progress`, `title`}, default **progress**. Title is the fallback
+  whatever the setting says, because a scrubber with no position to show is worse than a name.
+- The application icon shrinks to 18 pt. It stays because with Spotify paused and VLC playing the
+  row has to say which player the buttons will reach.
+- **A narrow vertical bar is always compact**, whatever the setting says: four rows of *height* on a
+  64 pt bar give a scrubber 56 points long, which is 43 seconds per point on a 40-minute film.
+  Hover-expanding a vertical bar makes it wide, since the bar is 220 points then.
+
+The inline scrubber is coarser than the popover's — 200 points across a 40-minute film is about
+twelve seconds per point — so the popover stays for precision, and now closes on a click outside
+rather than only when the pointer leaves (D81).
+
 ## Tests
 
 - The row opens no window flyout on hover, ever.

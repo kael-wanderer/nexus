@@ -360,3 +360,76 @@ struct NowPlayingRowTests {
         #expect(sent == [.play, .next, .previous])
     }
 }
+
+@MainActor
+@Suite("Media player width")
+struct MediaPlayerWidthTests {
+    private func makeModel(
+        position: SidebarPosition,
+        width: MediaWidth,
+        expanded: Bool = false
+    ) -> SidebarViewModel {
+        var initial = NexusConfiguration()
+        initial.general.showNowPlaying = true
+        initial.appearance.position = position
+        initial.appearance.mediaWidth = width
+        let configuration = ConfigurationController(
+            store: InMemoryConfigurationStore(initial),
+            events: EventBus(),
+            saveDelay: .zero
+        )
+        let model = SidebarViewModel(
+            applications: FakeApplicationService([]),
+            configuration: configuration,
+            events: EventBus()
+        )
+        model.availableExtent = 2_000
+        model.openSearch = {}
+        model.mediaCommand = { _ in }
+        if expanded { model.setExpanded(true) }
+        model.nowPlayingChanged(
+            NowPlaying(title: "Loki S01", playerBundleIdentifier: "org.videolan.vlc", isPlaying: true),
+            isActive: true,
+            players: ["org.videolan.vlc"],
+            position: MediaPosition(position: 60, duration: 240)
+        )
+        return model
+    }
+
+    @Test("A horizontal bar gets the wide player, four slots of it")
+    func wideOnHorizontal() {
+        let model = makeModel(position: .bottom, width: .wide)
+        #expect(model.isMediaPlayerWide)
+        #expect(model.nowPlayingRowCount == 4)
+        #expect(model.sectionRowCounts.contains(4))
+    }
+
+    /// Four rows of *height* on a 64 pt bar buy nothing a horizontal scrubber can use.
+    @Test("A narrow vertical bar stays compact whatever the setting says")
+    func compactOnVertical() {
+        let model = makeModel(position: .left, width: .wide)
+        #expect(model.isMediaPlayerWide == false)
+        #expect(model.nowPlayingRowCount == 2)
+    }
+
+    @Test("Hover-expanding a vertical bar makes room for the wide player")
+    func wideWhenExpanded() {
+        let model = makeModel(position: .left, width: .wide, expanded: true)
+        #expect(model.isExpanded)
+        #expect(model.isMediaPlayerWide)
+    }
+
+    @Test("Compact is compact everywhere")
+    func compactSetting() {
+        #expect(makeModel(position: .bottom, width: .compact).isMediaPlayerWide == false)
+        #expect(makeModel(position: .bottom, width: .compact).nowPlayingRowCount == 2)
+    }
+
+    @Test("The player's slots come out of the applications, and the tail still fits")
+    func costsSlots() {
+        let wide = makeModel(position: .bottom, width: .wide)
+        let compact = makeModel(position: .bottom, width: .compact)
+        #expect(wide.zones.total > compact.zones.total)
+        #expect(wide.zones.total <= 2_000)
+    }
+}

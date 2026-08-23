@@ -25,6 +25,9 @@ public final class PanelController {
     private var nowPlayingPanel: NonActivatingPanel?
     private var nowPlayingHosting: NSView?
     private var nowPlayingHideTask: Task<Void, Never>?
+    /// Clicks elsewhere close the popovers. A non-activating panel never loses key status — it never
+    /// had any — so nothing else would (D81).
+    private var outsideClickMonitor: Any?
     private var hideTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var screenObserver: (any NSObjectProtocol)?
@@ -132,6 +135,8 @@ public final class PanelController {
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         groupHideTask?.cancel()
         nowPlayingHideTask?.cancel()
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        outsideClickMonitor = nil
         sidebarPanel?.orderOut(nil)
         edgePanel?.orderOut(nil)
         flyoutPanel?.orderOut(nil)
@@ -147,12 +152,48 @@ public final class PanelController {
         nowPlayingModel.show(playing, position: model.nowPlayingPosition)
         layoutNowPlaying()
         nowPlayingPanel?.orderFrontRegardless()
+        installOutsideClickMonitor()
     }
 
     private func hideNowPlayingPanel() {
         nowPlayingHideTask?.cancel()
         nowPlayingHideTask = nil
         nowPlayingPanel?.orderOut(nil)
+        removeOutsideClickMonitorIfIdle()
+    }
+
+    // MARK: - Dismissing the popovers
+
+    /// A click outside closes whichever popover is open. Hover-out already does it after a grace
+    /// period, but a click is a decision and should not wait 400 ms for the pointer to leave.
+    private func installOutsideClickMonitor() {
+        guard outsideClickMonitor == nil else { return }
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.clickedOutside() }
+        }
+    }
+
+    private func clickedOutside() {
+        let point = NSEvent.mouseLocation
+        // The bar itself is not "outside": clicking the media row is what opened this.
+        if let sidebar = sidebarPanel, sidebar.frame.contains(point) { return }
+
+        if nowPlayingModel.isShowing,
+           nowPlayingPanel?.frame.contains(point) != true {
+            nowPlayingModel.hide()
+        }
+        if groupModel.group != nil, groupPanel?.frame.contains(point) != true {
+            groupModel.hide()
+        }
+        removeOutsideClickMonitorIfIdle()
+    }
+
+    private func removeOutsideClickMonitorIfIdle() {
+        guard !nowPlayingModel.isShowing, groupModel.group == nil else { return }
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        outsideClickMonitor = nil
     }
 
     private func nowPlayingHoverChanged(_ hovering: Bool) {
@@ -216,12 +257,14 @@ public final class PanelController {
         groupModel.show(group)
         layoutGroup()
         groupPanel?.orderFrontRegardless()
+        installOutsideClickMonitor()
     }
 
     private func hideGroup() {
         groupHideTask?.cancel()
         groupHideTask = nil
         groupPanel?.orderOut(nil)
+        removeOutsideClickMonitorIfIdle()
     }
 
     private func groupHoverChanged(_ hovering: Bool) {

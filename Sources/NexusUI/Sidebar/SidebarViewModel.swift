@@ -248,9 +248,19 @@ public final class SidebarViewModel {
         general.showNowPlaying && mediaCommand != nil && nowPlayingIsActive
     }
 
-    /// Two: the artwork, and the controls beneath it. A player whose buttons are one hover away is
-    /// a player with a hover too many (M16).
-    public let nowPlayingRowCount = 2
+    /// How many rows' worth of bar the player takes: two when compact — artwork and the transport
+    /// buttons — and four when wide, drawn as one inline player across them (M17).
+    ///
+    /// Counting it in rows is what keeps every other piece of layout maths row-based: the wide
+    /// player is one view spanning four rows' extent, not a section with its own pitch.
+    public var nowPlayingRowCount: Int { isMediaPlayerWide ? 4 : 2 }
+
+    /// Wide only where wide fits. A vertical bar is 64 points across: four rows of *height* buy
+    /// nothing a horizontal scrubber can use, so it stays compact unless hover has expanded it.
+    public var isMediaPlayerWide: Bool {
+        guard appearance.mediaWidth == .wide else { return false }
+        return !appearance.position.isVertical || isExpanded
+    }
 
     /// The sections that never scroll, each of which costs a separator: the launcher, then the
     /// tail's three parts.
