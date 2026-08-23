@@ -156,3 +156,59 @@ struct BarAnchorTests {
         }
     }
 }
+
+@Suite("The bar's Search part")
+@MainActor
+struct SearchBarStyleTests {
+    private func makeModel(
+        style: SearchBarStyle,
+        position: SidebarPosition
+    ) -> SidebarViewModel {
+        let configuration = ConfigurationController(
+            store: InMemoryConfigurationStore(),
+            events: EventBus(),
+            saveDelay: .zero
+        )
+        configuration.update {
+            $0.search.barStyle = style
+            $0.appearance.position = position
+        }
+        let model = SidebarViewModel(
+            applications: FakeApplicationService(),
+            configuration: configuration,
+            events: EventBus()
+        )
+        model.openSearch = {}
+        return model
+    }
+
+    @Test("An icon takes one slot; a box takes three")
+    func slots() {
+        #expect(makeModel(style: .icon, position: .bottom).searchRowCount == 1)
+        #expect(makeModel(style: .field, position: .bottom).searchRowCount == 3)
+    }
+
+    @Test("A narrow vertical bar keeps the icon, however the setting is set")
+    func verticalStaysNarrow() {
+        let model = makeModel(style: .field, position: .left)
+        #expect(model.isSearchFieldWide == false)
+        #expect(model.searchRowCount == 1)
+    }
+
+    @Test("Hover-expanding a vertical bar makes room for the box")
+    func expandedVertical() {
+        let model = makeModel(style: .field, position: .left)
+        model.isExpanded = true
+        #expect(model.isSearchFieldWide)
+        #expect(model.searchRowCount == 3)
+    }
+
+    @Test("The box costs the tail two extra slots, and the sections say so")
+    func tailAccounting() {
+        let icon = makeModel(style: .icon, position: .bottom)
+        let box = makeModel(style: .field, position: .bottom)
+        #expect(box.tailRowCount - icon.tailRowCount == 2)
+        #expect(box.sectionRowCounts.last == 3)
+        #expect(icon.sectionRowCounts.last == 1)
+    }
+}

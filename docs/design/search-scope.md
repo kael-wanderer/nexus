@@ -9,20 +9,23 @@ Typing into the bar itself is the ask, and it is the one thing the bar cannot do
 can never become key (`design/mvp.md` §2.1, and every AppKit control in it would render inactive if
 it could). A text field nobody can type into is not a feature.
 
-What is possible, and reads the same, is opening the palette **anchored to the Search row** instead
-of at 62% of the screen height — beside a vertical bar, above or below a horizontal one, exactly
-where the window flyout appears. The palette is already its own activating panel; only its position
-changes.
+What is possible, and reads the same, is a **box** in the bar that opens the palette beside itself.
+`search.barStyle` picks it:
 
-`search.opensAtBar`, default **on**. The centred position stays available, because on a large
-display the middle of the screen is where the eye already is; it is also the fallback whenever there
-is no bar to anchor to — suppressed from the status menu, hidden by auto-hide, or a build with no
-Search row.
+| Setting | The bar shows | Clicking it |
+|---|---|---|
+| An icon (default) | One slot, a magnifying glass | Opens the palette in the middle of the screen |
+| A search box | Three slots, a bordered box with a placeholder | Opens the palette 8 pt from the box |
+
+The global shortcut is not part of that choice: `⌥Space` always centres the palette, because that is
+what a hotkey means and what Spotlight does (D90). A narrow vertical bar keeps the icon whatever the
+setting says — three rows of *height* buy a horizontal box nothing — and hover-expanding it makes
+room, exactly as the wide player does.
 
 Anchoring reuses `SidebarLayout.flyoutFrame`, the same placement the window flyout and the group
-popover use, so a palette that grows as results arrive stays attached to the row: it grows *upwards*
-off a bottom bar, and it is clamped on screen, which is why the palette beside the last row of a
-1,868-point bar sits at the screen's edge rather than half off it.
+popover use, so a palette that grows as results arrive stays attached to the box: it grows *upwards*
+off a bottom bar, and it clamps on screen, which is why the palette beside the last slot of a
+2,513-point bar sits at the screen's edge rather than half off it.
 
 ## Scope
 

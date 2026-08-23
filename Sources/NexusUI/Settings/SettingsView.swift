@@ -459,11 +459,18 @@ struct SearchPane: View {
                 }
             }
             Section {
-                Toggle(
-                    String(localized: "Open search at the bar"),
-                    isOn: configuration.binding(\.search.opensAtBar)
-                )
-                Text("The palette appears beside the Search row instead of the middle of the screen. Press ⇥ inside it, or ⌃1…⌃6, to narrow a search to applications, files or folders.")
+                Picker(
+                    String(localized: "In the bar, show"),
+                    selection: configuration.binding(\.search.barStyle)
+                ) {
+                    ForEach(SearchBarStyle.allCases, id: \.self) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                Text("A box takes three slots and opens the palette beside itself; an icon takes one and opens it in the middle of the screen. The shortcut always opens it in the middle. Typing happens in the palette either way — the bar cannot take keyboard focus.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Inside the palette, ⇥ or ⌃1…⌃6 narrows a search to applications, files or folders.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

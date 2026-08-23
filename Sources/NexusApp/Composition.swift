@@ -93,7 +93,7 @@ final class Composition {
             events: events,
             windows: windows
         )
-        searchPanel = SearchPanelController(model: searchModel, configuration: configuration)
+        searchPanel = SearchPanelController(model: searchModel)
         startMenuModel = StartMenuViewModel(
             index: applicationIndex.snapshot,
             configuration: configuration,
@@ -155,7 +155,12 @@ final class Composition {
         }
         sidebarModel.seekPlayer = { [weak self] seconds in self?.nowPlaying.seek(to: seconds) }
 
-        sidebarModel.openSearch = { [weak self] in self?.searchPanel.show() }
+        // The bar's own Search part opens the palette beside itself when it is drawn as a box, and
+        // in the middle of the screen when it is just an icon (D90).
+        sidebarModel.openSearch = { [weak self] in
+            guard let self else { return }
+            searchPanel.show(configuration.configuration.search.barStyle == .field ? .bar : .centred)
+        }
         sidebarModel.openStartMenu = { [weak self] in self?.showStartMenu() }
         applicationIndex.onIndexed = { [weak self] in self?.startMenuModel.indexChanged() }
 

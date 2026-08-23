@@ -198,7 +198,16 @@ public struct SidebarView: View {
         model.emptyTrash()
     }
 
+    @ViewBuilder
     private var searchRow: some View {
+        if model.isSearchFieldWide {
+            SidebarSearchBox(model: model)
+        } else {
+            searchIconRow
+        }
+    }
+
+    private var searchIconRow: some View {
         SidebarGlyphRow(
             systemImage: "magnifyingglass",
             title: String(localized: "Search"),
@@ -472,5 +481,66 @@ struct SidebarGlyphRow: View {
         .accessibilityHint(hint)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { action() }
+    }
+}
+
+/// The Search part drawn as a box rather than an icon (D90).
+///
+/// It looks like a field and is not one: this panel can never become key, so an `NSTextField` here
+/// could not be typed into. Clicking it opens the palette beside the box, and the palette is where
+/// the keystrokes go — which is the same bargain the start menu's filter field makes, one panel
+/// along.
+struct SidebarSearchBox: View {
+    @Bindable var model: SidebarViewModel
+
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isVertical: Bool { model.appearance.position.isVertical }
+
+    /// Three rows' worth along the bar's axis, gaps included.
+    private var extent: CGFloat {
+        SidebarLayout.sectionExtent(rows: model.searchRowCount, appearance: model.appearance)
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+            Text("Search")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .frame(
+            width: isVertical ? nil : extent,
+            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+        )
+        .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
+        .padding(isVertical ? .horizontal : .vertical, 8)
+        .background {
+            RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
+                .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.quinary))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
+                .strokeBorder(.separator, lineWidth: 0.5)
+                .padding(isVertical ? .horizontal : .vertical, 8)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
+                isHovered = hovering
+            }
+        }
+        .nexusRow(onClick: { model.openSearch?() })
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Search"))
+        .accessibilityHint(String(localized: "Opens the Nexus search palette"))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { model.openSearch?() }
     }
 }

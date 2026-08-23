@@ -803,3 +803,24 @@ no owner rather than "launchd is playing".
 Once the player is named, everything downstream already worked: the row takes its title from the
 application's window, and `MediaTitle.clean` strips both `YouTube` and `Google Chrome` off the end.
 Verified with the row live: *"Đánh giá Nintendo Switch 2 sau hơn…"*, artist *Google Chrome*.
+
+**D90. The shortcut centres the palette; the bar's box opens it beside itself.**
+
+M19 shipped `search.opensAtBar`, defaulting to on, which made `⌥Space` open the palette against the
+bar. That was wrong about what a global shortcut means: pressing a hotkey is not pointing at the
+bar, and Spotlight — the thing every macOS user compares this to — answers in the middle of the
+screen. The shortcut now always centres the palette, and nothing can configure that away.
+
+What the bar can do instead is *look* like a search field. `search.barStyle` chooses between an
+icon in one slot, which opens the centred palette, and a box across three slots, which opens the
+palette beside itself. The box is drawn with the same one-view-across-N-slots trick as the wide
+player (D82), so the layout maths stays row-based, and it collapses back to an icon on a narrow
+vertical bar for the same reason the player does.
+
+The box is a box, not a field. This panel can never become key, so an `NSTextField` drawn in it
+could not be typed into — the constraint from `design/mvp.md` §2.1 that also killed the original
+"type in the dock" request. Clicking the box opens the palette 8 points away, which is where every
+keystroke goes; the effect a user sees is a field that grows into a result list.
+
+`opensAtBar` is gone rather than migrated: it was one commit old, and the placement is now decided
+by *which surface asked* rather than by a setting.

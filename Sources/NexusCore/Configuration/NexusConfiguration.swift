@@ -240,6 +240,24 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     }
 }
 
+/// How the bar draws its Search part.
+public enum SearchBarStyle: String, Codable, Sendable, CaseIterable {
+    /// One slot, a magnifying glass. Clicking it opens the palette in the middle of the screen.
+    case icon
+    /// Three slots, drawn as a search box. Clicking it opens the palette beside the box.
+    ///
+    /// It is a box, not a field: this panel can never become key, so a real `NSTextField` here
+    /// could not be typed into (`design/mvp.md` §2.1). Every keystroke belongs to the palette.
+    case field
+
+    public var title: String {
+        switch self {
+        case .icon: String(localized: "An icon")
+        case .field: String(localized: "A search box")
+        }
+    }
+}
+
 public struct SearchConfiguration: Codable, Sendable, Equatable {
     public var shortcut = KeyboardShortcut.optionSpace
     public var searchApplications = true
@@ -247,9 +265,10 @@ public struct SearchConfiguration: Codable, Sendable, Equatable {
     public var searchFiles = true
     public var searchActions = true
     public var maximumResults = 20
-    /// Where the palette opens: beside the bar's Search row, or in the middle of the screen.
-    /// On by default — the row the user clicked is where they are looking (M19).
-    public var opensAtBar = true
+    /// What the bar's Search part looks like: a single icon, or a box three slots wide that reads
+    /// as a search field. The box opens the palette beside itself; the global shortcut always
+    /// opens it in the middle of the screen, the way Spotlight does (D90).
+    public var barStyle = SearchBarStyle.icon
     public init() {}
 
     /// Tolerant decode: a key added in a later version must not reset the rest (D67).
@@ -261,7 +280,7 @@ public struct SearchConfiguration: Codable, Sendable, Equatable {
         searchFiles = try container.decodeIfPresent(Bool.self, forKey: .searchFiles) ?? true
         searchActions = try container.decodeIfPresent(Bool.self, forKey: .searchActions) ?? true
         maximumResults = try container.decodeIfPresent(Int.self, forKey: .maximumResults) ?? 20
-        opensAtBar = try container.decodeIfPresent(Bool.self, forKey: .opensAtBar) ?? true
+        barStyle = try container.decodeIfPresent(SearchBarStyle.self, forKey: .barStyle) ?? .icon
     }
 }
 

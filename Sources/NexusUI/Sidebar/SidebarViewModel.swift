@@ -78,6 +78,7 @@ public final class SidebarViewModel {
     public var appearance: AppearanceConfiguration { configuration.configuration.appearance }
     public var behavior: BehaviorConfiguration { configuration.configuration.behavior }
     public var general: GeneralConfiguration { configuration.configuration.general }
+    public var search: SearchConfiguration { configuration.configuration.search }
 
     /// Hover-expanded (names visible). Never true when `behavior.hoverExpand` is off.
     public var isExpanded = false
@@ -132,7 +133,10 @@ public final class SidebarViewModel {
     @ObservationIgnored private let configuration: ConfigurationController
     @ObservationIgnored private let events: EventBus
     @ObservationIgnored private var eventTask: Task<Void, Never>?
-    @ObservationIgnored private var lastLayoutInputs: (AppearanceConfiguration, Bool, Bool)?
+    /// Everything a change to which resizes the bar. `search.barStyle` is in here because the box
+    /// costs three slots where the icon costs one (D90).
+    @ObservationIgnored private var lastLayoutInputs:
+        (AppearanceConfiguration, Bool, Bool, SearchBarStyle)?
     /// Every application the sidebar knows about, by bundle identifier, and the running ones in
     /// display order. The two row lists are composed from these.
     @ObservationIgnored private var items: [String: SidebarItem] = [:]
@@ -229,7 +233,7 @@ public final class SidebarViewModel {
         if behavior.showRunningApplications { counts.append(zones.runningRows) }
         if showsNowPlayingRow { counts.append(nowPlayingRowCount) }
         counts.append(1)                                    // Trash
-        if openSearch != nil { counts.append(1) }
+        if openSearch != nil { counts.append(searchRowCount) }
         return counts
     }
 
@@ -239,7 +243,19 @@ public final class SidebarViewModel {
     /// Search once it is injected. A row that is not there gives its slot back to the applications
     /// (D74).
     public var tailRowCount: Int {
-        (showsNowPlayingRow ? nowPlayingRowCount : 0) + (openSearch == nil ? 1 : 2)
+        (showsNowPlayingRow ? nowPlayingRowCount : 0) + 1 + (openSearch == nil ? 0 : searchRowCount)
+    }
+
+    /// How many slots the Search part takes: three when it is drawn as a box, one when it is an
+    /// icon. Same trick as the wide player — one view across three rows' extent (D82) — so the
+    /// layout maths stays row-based.
+    public var searchRowCount: Int { isSearchFieldWide ? 3 : 1 }
+
+    /// A box only where a box fits. A vertical bar is 64 points across, and three rows of *height*
+    /// buy nothing a search box can use, so it stays an icon unless hover has expanded the bar.
+    public var isSearchFieldWide: Bool {
+        guard search.barStyle == .field else { return false }
+        return !appearance.position.isVertical || isExpanded
     }
 
     public var showsNowPlayingRow: Bool {
@@ -267,7 +283,7 @@ public final class SidebarViewModel {
         if showsStartMenuRow { rows.append(1) }
         if showsNowPlayingRow { rows.append(nowPlayingRowCount) }
         rows.append(1)                                      // Trash
-        if openSearch != nil { rows.append(1) }
+        if openSearch != nil { rows.append(searchRowCount) }
         return rows
     }
 
@@ -392,7 +408,12 @@ public final class SidebarViewModel {
 
     public func configurationChanged() {
         if !behavior.hoverExpand { isExpanded = false }
-        let inputs = (appearance, behavior.showRunningApplications, behavior.hoverExpand)
+        let inputs = (
+            appearance,
+            behavior.showRunningApplications,
+            behavior.hoverExpand,
+            search.barStyle
+        )
         let changed = lastLayoutInputs.map { $0 != inputs } ?? true
         lastLayoutInputs = inputs
         Task { await refresh() }

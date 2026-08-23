@@ -423,7 +423,8 @@ Spec: none — the Makefile target and `LoginItemService` are the whole of it (D
 **Shipped** 2026-08-23.
 
 **Scope**
-- The palette can open anchored to the Search row instead of mid-screen (`search.opensAtBar`).
+- The bar's Search part can be a box across three slots that opens the palette beside itself
+  (`search.barStyle`); the global shortcut always centres it, the way Spotlight does (D90).
 - A scope filter — Everything, Applications, Files & folders, Files, Folders, Settings — chosen with
   `⌃1`…`⌃6`, `⇥` / `⇧⇥`, or the chip's own menu, shown as a chip in the field, cleared by the first
   Escape. `⌘1`…`⌘6` were already taken by the numbered results (D87).

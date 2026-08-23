@@ -178,6 +178,21 @@ struct MediaTitleTests {
 
     @Test("A window that says nothing but the application's own name is not a title")
     func noTitle() {
+        // Chrome's real window title: the site, its own note about the tab, its name, and the
+        // profile. Everything from the site onwards is furniture (D89).
+        #expect(
+            MediaTitle.clean(
+                "Đánh giá Nintendo Switch 2 sau hơn một năm sử dụng - YouTube - Audio playing - Google Chrome - Cong",
+                applicationName: "Google Chrome"
+            ) == "Đánh giá Nintendo Switch 2 sau hơn một năm sử dụng"
+        )
+        // A profile name alone, with no site in the way, still does not survive the browser's note.
+        #expect(
+            MediaTitle.clean(
+                "Some Tab - Audio playing - Google Chrome - Work",
+                applicationName: "Google Chrome"
+            ) == "Some Tab"
+        )
         #expect(MediaTitle.clean("VLC media player", applicationName: "VLC media player") == nil)
         #expect(MediaTitle.clean("   ", applicationName: "VLC") == nil)
     }

@@ -41,7 +41,6 @@ public final class SearchPanelController {
     }
 
     private let model: SearchViewModel
-    private let configuration: ConfigurationController
     private var panel: SearchPanel?
     private var hosting: NSView?
     private var previousApplication: NSRunningApplication?
@@ -49,6 +48,16 @@ public final class SearchPanelController {
     private var outsideClickMonitor: Any?
     private var resignObserver: (any NSObjectProtocol)?
     private var verificationTask: Task<Void, Never>?
+
+    /// Where the palette appears. The global shortcut always centres it — that is what pressing a
+    /// hotkey means, and it is what Spotlight does (D90) — and the bar's own Search part opens it
+    /// beside itself.
+    public enum Placement: Sendable {
+        case centred
+        case bar
+    }
+
+    private var placement: Placement = .centred
 
     public private(set) var strategy: ActivationStrategy = .nonActivating
     public private(set) var isVisible = false
@@ -59,9 +68,8 @@ public final class SearchPanelController {
     /// middle of the screen (M19).
     public var barAnchor: (() -> SidebarLayout.BarAnchor?)?
 
-    public init(model: SearchViewModel, configuration: ConfigurationController) {
+    public init(model: SearchViewModel) {
         self.model = model
-        self.configuration = configuration
     }
 
     public func start() {
@@ -89,12 +97,13 @@ public final class SearchPanelController {
         panel = nil
     }
 
-    public func toggle() {
-        if isVisible { hide(restoreFocus: true) } else { show() }
+    public func toggle(_ placement: Placement = .centred) {
+        if isVisible { hide(restoreFocus: true) } else { show(placement) }
     }
 
-    public func show() {
+    public func show(_ placement: Placement = .centred) {
         guard let panel else { return }
+        self.placement = placement
         willShow?()
 
         // Capture BEFORE anything can change the frontmost application.
@@ -217,7 +226,7 @@ public final class SearchPanelController {
     }
 
     private func currentAnchor() -> SidebarLayout.BarAnchor? {
-        guard configuration.configuration.search.opensAtBar else { return nil }
+        guard placement == .bar else { return nil }
         return barAnchor?()
     }
 

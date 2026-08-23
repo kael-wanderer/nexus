@@ -41,6 +41,17 @@ public enum MediaTitle {
         "Disney+", "Prime Video", "Apple TV", "Apple Music", "Bandcamp", "Mixcloud",
     ]
 
+    /// What a browser adds to a window title about the tab rather than about what is playing.
+    /// Chrome's is the reason this list exists: its window title is
+    /// `<tab> - Audio playing - Google Chrome - <profile>`, and a profile called anything at all
+    /// used to stop the trailing strip dead, leaving every one of those words on the row (D89).
+    static let browserFurniture = [
+        "Audio playing", "Audio muted", "Video playing", "Camera in use", "Microphone in use",
+        "Private", "Incognito", "New Tab", "Untitled",
+    ]
+
+    static let separators = [" — ", " – ", " - ", " | "]
+
     static let mediaExtensions: Set<String> = [
         "mkv", "mp4", "m4v", "mov", "avi", "webm", "flv", "wmv", "mpg", "mpeg",
         "mp3", "m4a", "flac", "wav", "aac", "ogg", "opus", "aiff", "alac",
@@ -52,21 +63,12 @@ public enum MediaTitle {
         var text = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
 
-        // Strip trailing " - Something" once per known suffix, so "Track - YouTube - Brave" loses
-        // both without touching a hyphen that belongs to the title.
-        var strippedSomething = true
-        while strippedSomething {
-            strippedSomething = false
-            for separator in [" — ", " – ", " - ", " | "] {
-                guard let range = text.range(of: separator, options: .backwards) else { continue }
-                let tail = String(text[range.upperBound...]).trimmingCharacters(in: .whitespaces)
-                let isFurniture = tail.caseInsensitiveCompare(applicationName ?? "") == .orderedSame
-                    || siteSuffixes.contains { $0.caseInsensitiveCompare(tail) == .orderedSame }
-                guard isFurniture else { continue }
-                text = String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
-                strippedSomething = true
-                break
-            }
+        // Cut at the *first* piece of furniture, not the last: everything after the site name or
+        // the browser's own note is furniture too, whatever it happens to say. "Track - YouTube -
+        // Audio playing - Google Chrome - Cong" is "Track"; "Artist - Song" is left alone, because
+        // neither half is furniture.
+        if let cut = firstFurnitureBoundary(in: text, applicationName: applicationName) {
+            text = String(text[..<cut]).trimmingCharacters(in: .whitespaces)
         }
 
         // A file name is a title with an extension on it.
@@ -80,6 +82,40 @@ public enum MediaTitle {
               text.caseInsensitiveCompare(applicationName ?? "") != .orderedSame
         else { return nil }
         return text
+    }
+
+    /// Where the furniture starts: the separator before the first segment that is the application's
+    /// name, a known site, or a browser's note about the tab. `nil` when every segment is title.
+    static func firstFurnitureBoundary(
+        in text: String,
+        applicationName: String?
+    ) -> String.Index? {
+        var boundaries: [Range<String.Index>] = []
+        for separator in separators {
+            var start = text.startIndex
+            while let range = text.range(of: separator, range: start..<text.endIndex) {
+                boundaries.append(range)
+                start = range.upperBound
+            }
+        }
+        boundaries.sort { $0.lowerBound < $1.lowerBound }
+
+        for (index, boundary) in boundaries.enumerated() {
+            let end = index + 1 < boundaries.count ? boundaries[index + 1].lowerBound : text.endIndex
+            guard boundary.upperBound <= end else { continue }
+            let segment = String(text[boundary.upperBound..<end])
+                .trimmingCharacters(in: .whitespaces)
+            if isFurniture(segment, applicationName: applicationName) { return boundary.lowerBound }
+        }
+        return nil
+    }
+
+    static func isFurniture(_ segment: String, applicationName: String?) -> Bool {
+        if segment.caseInsensitiveCompare(applicationName ?? "\u{0}") == .orderedSame { return true }
+        if siteSuffixes.contains(where: { $0.caseInsensitiveCompare(segment) == .orderedSame }) {
+            return true
+        }
+        return browserFurniture.contains { $0.caseInsensitiveCompare(segment) == .orderedSame }
     }
 }
 

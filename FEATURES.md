@@ -38,7 +38,7 @@ Legend — M1…M7 = milestone (see `ROADMAP.md`).
 | 25 | Accessibility basics | every milestone | None | Labels written with the view, not retrofitted; audited at M7 |
 | 26 | Install and launch at login | M6 (toggle) → M18 (install) | None | `make install` puts the signed bundle in `/Applications`; `SMAppService.mainApp` registers it there, and the toggle warns when Nexus is running from anywhere else (D86) |
 | 27 | Search scope | M19 | None | Everything / Applications / Files & Folders / Files / Folders / Settings, on `⌃1`…`⌃6`, `⇥` or the chip menu; files versus folders is a Spotlight predicate on the existing query (D87) |
-| 28 | Palette at the bar | M19 | None | `search.opensAtBar`, on by default: the palette opens beside the Search row through the same placement the flyouts use |
+| 28 | Search box in the bar | M19 | None | `search.barStyle`: an icon in one slot, or a box across three that opens the palette beside itself. The global shortcut always centres the palette (D90) |
 
 ### Basic actions shipped in the MVP (§13)
 
