@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import NexusUI
@@ -8,5 +9,41 @@ struct DesignTests {
     func reduceMotion() {
         #expect(Design.animation(Design.reveal, reduceMotion: true) == nil)
         #expect(Design.animation(Design.reveal, reduceMotion: false) != nil)
+    }
+
+    /// The badge must never hang over the edge of the row it decorates: outside the row is outside
+    /// the row's hover region, and that is what made it flash (D110).
+    @Test("The remove badge always lands wholly inside the row")
+    func removeBadgeStaysInside() {
+        let diameter = Design.removeBadgeDiameter
+        let cases: [(CGRect, CGSize)] = [
+            // A popover tile: a 36 pt icon centred in 76 pt, five points down from the top.
+            (CGRect(x: 20, y: 5, width: 36, height: 36), CGSize(width: 76, height: 76)),
+            // A row of an expanded vertical bar: the icon at the leading edge.
+            (CGRect(x: 4, y: 4, width: 64, height: 64), CGSize(width: 200, height: 72)),
+            // A row of a horizontal bar, and a corner case: the icon fills the row exactly.
+            (CGRect(x: 4, y: 4, width: 64, height: 64), CGSize(width: 72, height: 72)),
+            (CGRect(x: 0, y: 0, width: 12, height: 12), CGSize(width: 12, height: 12)),
+        ]
+        for (icon, size) in cases {
+            let centre = Design.removeBadgeCentre(icon: icon, in: size)
+            let badge = CGRect(
+                x: centre.x - diameter / 2,
+                y: centre.y - diameter / 2,
+                width: diameter,
+                height: diameter
+            )
+            #expect(badge.minX >= 0)
+            #expect(badge.minY >= 0)
+            #expect(badge.maxX <= max(size.width, diameter))
+            #expect(badge.maxY <= max(size.height, diameter))
+        }
+
+        // Where there is room, it stays on the icon's corner rather than being moved for no reason.
+        let roomy = Design.removeBadgeCentre(
+            icon: CGRect(x: 30, y: 30, width: 36, height: 36),
+            in: CGSize(width: 120, height: 120)
+        )
+        #expect(roomy == CGPoint(x: 30, y: 30))
     }
 }

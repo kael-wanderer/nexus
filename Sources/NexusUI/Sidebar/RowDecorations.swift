@@ -20,6 +20,25 @@ extension Design {
 
     public static let jiggle = Animation.easeInOut(duration: 0.16).repeatForever(autoreverses: true)
     public static let bounce = Animation.easeOut(duration: 0.22).repeatCount(3, autoreverses: true)
+
+    /// The minus badge is a fixed size rather than whatever the symbol measures, because where it
+    /// goes is arithmetic and arithmetic needs a number (D110).
+    public static let removeBadgeDiameter: CGFloat = 18
+
+    /// Where the badge's centre goes: the icon's top-left corner, pulled in far enough that the
+    /// whole badge stays inside the row it decorates.
+    ///
+    /// The pulling-in is the fix, not a nicety (D110). A badge that hangs over the row's edge hangs
+    /// outside the row's *hover region* too, so moving the pointer onto it read as leaving the row —
+    /// which hid the badge, which put the pointer back over the row, which showed it again. That
+    /// loop is what flashed.
+    public static func removeBadgeCentre(icon: CGRect, in size: CGSize) -> CGPoint {
+        let radius = removeBadgeDiameter / 2
+        return CGPoint(
+            x: min(max(icon.minX, radius), max(size.width - radius, radius)),
+            y: min(max(icon.minY, radius), max(size.height - radius, radius))
+        )
+    }
 }
 
 /// A colour picked for a group (D108), as the system's own semantic colour rather than a hex value,
@@ -112,9 +131,8 @@ extension View {
         overlayPreferenceValue(IconCorner.self) { anchor in
             if visible, let anchor {
                 GeometryReader { proxy in
-                    let icon = proxy[anchor]
                     RemoveBadge(action: action)
-                        .position(x: icon.minX, y: icon.minY)
+                        .position(Design.removeBadgeCentre(icon: proxy[anchor], in: proxy.size))
                 }
             }
         }
@@ -133,6 +151,7 @@ struct RemoveBadge: View {
             .symbolRenderingMode(.palette)
             .foregroundStyle(.white, .secondary)
             .background(Circle().fill(.background).padding(2))
+            .frame(width: Design.removeBadgeDiameter, height: Design.removeBadgeDiameter)
             .contentShape(Circle())
             .nexusRow(onClick: action)
             .accessibilityLabel(String(localized: "Remove"))
