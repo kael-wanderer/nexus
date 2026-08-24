@@ -15,7 +15,7 @@ this project follows [Semantic Versioning](https://semver.org).
   (`NSRunningApplication.terminate()`). The now-playing panel's artwork gains a light border and
   the same title chip, replacing its wrapped title block; its three transport buttons become wide
   rounded tiles; its header carries the player's icon and name with no buttons. New setting
-  `behavior.flyoutSize` (small / medium / large, default medium, Settings → Bar) sizes both panels
+  `behavior.flyoutSize` (small / medium / large, default medium, Settings → Behavior) sizes both panels
   together (D120).
 - A window switcher (M25): `⌃⌥W` opens a full-screen grid of every window on the machine, one card
   per window rather than per application — `⌘Tab` already reaches applications and cannot reach a

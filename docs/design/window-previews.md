@@ -46,7 +46,7 @@ twelve-window application scrolls rather than spanning the screen.
 `behavior.hoverPreview` (default **on**) and `behavior.hoverPreviewDelay` (0.2–1.5 s). Off means
 today's behaviour exactly: the flyout opens from the context menu's **Show All Windows** only.
 
-`behavior.flyoutSize` (small / medium / large, default medium, Settings → Bar) picks the card size
+`behavior.flyoutSize` (small / medium / large, default medium, Settings → Behavior) picks the card size
 — see §4.
 
 ## 4. The restyle: cards, a header, and a size setting

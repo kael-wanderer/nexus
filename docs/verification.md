@@ -203,7 +203,7 @@ with something playing:
   visible border, the title chip sits over its bottom-leading corner, the artist line and scrubber
   are unchanged, and the three transport buttons are wide tiles rather than circles.
 - Confirm the panel's header shows the player's icon and name with no buttons beside them.
-- Change `behavior.flyoutSize` in Settings → Bar between small/medium/large and confirm both panels
+- Change `behavior.flyoutSize` in Settings → Behavior between small/medium/large and confirm both panels
   resize together, live, without needing to reopen them.
 - New Window, on an application that does and does not map ⌘N to it (e.g. Safari vs. a utility with
   no such menu item) — confirm the AX menu walk presses the right item where one exists, and does

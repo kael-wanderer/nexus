@@ -360,6 +360,20 @@ struct BehaviorPane: View {
                         }
                     }
                 }
+                Picker(
+                    String(localized: "Panel size"),
+                    selection: configuration.binding(\.behavior.flyoutSize)
+                ) {
+                    Text("Small").tag(FlyoutSize.small)
+                    Text("Medium").tag(FlyoutSize.medium)
+                    Text("Large").tag(FlyoutSize.large)
+                }
+                // Not disabled with hover previews off: the now-playing panel is reached by hover
+                // too and this sizes that as well, so gating it on one of its two callers would
+                // dim a control that still does something.
+                Text("How big the window flyout's cards and the now-playing panel draw themselves.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section {
                 Toggle(
@@ -668,19 +682,6 @@ struct BarPane: View {
                     isOn: configuration.binding(\.behavior.groupColorsAndEmoji)
                 )
                 Text("A group can carry a colour and an emoji, chosen where its name is edited. Off hides both without forgetting them.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section {
-                Picker(
-                    String(localized: "Flyout size"),
-                    selection: configuration.binding(\.behavior.flyoutSize)
-                ) {
-                    Text("Small").tag(FlyoutSize.small)
-                    Text("Medium").tag(FlyoutSize.medium)
-                    Text("Large").tag(FlyoutSize.large)
-                }
-                Text("How big the window flyout's cards and the now-playing panel draw themselves.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
