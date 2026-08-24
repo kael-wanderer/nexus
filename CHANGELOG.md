@@ -12,7 +12,10 @@ this project follows [Semantic Versioning](https://semver.org).
   an accent ring. The flyout's header gains two buttons: **New Window**, which walks the target's
   AX menu bar for the item bound to ⌘N and presses it — there is no API for "open a new window",
   and an application that does not map ⌘N to one does whatever it does map (D119) — and **Quit**
-  (`NSRunningApplication.terminate()`). The now-playing panel's artwork gains a light border and
+  (`NSRunningApplication.terminate()`), which asks first: the panel opens on passive hover, so
+  ending somebody's application sits behind a confirmation naming it. Both actions run their
+  Accessibility work inside `WindowService`'s actor, never on the main thread, so an application
+  that stops answering cannot take Nexus's interface down with it. The now-playing panel's artwork gains a light border and
   the same title chip, replacing its wrapped title block; its three transport buttons become wide
   rounded tiles; its header carries the player's icon and name with no buttons. New setting
   `behavior.flyoutSize` (small / medium / large, default medium, Settings → Behavior) sizes both panels
