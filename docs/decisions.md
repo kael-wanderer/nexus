@@ -151,3 +151,7 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D115** | Add Stack stores applications, not windows | [The bar](decisions/bar.md) |
 | **D116** | Escape clears the filter before it closes the panel | [Windows](decisions/windows.md) |
 | **D117** | Every global shortcut moved to one Shortcuts tab | [Search](decisions/search.md) |
+| **D118** | The window card's title moved onto the thumbnail as a chip | [Windows](decisions/windows.md) |
+| **D119** | Quit and New Window joined the flyout's header, and New Window presses an AX menu item | [Windows](decisions/windows.md) |
+| **D120** | One `behavior.flyoutSize` setting sizes both hover panels | [Windows](decisions/windows.md) |
+| **D121** | The settings window is searched through a hand-kept index | [Search](decisions/search.md) |

@@ -188,6 +188,7 @@ final class Composition {
             sidebarModel.dropIntoGroup(dragged, groupID: group.id, before: member.id)
         }
         groupModel.showsStyleEditor = configuration.configuration.behavior.groupColorsAndEmoji
+        groupModel.layout = configuration.configuration.behavior.groupLayout
         // Opening what is in a stack is the system's business: a file goes to its default
         // application, a folder to Finder (M21).
         folderModel.open = { url in NSWorkspace.shared.open(url) }
@@ -466,6 +467,7 @@ final class Composition {
                 // Every preference is respected live; this one is read by a second model, so it is
                 // pushed rather than looked up (D108).
                 self.groupModel.showsStyleEditor = updated.behavior.groupColorsAndEmoji
+                self.groupModel.layout = updated.behavior.groupLayout
             }
         }
     }

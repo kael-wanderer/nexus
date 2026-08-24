@@ -7,14 +7,9 @@ public struct WindowFlyoutView: View {
 
     public static let width: CGFloat = 320
     public static let rowHeight: CGFloat = 30
-    public static let headerHeight: CGFloat = 26
     public static let previewHeight: CGFloat = 96
-    /// One card beside a horizontal bar: a thumbnail with its title underneath.
-    public static let cardWidth: CGFloat = 200
     /// Past this many windows the cards scroll instead of running off the screen.
     public static let maximumCards = 5
-
-    @Environment(\.colorSchemeContrast) private var contrast
 
     public init(model: WindowFlyoutViewModel, permissions: any PermissionChecking) {
         self.model = model
@@ -32,7 +27,7 @@ public struct WindowFlyoutView: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             if model.showsPermissionRequest {
                 PermissionRequestView(
                     permission: .accessibility,
@@ -46,7 +41,6 @@ public struct WindowFlyoutView: View {
                     Text("No windows")
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 10)
                         .frame(height: Self.rowHeight)
                 } else if model.isVertical {
                     ForEach(model.windows) { window in
@@ -58,14 +52,8 @@ public struct WindowFlyoutView: View {
                 if model.showsPreviewsOffer { previewsOffer }
             }
         }
-        .padding(8)
         .frame(width: model.isVertical ? Self.width : nil, alignment: .leading)
-        .background(VisualEffectBackground(material: .popover))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.separator, lineWidth: contrast == .increased ? 1 : 0.5)
-        }
+        .flyoutPanel()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Windows of \(model.applicationName)"))
     }
@@ -73,7 +61,7 @@ public struct WindowFlyoutView: View {
     /// Side-by-side thumbnails, the shape the Dock uses above or below a horizontal bar.
     private var cards: some View {
         ScrollView(.horizontal) {
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
                 ForEach(model.windows) { window in
                     WindowCard(model: model, window: window)
                 }
@@ -83,18 +71,45 @@ public struct WindowFlyoutView: View {
         .scrollBounceBehavior(.basedOnSize)
         .frame(
             maxWidth: CGFloat(min(model.windows.count, Self.maximumCards))
-                * (Self.cardWidth + 8),
+                * (model.flyoutSize.cardSize.width + 10),
             alignment: .leading
         )
     }
 
+    /// The application's icon and name, and two buttons: Quit, and New Window (§4 of the flyout
+    /// restyle). Both live on the view model, not here — a header button is a trigger, not a place
+    /// to decide what pressing it does.
+    ///
+    /// The panel opens on passive hover, so Quit sits behind a confirmation — terminating another
+    /// application is not reversible the way opening a window is. New Window gets no such gate
+    /// (D119); wider spacing between the two is the actual guard against a stray click, the dialog
+    /// is the backstop for the one that lands anyway.
     private var header: some View {
-        Text(model.applicationName)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 10)
-            .frame(height: Self.headerHeight, alignment: .leading)
-            .accessibilityAddTraits(.isHeader)
+        FlyoutHeader(icon: model.applicationIcon, name: model.applicationName) {
+            HStack(spacing: 10) {
+                FlyoutHeaderButton(
+                    symbol: "macwindow.badge.plus",
+                    label: String(localized: "New window")
+                ) {
+                    model.newWindow()
+                }
+                FlyoutHeaderButton(
+                    symbol: "power",
+                    label: String(localized: "Quit \(model.applicationName)")
+                ) {
+                    model.confirmingQuit = true
+                }
+                .confirmationDialog(
+                    String(localized: "Quit \(model.applicationName)?"),
+                    isPresented: $model.confirmingQuit
+                ) {
+                    Button(String(localized: "Quit \(model.applicationName)"), role: .destructive) {
+                        model.quit()
+                    }
+                    Button(String(localized: "Cancel"), role: .cancel) {}
+                }
+            }
+        }
     }
 
     private var previewsOffer: some View {
@@ -110,7 +125,37 @@ public struct WindowFlyoutView: View {
                 model.dismissPreviewsOffer()
             }
         }
-        .padding(.horizontal, 6)
+    }
+}
+
+/// A small round icon button for the flyout header — Quit and New Window are the only two callers,
+/// and neither needs anything `FlatActionRow`'s text pill offers.
+private struct FlyoutHeaderButton: View {
+    let symbol: String
+    let label: String
+    let action: () -> Void
+
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .medium))
+            .frame(width: 26, height: 26)
+            .background {
+                Circle().fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))
+            }
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
+                    isHovered = hovering
+                }
+            }
+            .nexusRow(onClick: action)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
     }
 }
 
@@ -126,7 +171,7 @@ struct WindowRow: View {
             HStack(spacing: 6) {
                 Image(systemName: window.isMinimized ? "minus.rectangle" : "macwindow")
                     .foregroundStyle(.secondary)
-                Text(displayTitle)
+                Text(window.displayTitle)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 0)
@@ -157,7 +202,7 @@ struct WindowRow: View {
         }
         .nexusRow(onClick: { model.activate(window) })
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(displayTitle)
+        .accessibilityLabel(window.displayTitle)
         .accessibilityValue(
             window.isMinimized ? String(localized: "minimized") : String(localized: "open")
         )
@@ -165,14 +210,12 @@ struct WindowRow: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { model.activate(window) }
     }
-
-    private var displayTitle: String {
-        window.title.isEmpty ? String(localized: "Untitled window") : window.title
-    }
 }
 
-/// One window as a thumbnail with its title underneath — the horizontal counterpart of
-/// `WindowRow`, which stacks them beside a vertical bar.
+/// One window as a full-bleed thumbnail with its title as a chip over the bottom-leading corner —
+/// the horizontal counterpart of `WindowRow`, which stacks beside a vertical bar. Restyled from a
+/// thumbnail-plus-caption card to match the reference: the caption moved onto the image, and a
+/// hovered card gets an accent ring instead of a tinted background.
 struct WindowCard: View {
     @Bindable var model: WindowFlyoutViewModel
     let window: NexusWindow
@@ -180,39 +223,40 @@ struct WindowCard: View {
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var size: CGSize { model.flyoutSize.cardSize }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        ZStack(alignment: .bottomLeading) {
             Group {
                 if let preview = model.previews[window.identity.number] {
                     Image(nsImage: preview)
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
+                        .aspectRatio(contentMode: .fill)
                 } else {
                     // No Screen Recording, or the capture has not arrived yet. A neutral tile,
                     // never an error-looking placeholder (§3.5).
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
                         .fill(.quaternary)
                         .overlay {
                             Image(systemName: window.isMinimized ? "minus.rectangle" : "macwindow")
-                                .font(.title3)
+                                .font(.title2)
                                 .foregroundStyle(.secondary)
                         }
                 }
             }
-            .frame(width: WindowFlyoutView.cardWidth, height: WindowFlyoutView.previewHeight)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .accessibilityHidden(true)
+            .frame(width: size.width, height: size.height)
+            .clipShape(RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous))
 
-            Text(displayTitle)
-                .font(.caption)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(width: WindowFlyoutView.cardWidth, alignment: .leading)
+            LabelChip(window.displayTitle)
+                .padding(8)
         }
-        .padding(4)
-        .background {
+        .frame(width: size.width, height: size.height)
+        .overlay {
             RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
-                .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))
+                .strokeBorder(
+                    isHovered ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.clear),
+                    lineWidth: 2
+                )
         }
         .contentShape(Rectangle())
         .onHover { hovering in
@@ -223,16 +267,12 @@ struct WindowCard: View {
         }
         .nexusRow(onClick: { model.activate(window) })
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(displayTitle)
+        .accessibilityLabel(window.displayTitle)
         .accessibilityValue(
             window.isMinimized ? String(localized: "minimized") : String(localized: "open")
         )
         .accessibilityHint(String(localized: "Brings this window to the front"))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { model.activate(window) }
-    }
-
-    private var displayTitle: String {
-        window.title.isEmpty ? String(localized: "Untitled window") : window.title
     }
 }

@@ -357,6 +357,17 @@ struct GroupPopoverTests {
         return (model, group)
     }
 
+    @Test("The list layout draws one width for every group; the grid follows its columns")
+    func panelWidth() {
+        let (model, _) = makePopover()
+        #expect(model.layout == .icons)
+        #expect(model.panelWidth == CGFloat(model.columns) * (GroupPopoverView.tileSize + 4)
+            + GroupPopoverView.padding * 2)
+
+        model.layout = .list
+        #expect(model.panelWidth == GroupPopoverView.listWidth)
+    }
+
     @Test("Clicking the title opens a field with the name in it, and takes the keyboard")
     func beginRename() {
         let (model, _) = makePopover()

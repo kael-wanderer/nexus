@@ -24,31 +24,87 @@ public struct SettingsView: View {
         self.runOnboarding = runOnboarding
     }
 
+    /// Which tab is showing, as state rather than `TabView`'s own: a search result has to be able
+    /// to send the window to the tab it found something on.
+    @State private var tab: SettingsTab = .general
+    @State private var query = ""
+
     public var body: some View {
-        TabView {
-            GeneralPane(configuration: configuration, runOnboarding: runOnboarding)
-                .tabItem { Label(String(localized: "General"), systemImage: "gearshape") }
-            DockPane(configuration: configuration, dockReplacement: dockReplacement)
-                .tabItem { Label(String(localized: "Dock"), systemImage: "rectangle.bottomthird.inset.filled") }
-            BarPane(configuration: configuration)
-                .tabItem { Label(String(localized: "Bar"), systemImage: "rectangle.grid.1x2") }
-            AppearancePane(configuration: configuration)
-                .tabItem { Label(String(localized: "Appearance"), systemImage: "paintbrush") }
-            BehaviorPane(configuration: configuration, permissions: permissions)
-                .tabItem { Label(String(localized: "Behavior"), systemImage: "slider.horizontal.3") }
-            ShortcutsPane(configuration: configuration, validateShortcut: validateShortcut)
-                .tabItem { Label(String(localized: "Shortcuts"), systemImage: "keyboard") }
-            SearchPane(configuration: configuration)
-                .tabItem { Label(String(localized: "Search"), systemImage: "magnifyingglass") }
-            PermissionsPane(permissions: permissions)
-                .tabItem { Label(String(localized: "Permissions"), systemImage: "lock.shield") }
-            AboutPane()
-                .tabItem { Label(String(localized: "About"), systemImage: "info.circle") }
+        VStack(spacing: 0) {
+            searchField
+            Divider()
+            if query.trimmingCharacters(in: .whitespaces).isEmpty {
+                tabs
+            } else {
+                SettingsSearchResults(query: query, jump: jump)
+            }
         }
         // Sized for the longest pane rather than the average one: a settings window that scrolls
         // hides the switch somebody came looking for. The window is resizable for the screens this
         // is still too tall for.
         .frame(width: 620, height: 790)
+    }
+
+    /// Nine tabs is more than anybody reads: typing a word is the way through them (D121).
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField(String(localized: "Search settings"), text: $query)
+                .textFieldStyle(.plain)
+                // Return goes straight to the first match, which is what a one-result search is.
+                .onSubmit { if let first = SettingsSearch.matches(query).first { jump(first) } }
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Clear the search"))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var tabs: some View {
+        TabView(selection: $tab) {
+            GeneralPane(configuration: configuration, runOnboarding: runOnboarding)
+                .tabItem { Label(SettingsTab.general.title, systemImage: SettingsTab.general.symbol) }
+                .tag(SettingsTab.general)
+            DockPane(configuration: configuration, dockReplacement: dockReplacement)
+                .tabItem { Label(SettingsTab.dock.title, systemImage: SettingsTab.dock.symbol) }
+                .tag(SettingsTab.dock)
+            BarPane(configuration: configuration)
+                .tabItem { Label(SettingsTab.bar.title, systemImage: SettingsTab.bar.symbol) }
+                .tag(SettingsTab.bar)
+            AppearancePane(configuration: configuration)
+                .tabItem { Label(SettingsTab.appearance.title, systemImage: SettingsTab.appearance.symbol) }
+                .tag(SettingsTab.appearance)
+            BehaviorPane(configuration: configuration, permissions: permissions)
+                .tabItem { Label(SettingsTab.behavior.title, systemImage: SettingsTab.behavior.symbol) }
+                .tag(SettingsTab.behavior)
+            ShortcutsPane(configuration: configuration, validateShortcut: validateShortcut)
+                .tabItem { Label(SettingsTab.shortcuts.title, systemImage: SettingsTab.shortcuts.symbol) }
+                .tag(SettingsTab.shortcuts)
+            SearchPane(configuration: configuration)
+                .tabItem { Label(SettingsTab.search.title, systemImage: SettingsTab.search.symbol) }
+                .tag(SettingsTab.search)
+            PermissionsPane(permissions: permissions)
+                .tabItem { Label(SettingsTab.permissions.title, systemImage: SettingsTab.permissions.symbol) }
+                .tag(SettingsTab.permissions)
+            AboutPane()
+                .tabItem { Label(SettingsTab.about.title, systemImage: SettingsTab.about.symbol) }
+                .tag(SettingsTab.about)
+        }
+    }
+
+    /// A result was picked: show its tab, and put the search away — the setting is on screen now,
+    /// and a field still full of the word that found it is in the way.
+    private func jump(_ entry: SettingsEntry) {
+        tab = entry.tab
+        query = ""
     }
 }
 
@@ -360,6 +416,20 @@ struct BehaviorPane: View {
                         }
                     }
                 }
+                Picker(
+                    String(localized: "Panel size"),
+                    selection: configuration.binding(\.behavior.flyoutSize)
+                ) {
+                    Text("Small").tag(FlyoutSize.small)
+                    Text("Medium").tag(FlyoutSize.medium)
+                    Text("Large").tag(FlyoutSize.large)
+                }
+                // Not disabled with hover previews off: the now-playing panel is reached by hover
+                // too and this sizes that as well, so gating it on one of its two callers would
+                // dim a control that still does something.
+                Text("How big the window flyout's cards and the now-playing panel draw themselves.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section {
                 Toggle(
@@ -378,6 +448,13 @@ struct BehaviorPane: View {
                 ) {
                     Text("9 (3 × 3)").tag(9)
                     Text("16 (4 × 4)").tag(16)
+                }
+                Picker(
+                    String(localized: "Opened group shows"),
+                    selection: configuration.binding(\.behavior.groupLayout)
+                ) {
+                    Text("Icons").tag(GroupLayout.icons)
+                    Text("A list").tag(GroupLayout.list)
                 }
                 Text("Drag one icon onto another and hold to put them in a group.")
                     .font(.caption)

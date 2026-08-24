@@ -164,3 +164,20 @@ single screen, so the settings window gains a Shortcuts tab holding all three ro
 existing recorders move out of their old homes rather than being duplicated there too.
 `ShortcutsPane.conflicts(in:)` reports two slots holding the same combination — a state the recorder
 could already produce and had nowhere to say so.
+
+## D121. The settings window is searched through a hand-kept index.
+Nine tabs hold about fifty controls, and the honest answer to "where is that setting" had become
+"click through all nine". A field above the tabs now filters `SettingsSearch.entries` — every token
+has to appear in a row's title, its keywords or its tab's name, so "group list" narrows to one
+result rather than widening to eleven — and picking a result selects that tab and clears the field.
+
+The index is a hand-written list rather than something derived from the panes: SwiftUI cannot be
+asked what labels a view tree holds, so deriving it means rebuilding every pane on top of a parallel
+declarative settings model, which is far more code than the list. The cost is that a new control
+needs a line in the index; `SettingsSearchTests` keeps every tab represented and every entry unique,
+which catches a whole tab going missing but not one forgotten row.
+
+Rejected: jumping to a result *and* highlighting the row it found. Highlighting needs an anchor per
+control, which is the parallel model again by another name; the panes are short enough that the tab
+is the answer.
+

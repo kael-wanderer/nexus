@@ -1321,6 +1321,23 @@ public final class SidebarViewModel {
         return symbol ?? NSImage()
     }
 
+    /// The player's own name, for the flyout's header. `NSRunningApplication` when it is still
+    /// running; the bundle's own display name — the same fallback `ApplicationService` uses for an
+    /// application `NSWorkspace` has already lost track of — when it is not.
+    public var nowPlayingPlayerName: String {
+        guard let identifier = nowPlaying.playerBundleIdentifier ?? nowPlayingFallbackPlayer else {
+            return String(localized: "Now Playing")
+        }
+        if let running = NSRunningApplication.runningApplications(withBundleIdentifier: identifier).first,
+           let name = running.localizedName {
+            return name
+        }
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) {
+            return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+        }
+        return identifier
+    }
+
     // MARK: - Hover previews
 
     /// Pointer entered or left one row. Opens that application's window flyout after

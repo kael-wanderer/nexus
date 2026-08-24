@@ -10,6 +10,7 @@ actor FakeWindowService: WindowServing {
     private(set) var activated: [WindowIdentity] = []
     private(set) var framesSet: [(window: WindowIdentity, frame: CGRect)] = []
     private(set) var closed: [WindowIdentity] = []
+    private(set) var newWindowRequested: [ApplicationIdentity] = []
     private var refuses: Set<CGWindowID> = []
     private var putsBack: Set<CGWindowID> = []
     private var trusted: Bool
@@ -54,6 +55,11 @@ actor FakeWindowService: WindowServing {
     func close(_ window: WindowIdentity) async throws {
         guard trusted else { throw NexusError.permissionDenied(.accessibility) }
         closed.append(window)
+    }
+
+    func newWindow(for application: ApplicationIdentity) async throws {
+        guard trusted else { throw NexusError.permissionDenied(.accessibility) }
+        newWindowRequested.append(application)
     }
 
     /// Windows whose application refuses to move them at all.
@@ -235,6 +241,59 @@ struct WindowFlyoutTests {
         bus.publish(.applicationTerminated(identity))
         try await Task.sleep(for: .milliseconds(100))
         #expect(model.target == nil)
+    }
+
+    @Test("The flyout draws at medium size until told otherwise")
+    func defaultSize() {
+        let model = WindowFlyoutViewModel(
+            service: FakeWindowService(),
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted]),
+            events: EventBus()
+        )
+        #expect(model.flyoutSize == .medium)
+    }
+
+    @Test("Quit hides the flyout")
+    func quitHidesFlyout() async {
+        let model = WindowFlyoutViewModel(
+            service: FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]]),
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted]),
+            events: EventBus()
+        )
+        model.show(ApplicationIdentity(bundleIdentifier: "com.apple.Safari"), name: "Safari")
+        await model.reload()
+        #expect(model.target != nil)
+
+        // No real Safari process is running under a test's bundle identity, so this also proves
+        // the no-match path — `NSRunningApplication.runningApplications` empty — does not throw or
+        // hang; it just has nothing to terminate.
+        model.quit()
+        #expect(model.target == nil)
+    }
+
+    @Test("New Window asks the service for the target application and hides the flyout")
+    func newWindowHidesFlyout() async {
+        let service = FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]])
+        let model = WindowFlyoutViewModel(
+            service: service,
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted]),
+            events: EventBus()
+        )
+        let target = ApplicationIdentity(bundleIdentifier: "com.apple.Safari")
+        model.show(target, name: "Safari")
+        await model.reload()
+        #expect(model.target != nil)
+
+        // The AX menu walk itself now lives on `WindowService`, off the main thread (the critical
+        // finding this closed); what the view model owns is asking for it and hiding regardless of
+        // outcome (§4 of the flyout restyle spec).
+        model.newWindow()
+        #expect(model.target == nil)
+        await until { await service.newWindowRequested == [target] }
+        #expect(await service.newWindowRequested == [target])
     }
 
     @Test("Closing a window asks the service and leaves the list alone until it changes")

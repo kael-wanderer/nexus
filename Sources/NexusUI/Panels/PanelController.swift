@@ -489,6 +489,7 @@ public final class PanelController {
         else { return }
         flyoutHideTask?.cancel()
         flyoutModel.isVertical = model.appearance.position.isVertical
+        flyoutModel.flyoutSize = configuration.configuration.behavior.flyoutSize
         flyoutModel.show(identity, name: item.name)
         layoutFlyout()
         flyoutPanel?.orderFrontRegardless()

@@ -17,6 +17,13 @@ public final class WindowFlyoutViewModel {
     /// Which way the flyout lays its windows out — set from the sidebar's edge before it opens.
     /// Beside a vertical bar they stack; above or below a horizontal one they sit side by side.
     public var isVertical = true
+    /// How big the cards and header draw themselves — set from `behavior.flyoutSize` before the
+    /// flyout opens, the same way `isVertical` is.
+    public var flyoutSize: FlyoutSize = .medium
+    /// Drives the header's `confirmationDialog`. The panel opens on passive hover and quitting
+    /// another application is not reversible, so the button itself only asks; `quit()` is what
+    /// actually terminates, and only the dialog's own destructive button calls it.
+    public var confirmingQuit = false
 
     @ObservationIgnored private let service: any WindowServing
     @ObservationIgnored private let previewService: any WindowPreviewing
@@ -119,6 +126,35 @@ public final class WindowFlyoutViewModel {
     public func activate(_ window: NexusWindow) {
         Task { [service] in try? await service.activate(window.identity) }
         hide()
+    }
+
+    /// The header's icon. `IconCache` is keyed on a file URL rather than a bundle identifier, so
+    /// this is the same `urlForApplication` lookup `ApplicationService` and the switcher use.
+    public var applicationIcon: NSImage {
+        guard let target,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: target.bundleIdentifier)
+        else { return NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage() }
+        return IconCache.shared.icon(for: url, size: 20)
+    }
+
+    /// `NSRunningApplication.terminate()` — the same request Quit in the menu bar sends. No AX
+    /// involved, so nothing here can fail silently the way `newWindow()` can.
+    public func quit() {
+        guard let target else { return }
+        NSRunningApplication
+            .runningApplications(withBundleIdentifier: target.bundleIdentifier)
+            .first?
+            .terminate()
+        hide()
+    }
+
+    /// The AX menu walk is synchronous IPC into another process, so it runs on `WindowService`'s
+    /// actor, never here — the same reason `activate` and `close` are also just a `Task` around a
+    /// service call (`AXBridge.swift`'s own warning about what blocks on the main thread).
+    public func newWindow() {
+        defer { hide() }
+        guard let target else { return }
+        Task { [service] in try? await service.newWindow(for: target) }
     }
 
     /// Captures every window's thumbnail, if Screen Recording allows it. Cheap to call twice: the
