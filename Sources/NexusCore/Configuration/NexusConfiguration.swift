@@ -64,6 +64,15 @@ public enum WindowSwitcherSort: String, Codable, Sendable, CaseIterable {
     case title
 }
 
+/// How big the two hover flyouts draw themselves — the window cards, and the now-playing panel.
+/// One setting for both, because they are one visual family (`design/…/FlyoutPanel.swift`); the
+/// per-case metrics live there, next to the views that read them.
+public enum FlyoutSize: String, Codable, Sendable, CaseIterable {
+    case small
+    case medium
+    case large
+}
+
 public enum DisplayPreference: Codable, Sendable, Equatable {
     case main
     case withMouse
@@ -306,6 +315,8 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     public var windowSwitcherSortReversed = false
     /// Off skips ScreenCaptureKit entirely: icons only, and no permission ever asked for.
     public var windowSwitcherThumbnails = true
+    /// How big the window flyout's cards and the now-playing panel draw themselves.
+    public var flyoutSize: FlyoutSize = .medium
     public init() {}
 
     public static let hoverPreviewDelayRange: ClosedRange<Double> = 0.2...1.5
@@ -337,6 +348,7 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         windowSwitcherSort = try container.decodeIfPresent(WindowSwitcherSort.self, forKey: .windowSwitcherSort) ?? .recent
         windowSwitcherSortReversed = try container.decodeIfPresent(Bool.self, forKey: .windowSwitcherSortReversed) ?? false
         windowSwitcherThumbnails = try container.decodeIfPresent(Bool.self, forKey: .windowSwitcherThumbnails) ?? true
+        flyoutSize = try container.decodeIfPresent(FlyoutSize.self, forKey: .flyoutSize) ?? .medium
     }
 
     public static let groupCapacities = [9, 16]

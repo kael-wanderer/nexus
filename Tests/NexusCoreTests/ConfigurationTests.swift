@@ -49,6 +49,7 @@ struct ConfigurationTests {
         #expect(configuration.behavior.windowSwitcherSort == .recent)
         #expect(configuration.behavior.windowSwitcherSortReversed == false)
         #expect(configuration.behavior.windowSwitcherThumbnails == true)
+        #expect(configuration.behavior.flyoutSize == .medium)
     }
 
     @Test("The switcher shortcut is a valid, non-colliding combination")
@@ -71,6 +72,26 @@ struct ConfigurationTests {
         #expect(behavior.windowSwitcherGrouping == .flat)
         #expect(behavior.windowSwitcherSort == .recent)
         #expect(behavior.windowSwitcherThumbnails == true)
+    }
+
+    @Test("A file written before the flyout size setting existed decodes to medium")
+    func flyoutSizeTolerantDecode() throws {
+        let json = Data("""
+        {"autoHide": true}
+        """.utf8)
+        let behavior = try JSONDecoder().decode(BehaviorConfiguration.self, from: json)
+        #expect(behavior.flyoutSize == .medium)
+    }
+
+    @Test("The flyout size round-trips through the store")
+    func flyoutSizeRoundTrip() throws {
+        let store = ConfigurationStore(defaults: makeDefaults())
+        var configuration = NexusConfiguration()
+        configuration.behavior.flyoutSize = .large
+
+        try store.save(configuration)
+        let loaded = store.load()
+        #expect(loaded.behavior.flyoutSize == .large)
     }
 
     @Test("Switcher preferences round-trip through the store")
