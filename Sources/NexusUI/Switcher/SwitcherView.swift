@@ -28,7 +28,14 @@ public struct SwitcherView: View {
                 grid
             }
         }
-        .background(.black.opacity(0.35))
+        .background(
+            // Attached to the background layer, not the whole `VStack`: a gesture recognizer on
+            // the stack itself sits in front of the cards and swallows their own taps (design
+            // §2 — "clicking the background" closes the panel, but clicking a card must not).
+            Color.black.opacity(0.35)
+                .contentShape(Rectangle())
+                .onTapGesture { model.onClose?() }
+        )
     }
 
     private var toolbar: some View {
