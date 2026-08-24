@@ -436,6 +436,8 @@ final class Composition {
         let stream = events.events()
         var lastShortcut = configuration.configuration.search.shortcut
         var lastEnabled = configuration.configuration.general.globalShortcutEnabled
+        var lastFocusBarShortcut = configuration.configuration.general.focusBarShortcut
+        var lastSwitcherShortcut = configuration.configuration.general.windowSwitcherShortcut
         var lastPosition = configuration.configuration.appearance.position
         var lastShowStartMenu = configuration.configuration.general.showStartMenu
         configurationTask = Task { [weak self] in
@@ -444,9 +446,13 @@ final class Composition {
                 guard case .configurationChanged(let updated) = event else { continue }
                 self.applySearchConfiguration()
                 if updated.search.shortcut != lastShortcut
-                    || updated.general.globalShortcutEnabled != lastEnabled {
+                    || updated.general.globalShortcutEnabled != lastEnabled
+                    || updated.general.focusBarShortcut != lastFocusBarShortcut
+                    || updated.general.windowSwitcherShortcut != lastSwitcherShortcut {
                     lastShortcut = updated.search.shortcut
                     lastEnabled = updated.general.globalShortcutEnabled
+                    lastFocusBarShortcut = updated.general.focusBarShortcut
+                    lastSwitcherShortcut = updated.general.windowSwitcherShortcut
                     self.registerHotKey()
                 }
                 if updated.appearance.position != lastPosition {
