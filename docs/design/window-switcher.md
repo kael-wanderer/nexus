@@ -168,7 +168,7 @@ selection is broken.
 ## 9. The Shortcuts tab
 
 Nexus has three global shortcuts now — palette, bar focus, switcher — and today two of them live
-in unrelated tabs: the palette's in **Search**, the bar's in **Behavior**. A third would make the
+in unrelated tabs: the palette's in **Search**, the bar's in **Bar**. A third would make the
 question "what is bound to what" unanswerable from any one screen.
 
 So the settings window gains a **Shortcuts** tab (`keyboard`), after Behavior, holding all three
@@ -182,11 +182,17 @@ unchanged.
 
 ## 10. Settings
 
-In `behavior`:
+In `general`, beside `focusBarShortcut`, because that is where a global shortcut already lives:
 
 | | |
 |---|---|
 | `windowSwitcherShortcut` | `KeyboardShortcut?`, default `⌃⌥W`. `nil` switches it off. |
+
+
+And in `behavior`:
+
+| | |
+|---|---|
 | `windowSwitcherGrouping` | `flat` / `application` / `display`, default `flat`. |
 | `windowSwitcherSort` | `recent` / `application` / `title`, default `recent`, plus a `Bool` for reversed. |
 | `windowSwitcherThumbnails` | Default on. Off skips ScreenCaptureKit entirely — icons only, no permission prompt. |
