@@ -8,6 +8,10 @@ import SwiftUI
 struct SwitcherCard: View {
     let window: NexusWindow
     let preview: NSImage?
+    /// Resolved once by `SwitcherViewModel.applicationURL(forBundleIdentifier:)` and memoized
+    /// there — the card itself makes no LaunchServices calls, since its body runs on every
+    /// hover, scroll and selection change (review finding, Task 5).
+    let applicationURL: URL?
     let isSelected: Bool
     let isFocused: Bool
     let onActivate: () -> Void
@@ -94,14 +98,8 @@ struct SwitcherCard: View {
         isSelected ? String(localized: "Remove from selection") : String(localized: "Add to selection")
     }
 
-    /// `NexusWindow` carries only a bundle identifier, not a URL — `WindowIdentity.owner` doesn't
-    /// resolve one — so this looks the application up the same way
-    /// `SidebarViewModel.nowPlayingArtwork` does, rather than inventing a second path to an icon.
     private var applicationIcon: NSImage? {
-        guard let url = NSWorkspace.shared.urlForApplication(
-            withBundleIdentifier: window.identity.owner.bundleIdentifier
-        ) else { return nil }
-        return IconCache.shared.icon(for: url, size: 64)
+        applicationURL.map { IconCache.shared.icon(for: $0, size: 64) }
     }
 
     private var borderColour: Color {

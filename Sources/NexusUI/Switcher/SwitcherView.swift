@@ -122,6 +122,9 @@ public struct SwitcherView: View {
                                 SwitcherCard(
                                     window: window,
                                     preview: model.previews[window.identity.number],
+                                    applicationURL: model.applicationURL(
+                                        forBundleIdentifier: window.identity.owner.bundleIdentifier
+                                    ),
                                     isSelected: model.selection.contains(window.id),
                                     isFocused: model.focused == window.id,
                                     onActivate: { model.activate(window) },

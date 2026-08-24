@@ -267,4 +267,21 @@ struct SwitcherViewModelTests {
         model.dismissPreviewsOffer()
         #expect(model.showsPreviewsOffer == false)
     }
+
+    @Test("An application URL resolves to the same value on repeated lookups, and a bogus bundle identifier resolves to nil both times")
+    func applicationURLIsMemoized() async {
+        let model = await self.model([])
+        // Finder is present on every machine this test runs on; two lookups must agree, which is
+        // what the cache promises (`SwitcherCard` reads this twice per body evaluation and must
+        // never see it flip between calls).
+        let first = model.applicationURL(forBundleIdentifier: "com.apple.finder")
+        let second = model.applicationURL(forBundleIdentifier: "com.apple.finder")
+        #expect(first != nil)
+        #expect(first == second)
+
+        // A bundle identifier LaunchServices can't resolve stays nil on every call, rather than
+        // caching a bad answer.
+        #expect(model.applicationURL(forBundleIdentifier: "not.a.real.bundle.id") == nil)
+        #expect(model.applicationURL(forBundleIdentifier: "not.a.real.bundle.id") == nil)
+    }
 }

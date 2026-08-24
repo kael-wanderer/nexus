@@ -25,6 +25,8 @@ public final class SwitcherViewModel {
     /// How many cards are across, published by the view so arrow-key focus moves by a real row
     /// (Task 6, and `moveFocus`'s `columns` parameter).
     public var columns = 1
+    /// `bundleIdentifier` → resolved application URL. See `applicationURL(forBundleIdentifier:)`.
+    @ObservationIgnored private var applicationURLCache: [String: URL] = [:]
 
     @ObservationIgnored private let service: any WindowServing
     @ObservationIgnored private let previewService: any WindowPreviewing
@@ -138,6 +140,17 @@ public final class SwitcherViewModel {
     public func requestAccessibility() { permissions.requestOrOpenSettings(.accessibility) }
 
     public func requestScreenRecording() { permissions.requestOrOpenSettings(.screenRecording) }
+
+    // MARK: - Icons
+
+    /// Memoized so a card's body — read twice per evaluation, on every hover, scroll and
+    /// selection change — pays the LaunchServices round trip at most once per application.
+    public func applicationURL(forBundleIdentifier bundleIdentifier: String) -> URL? {
+        if let cached = applicationURLCache[bundleIdentifier] { return cached }
+        let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
+        if let url { applicationURLCache[bundleIdentifier] = url }
+        return url
+    }
 
     // MARK: - Recency
 
