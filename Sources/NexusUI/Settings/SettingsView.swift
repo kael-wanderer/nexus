@@ -393,6 +393,13 @@ struct BehaviorPane: View {
                     Text("9 (3 × 3)").tag(9)
                     Text("16 (4 × 4)").tag(16)
                 }
+                Picker(
+                    String(localized: "Opened group shows"),
+                    selection: configuration.binding(\.behavior.groupLayout)
+                ) {
+                    Text("Icons").tag(GroupLayout.icons)
+                    Text("A list").tag(GroupLayout.list)
+                }
                 Text("Drag one icon onto another and hold to put them in a group.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
