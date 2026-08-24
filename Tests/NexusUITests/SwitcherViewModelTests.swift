@@ -8,10 +8,17 @@ import Testing
 @Suite("Switcher view model")
 @MainActor
 struct SwitcherViewModelTests {
-    func window(_ bundle: String, _ name: String, _ title: String, number: CGWindowID) -> NexusWindow {
+    func window(
+        _ bundle: String,
+        _ name: String,
+        _ title: String,
+        number: CGWindowID,
+        frame: CGRect = .zero
+    ) -> NexusWindow {
         NexusWindow(
             identity: WindowIdentity(owner: ApplicationIdentity(bundleIdentifier: bundle), number: number),
             title: title,
+            frame: frame,
             applicationName: name
         )
     }
@@ -94,6 +101,53 @@ struct SwitcherViewModelTests {
 
         model.noteActivation(ApplicationIdentity(bundleIdentifier: "com.apple.Safari"))
         #expect(model.sections.flatMap(\.windows).map(\.applicationName) == ["Safari", "Finder"])
+    }
+
+    @Test("Recency orders applications, but never reorders windows within one of them")
+    func recentKeepsAXOrderWithinAnApplication() async {
+        // Deliberately not in number order: a sort keyed off `identity.number` or `title` would
+        // pass here by accident. This is the AX order the fake service was handed, and `.recent`
+        // must leave it alone regardless of which applications have been activated.
+        let model = await self.model([
+            window("com.apple.Safari", "Safari", "Docs", number: 2),
+            window("com.apple.Safari", "Safari", "Google", number: 1),
+            window("com.apple.finder", "Finder", "Downloads", number: 3),
+        ])
+        model.sort = .recent
+
+        // Neither application has been activated: both rank equal, so applications tie-break
+        // alphabetically by bundle identifier ("com.apple.Safari" before "com.apple.finder") —
+        // but the two Safari windows must still come back Docs-then-Google, their AX order.
+        #expect(model.sections.flatMap(\.windows).map(\.title) == ["Docs", "Google", "Downloads"])
+
+        // Activating Finder moves it to the front. Safari's two windows, still un-activated,
+        // keep their relative order behind it.
+        model.noteActivation(ApplicationIdentity(bundleIdentifier: "com.apple.finder"))
+        #expect(model.sections.flatMap(\.windows).map(\.title) == ["Downloads", "Docs", "Google"])
+    }
+
+    @Test("Grouping by display groups by the injected display name, deciding a straddling window by its origin")
+    func groupByDisplay() async {
+        let model = await self.model([
+            window("com.apple.Safari", "Safari", "Google", number: 1, frame: CGRect(x: 100, y: 0, width: 200, height: 200)),
+            window("com.apple.finder", "Finder", "Downloads", number: 2, frame: CGRect(x: 1100, y: 0, width: 200, height: 200)),
+            // Spans the boundary at x = 1000 (900...1200): design §4 says it belongs to whichever
+            // display holds its origin, which here is the left one.
+            window("com.apple.Chrome", "Chrome", "Straddler", number: 3, frame: CGRect(x: 900, y: 0, width: 300, height: 200)),
+        ])
+        var asked: [CGRect] = []
+        model.displayName = { frame in
+            asked.append(frame)
+            return frame.origin.x < 1000 ? "Left" : "Right"
+        }
+        model.grouping = .display
+
+        let byTitle = Dictionary(uniqueKeysWithValues: model.sections.map { ($0.title, Set($0.windows.map(\.title))) })
+        #expect(byTitle["Left"] == ["Google", "Straddler"])
+        #expect(byTitle["Right"] == ["Downloads"])
+        // The hook was asked with the straddling window's whole frame — its origin is what the
+        // hook (and, in production, `NSScreen` lookup) uses to decide, not its far edge.
+        #expect(asked.contains(CGRect(x: 900, y: 0, width: 300, height: 200)))
     }
 
     @Test("Grouping by application makes one section per application, named for it")
