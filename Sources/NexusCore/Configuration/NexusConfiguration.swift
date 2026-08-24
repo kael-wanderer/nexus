@@ -166,8 +166,13 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
         showInMenuBar = try container.decodeIfPresent(Bool.self, forKey: .showInMenuBar) ?? true
         globalShortcutEnabled = try container.decodeIfPresent(Bool.self, forKey: .globalShortcutEnabled) ?? true
         showStartMenu = try container.decodeIfPresent(Bool.self, forKey: .showStartMenu) ?? false
-        focusBarShortcut = try container.decodeIfPresent(KeyboardShortcut.self, forKey: .focusBarShortcut)
-            ?? .focusBarDefault
+        // Same "absent vs. explicit null" disambiguation as `windowSwitcherShortcut` below: a bare
+        // `decodeIfPresent ?? default` cannot tell "never written" (upgrade, use the default) apart
+        // from "written as null" (the user switched the bar off, honour that), which is why
+        // `encode(to:)` writes this key unconditionally too.
+        focusBarShortcut = container.contains(.focusBarShortcut)
+            ? try container.decode(KeyboardShortcut?.self, forKey: .focusBarShortcut)
+            : .focusBarDefault
         // A stored ⌃F3 is the old default, which macOS eats. Nobody chose it deliberately: it was
         // shipped as a default for one build, so it is replaced rather than honoured (D101).
         if focusBarShortcut == KeyboardShortcut(keyCode: 99, modifiers: KeyboardShortcut.controlKey) {
@@ -189,12 +194,13 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
         try container.encode(showInMenuBar, forKey: .showInMenuBar)
         try container.encode(globalShortcutEnabled, forKey: .globalShortcutEnabled)
         try container.encode(showStartMenu, forKey: .showStartMenu)
-        try container.encodeIfPresent(focusBarShortcut, forKey: .focusBarShortcut)
+        // Written unconditionally, not with `encodeIfPresent`: that omits the key entirely for
+        // `nil`, which is indistinguishable on decode from a field an older build never wrote at
+        // all. Writing an explicit null keeps "switched off" persisting as "switched off" rather
+        // than reverting to the default on the next load — same reasoning as
+        // `windowSwitcherShortcut` below, and it was a bug that this one lagged behind it.
+        try container.encode(focusBarShortcut, forKey: .focusBarShortcut)
         try container.encode(showNowPlaying, forKey: .showNowPlaying)
-        // Written unconditionally, unlike `focusBarShortcut` above: a synthesised `encodeIfPresent`
-        // omits the key entirely for `nil`, which is indistinguishable on decode from a field an
-        // older build never wrote at all. Writing an explicit null keeps "switched off" persisting
-        // as "switched off" rather than reverting to the default on the next load.
         try container.encode(windowSwitcherShortcut, forKey: .windowSwitcherShortcut)
     }
 }

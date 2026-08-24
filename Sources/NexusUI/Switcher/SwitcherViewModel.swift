@@ -38,6 +38,11 @@ public final class SwitcherViewModel {
     @ObservationIgnored private let configuration: ConfigurationController
     @ObservationIgnored private var eventTask: Task<Void, Never>?
     @ObservationIgnored private var previewTask: Task<Void, Never>?
+    /// Bumped on every `reload()` call, so a call that is still awaiting `allWindows()` can tell
+    /// it has been superseded by a newer one — the event loop's `windowsChanged` and
+    /// `prepareForDisplay()`'s detached kick race each other often enough that this needs a guard,
+    /// same reasoning as `WindowPreviewService`'s batch supersession (Finding 3).
+    @ObservationIgnored private var reloadGeneration = 0
     /// Bundle identifiers, most recently activated first. Seeded from the frecency store the
     /// palette already keeps, so the very first open is not in arbitrary order (§4).
     @ObservationIgnored private var activationOrder: [String] = []
@@ -112,13 +117,20 @@ public final class SwitcherViewModel {
     }
 
     public func reload() async {
+        reloadGeneration += 1
+        let generation = reloadGeneration
         accessibility = permissions.status(of: .accessibility)
         guard accessibility == .granted else {
             windows = []
             rebuild()
             return
         }
-        windows = (try? await service.allWindows()) ?? []
+        let fetched = (try? await service.allWindows()) ?? []
+        // Drop this result if a newer `reload()` started while `allWindows()` was in flight: it
+        // will write its own (fresher) snapshot, and letting this one land too would make
+        // whichever fetch happens to resolve last win, silently discarding a possibly newer one.
+        guard generation == reloadGeneration else { return }
+        windows = fetched
         rebuild()
         requestPreviews()
     }
@@ -173,9 +185,15 @@ public final class SwitcherViewModel {
         case .display:
             sections = grouped(ordered, by: { displayName($0.frame) }, title: { displayName($0.frame) })
         }
-        if let focused, sections.flatMap(\.windows).contains(where: { $0.id == focused }) == false {
+        let liveIDs = Set(sections.flatMap(\.windows).map(\.id))
+        if let focused, !liveIDs.contains(focused) {
             self.focused = nil
         }
+        // A closed window has to leave `selection` too, not just `focused`: `stackFromSelection()`
+        // re-filters against `windows` so a stale entry is harmless there, but `canAddStack` reads
+        // `selection` directly and would keep reporting true for a selection that is entirely
+        // gone.
+        selection.formIntersection(liveIDs)
     }
 
     private func matches(_ window: NexusWindow) -> Bool {
@@ -315,26 +333,60 @@ public final class SwitcherViewModel {
 
     /// Moves within one row for left and right — wrapping at its ends rather than spilling into
     /// the next row, which is what makes a grid feel like a grid — and by a whole row for up and
-    /// down.
+    /// down, but always inside the focused window's own section: `SwitcherView` starts a fresh
+    /// `LazyVGrid` (and so a fresh row 0) per section, so indexing the flattened `sections`
+    /// array against one `columns` count (the old bug) moves focus onto whichever card happens
+    /// to land at that flat offset rather than the card the user sees in that direction, and can
+    /// skip a whole section when a section's count is not a multiple of `columns`. `focusNext()`
+    /// already does the per-section lookup correctly; this mirrors it.
+    ///
+    /// Up from a section's first row and Down from its last row cross into the neighbouring
+    /// section (its last row and first row respectively), landing on the same column clamped to
+    /// that row's width — the reasonable reading of "arrow keys move to the card you see in that
+    /// direction" once the card in that direction belongs to another section. There is no
+    /// neighbour above the first section or below the last, so those clamp in place rather than
+    /// wrapping around to the opposite end: only `Tab` (`focusNext()`, design §8) wraps.
     public func moveFocus(_ direction: Direction, columns: Int) {
-        let all = sections.flatMap(\.windows)
-        guard !all.isEmpty else { return }
         let columns = max(1, columns)
-        guard let focused, let index = all.firstIndex(where: { $0.id == focused }) else {
-            self.focused = all.first?.id
+        guard let focused,
+              let sectionIndex = sections.firstIndex(where: { section in section.windows.contains { $0.id == focused } }),
+              let indexInSection = sections[sectionIndex].windows.firstIndex(where: { $0.id == focused })
+        else {
+            self.focused = sections.first?.windows.first?.id
             return
         }
-        let row = index / columns
-        let column = index % columns
+        let windows = sections[sectionIndex].windows
+        let row = indexInSection / columns
+        let column = indexInSection % columns
         let rowStart = row * columns
-        let rowCount = min(columns, all.count - rowStart)
-        let next: Int = switch direction {
-        case .left: rowStart + (column - 1 + rowCount) % rowCount
-        case .right: rowStart + (column + 1) % rowCount
-        case .up: max(0, index - columns)
-        case .down: min(all.count - 1, index + columns)
+        let rowCount = min(columns, windows.count - rowStart)
+        switch direction {
+        case .left:
+            self.focused = windows[rowStart + (column - 1 + rowCount) % rowCount].id
+        case .right:
+            self.focused = windows[rowStart + (column + 1) % rowCount].id
+        case .up:
+            if indexInSection - columns >= 0 {
+                self.focused = windows[indexInSection - columns].id
+            } else if sectionIndex > 0 {
+                self.focused = Self.rowFocus(in: sections[sectionIndex - 1], column: column, columns: columns, lastRow: true)
+            }
+        case .down:
+            if indexInSection + columns < windows.count {
+                self.focused = windows[indexInSection + columns].id
+            } else if sectionIndex + 1 < sections.count {
+                self.focused = Self.rowFocus(in: sections[sectionIndex + 1], column: column, columns: columns, lastRow: false)
+            }
         }
-        self.focused = all[next].id
+    }
+
+    /// The card at `column` (clamped to the row's actual width) in a section's first or last row —
+    /// the landing spot for `moveFocus` crossing a section boundary.
+    private static func rowFocus(in section: SwitcherSection, column: Int, columns: Int, lastRow: Bool) -> String? {
+        guard !section.windows.isEmpty else { return nil }
+        let rowStart = lastRow ? ((section.windows.count - 1) / columns) * columns : 0
+        let rowCount = min(columns, section.windows.count - rowStart)
+        return section.windows[rowStart + min(column, rowCount - 1)].id
     }
 
     /// `Tab` (design §8): the next card when flat — there is only one section, so "next section"

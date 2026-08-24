@@ -90,6 +90,17 @@ struct ConfigurationTests {
         #expect(loaded.general.windowSwitcherShortcut == nil)
     }
 
+    @Test("A nil'd bar shortcut round-trips as nil, not the default")
+    func focusBarShortcutNilRoundTrip() throws {
+        let store = ConfigurationStore(defaults: makeDefaults())
+        var configuration = NexusConfiguration()
+        configuration.general.focusBarShortcut = nil
+
+        try store.save(configuration)
+        let loaded = store.load()
+        #expect(loaded.general.focusBarShortcut == nil)
+    }
+
     @Test("Absent stored configuration falls back to defaults")
     func absent() {
         let store = ConfigurationStore(defaults: makeDefaults())

@@ -227,6 +227,58 @@ struct SwitcherViewModelTests {
         #expect(model.focused == "c.three#3")
     }
 
+    @Test("Arrows stay inside a section's own rows when grouped, and cross section boundaries deliberately")
+    func focusMovesRespectsSectionBoundaries() async {
+        let model = await self.model([
+            window("a.app", "AppA", "A1", number: 1),
+            window("a.app", "AppA", "A2", number: 2),
+            window("a.app", "AppA", "A3", number: 3),
+            window("b.app", "AppB", "B1", number: 4),
+            window("b.app", "AppB", "B2", number: 5),
+        ])
+        // `.recent` with nothing activated ties every window, so the tiebreak falls back to the
+        // bundle identifier alphabetically: "a.app" sorts, and so sections, before "b.app".
+        model.sort = .recent
+        model.grouping = .application
+        #expect(model.sections.map(\.id) == ["a.app", "b.app"])
+        #expect(model.sections[0].windows.count == 3)
+        #expect(model.sections[1].windows.count == 2)
+
+        // "a.app" has 3 windows over 2 columns: row 0 is [A1, A2], row 1 is just [A3] on its own.
+        // Get to A3 (down from A1), then right wraps within that one-wide row rather than
+        // reading into "b.app" as a flattened index would.
+        model.focusFirst()
+        #expect(model.focused == "a.app#1")
+        model.moveFocus(.down, columns: 2)
+        #expect(model.focused == "a.app#3")
+        model.moveFocus(.right, columns: 2)
+        #expect(model.focused == "a.app#3")
+
+        // Down from A3 (the last row of "a.app") crosses into "b.app"'s first row, same column.
+        model.moveFocus(.down, columns: 2)
+        #expect(model.focused == "b.app#4")
+
+        // Up from B1 (the first row of "b.app") crosses back into "a.app"'s last row, same column
+        // clamped to that row's actual width (1 wide), landing on A3 again.
+        model.moveFocus(.up, columns: 2)
+        #expect(model.focused == "a.app#3")
+
+        // Up from A1 (the very first row of the very first section) has no section above it, so
+        // it clamps in place rather than wrapping to "b.app".
+        model.focusFirst()
+        #expect(model.focused == "a.app#1")
+        model.moveFocus(.up, columns: 2)
+        #expect(model.focused == "a.app#1")
+
+        // Down from B2 (the very last row of the very last section) clamps the same way.
+        model.moveFocus(.down, columns: 2) // a.app#3
+        model.moveFocus(.down, columns: 2) // b.app#4
+        model.moveFocus(.right, columns: 2) // b.app#5
+        #expect(model.focused == "b.app#5")
+        model.moveFocus(.down, columns: 2)
+        #expect(model.focused == "b.app#5")
+    }
+
     @Test("Tab advances one card at a time when flat, wrapping at the end")
     func focusNextFlat() async {
         let model = await self.model([

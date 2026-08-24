@@ -102,7 +102,30 @@ public struct SwitcherView: View {
         .background(.thinMaterial)
     }
 
+    @ViewBuilder
     private var grid: some View {
+        // A blank scrolling area reads as a hang, not an answer, whether there are simply no
+        // windows to switch to or a filter matched none of the ones there are — and the two are
+        // worth telling apart, since only the second is something the filter text explains.
+        if model.sections.isEmpty {
+            emptyState
+        } else {
+            populatedGrid
+        }
+    }
+
+    private var emptyState: some View {
+        Text(
+            model.windows.isEmpty
+                ? String(localized: "No windows")
+                : String(localized: "No windows match “\(model.query)”")
+        )
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var populatedGrid: some View {
         GeometryReader { proxy in
             let columns = SwitcherLayout.columns(
                 forWidth: proxy.size.width - 32,
