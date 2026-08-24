@@ -251,7 +251,11 @@ struct SwitcherViewModelTests {
     @Test("Tab jumps to the first card of the next section when grouped, wrapping at the end")
     func focusNextGrouped() async {
         let model = await self.model([
+            // Alpha has two windows: if Tab only advanced card-by-card it would land on
+            // "app.a#4" here instead of jumping sections, and this test would still pass — the
+            // second window is what makes "next card" and "next section" disagree.
             window("app.a", "Alpha", "1", number: 1),
+            window("app.a", "Alpha", "4", number: 4),
             window("app.b", "Bravo", "2", number: 2),
             window("app.c", "Charlie", "3", number: 3),
         ])
