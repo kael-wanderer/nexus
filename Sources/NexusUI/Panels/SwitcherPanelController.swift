@@ -130,9 +130,9 @@ public final class SwitcherPanelController {
 
     // MARK: - Keyboard and dismissal
 
-    /// The filter field holds first responder the whole time, so the arrows and `Return`/`Escape`/
-    /// `⌘W` are taken before it sees them — the same local monitor the palette uses for its digit
-    /// chords (design/window-switcher.md §8).
+    /// The filter field holds first responder the whole time, so the arrows, `Tab`, `Return`,
+    /// `Escape` and `⌘W` are taken before it sees them — the same local monitor the palette uses
+    /// for its digit chords (design/window-switcher.md §8).
     private func installMonitors(_ panel: SwitcherPanel) {
         removeMonitors()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -143,6 +143,7 @@ public final class SwitcherPanelController {
             case 125: self.model.moveFocus(.down, columns: self.model.columns); return nil
             case 126: self.model.moveFocus(.up, columns: self.model.columns); return nil
             case 36, 76: self.model.activateFocused(); return nil                     // Return, Enter
+            case 48: self.model.focusNext(); return nil                               // Tab
             case 53: self.model.clearQueryOrClose(); return nil                       // Escape
             case 13 where event.modifierFlags.contains(.command):                     // ⌘W
                 Task { await self.model.closeFocused() }

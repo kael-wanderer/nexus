@@ -227,6 +227,49 @@ struct SwitcherViewModelTests {
         #expect(model.focused == "c.three#3")
     }
 
+    @Test("Tab advances one card at a time when flat, wrapping at the end")
+    func focusNextFlat() async {
+        let model = await self.model([
+            window("a.one", "One", "1", number: 1),
+            window("b.two", "Two", "2", number: 2),
+            window("c.three", "Three", "3", number: 3),
+        ])
+        model.sort = .recent
+        model.focusFirst()
+        #expect(model.focused == "a.one#1")
+
+        model.focusNext()
+        #expect(model.focused == "b.two#2")
+
+        model.focusNext()
+        #expect(model.focused == "c.three#3")
+
+        model.focusNext()
+        #expect(model.focused == "a.one#1")
+    }
+
+    @Test("Tab jumps to the first card of the next section when grouped, wrapping at the end")
+    func focusNextGrouped() async {
+        let model = await self.model([
+            window("app.a", "Alpha", "1", number: 1),
+            window("app.b", "Bravo", "2", number: 2),
+            window("app.c", "Charlie", "3", number: 3),
+        ])
+        model.sort = .application
+        model.grouping = .application
+        model.focusFirst()
+        #expect(model.focused == "app.a#1")
+
+        model.focusNext()
+        #expect(model.focused == "app.b#2")
+
+        model.focusNext()
+        #expect(model.focused == "app.c#3")
+
+        model.focusNext()
+        #expect(model.focused == "app.a#1")
+    }
+
     @Test("Closing a card asks the service and does not remove it")
     func closeAsksTheService() async {
         let service = FakeWindowService()

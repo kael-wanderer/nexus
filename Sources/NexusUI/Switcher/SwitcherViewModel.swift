@@ -337,6 +337,28 @@ public final class SwitcherViewModel {
         self.focused = all[next].id
     }
 
+    /// `Tab` (design §8): the next card when flat — there is only one section, so "next section"
+    /// would never move — and the first card of the next section when grouped, wrapping either
+    /// way. With nothing focused yet, it behaves like `focusFirst()`.
+    public func focusNext() {
+        let all = sections.flatMap(\.windows)
+        guard !all.isEmpty else { return }
+        guard let focused, let index = all.firstIndex(where: { $0.id == focused }) else {
+            self.focused = all.first?.id
+            return
+        }
+        guard grouping != .flat else {
+            self.focused = all[(index + 1) % all.count].id
+            return
+        }
+        guard let sectionIndex = sections.firstIndex(where: { $0.windows.contains { $0.id == focused } })
+        else {
+            self.focused = all.first?.id
+            return
+        }
+        self.focused = sections[(sectionIndex + 1) % sections.count].windows.first?.id
+    }
+
     // MARK: - Previews
 
     private func requestPreviews() {
