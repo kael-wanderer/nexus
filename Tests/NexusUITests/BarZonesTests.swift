@@ -432,6 +432,25 @@ struct NowPlayingFlyoutTests {
         idle.nowPlayingChanged(NowPlaying(), isActive: false)
         #expect(idle.nowPlayingSectionIndex == nil)
     }
+
+    @Test("With no player at all the flyout's header falls back to a plain name")
+    func playerNameFallback() {
+        var initial = NexusConfiguration()
+        initial.general.showNowPlaying = true
+        let configuration = ConfigurationController(
+            store: InMemoryConfigurationStore(initial),
+            events: EventBus(),
+            saveDelay: .zero
+        )
+        let model = SidebarViewModel(
+            applications: FakeApplicationService([]),
+            configuration: configuration,
+            events: EventBus()
+        )
+        model.openSearch = {}
+        model.mediaCommand = { _ in }
+        #expect(model.nowPlayingPlayerName == "Now Playing")
+    }
 }
 
 @MainActor

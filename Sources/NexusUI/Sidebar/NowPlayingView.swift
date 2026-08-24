@@ -322,9 +322,6 @@ struct NowPlayingWidePlayer: View {
 public struct NowPlayingFlyoutView: View {
     @Bindable var model: SidebarViewModel
 
-    public static let width: CGFloat = 232
-    public static let artworkSize: CGFloat = 168
-
     @State private var dragFraction: Double?
 
     public init(model: SidebarViewModel) {
@@ -332,6 +329,10 @@ public struct NowPlayingFlyoutView: View {
     }
 
     private var playing: NowPlaying { model.nowPlaying }
+    private var size: FlyoutSize { model.behavior.flyoutSize }
+    /// Wide enough for the three transport tiles, which is wider than the artwork at every size —
+    /// so the panel's width follows the tiles and the artwork sits centred inside it.
+    private var panelWidth: CGFloat { size.tileSize.width * 3 + 16 }
 
     public var body: some View {
         Group {
@@ -341,38 +342,51 @@ public struct NowPlayingFlyoutView: View {
                 Color.clear.frame(width: 1, height: 1)
             }
         }
-        .background(VisualEffectBackground(material: .popover))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.separator, lineWidth: 0.5)
-        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(playing.title ?? String(localized: "Now playing"))
     }
 
+    /// The player's icon and name only — no header buttons here. Quit and New Window are AX
+    /// actions on an application; a media player asked to quit or open a window is not what this
+    /// panel is for.
+    private var header: some View {
+        FlyoutHeader(icon: model.nowPlayingArtwork(size: 20), name: model.nowPlayingPlayerName) {
+            EmptyView()
+        }
+    }
+
+    /// The artwork — or the player's icon, D75 — with a light border and the track's title as a
+    /// chip over its bottom edge, replacing the wrapped title block a caption used to be drawn in.
+    private var artwork: some View {
+        ZStack(alignment: .bottomLeading) {
+            Image(nsImage: model.nowPlayingArtwork(size: size.artworkSize))
+                .resizable()
+                .frame(width: size.artworkSize, height: size.artworkSize)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(.separator, lineWidth: 0.5)
+                }
+            LabelChip(playing.title ?? String(localized: "Playing"))
+                .padding(6)
+        }
+        .frame(width: size.artworkSize, height: size.artworkSize)
+        // The panel's own accessibilityLabel already carries the title; the chip would only say
+        // it again.
+        .accessibilityHidden(true)
+    }
+
     private var content: some View {
         VStack(spacing: 10) {
-            Image(nsImage: model.nowPlayingArtwork(size: Self.artworkSize))
-                .resizable()
-                .frame(width: Self.artworkSize, height: Self.artworkSize)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            VStack(spacing: 2) {
-                // The whole title, wrapped rather than truncated: the one thing the compact row
-                // cannot show, and the reason this panel exists (D85).
-                Text(playing.title ?? String(localized: "Playing"))
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(3)
-                    .multilineTextAlignment(.center)
-                if let artist = playing.artist {
-                    Text(artist)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                }
+            header
+            artwork
+            if let artist = playing.artist {
+                Text(artist)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
-            .frame(maxWidth: .infinity)
             if let position = model.nowPlayingPosition, position.hasTimeline {
                 InlineTimeline(
                     position: position,
@@ -380,24 +394,63 @@ public struct NowPlayingFlyoutView: View {
                     onSeek: { model.seekPlayback(to: $0) }
                 )
             }
-            HStack(spacing: 6) {
-                MiniTransportButton(symbol: "backward.fill", label: String(localized: "Previous"), size: 30) {
-                    model.previousTrack()
-                }
-                MiniTransportButton(
-                    symbol: playing.isPlaying ? "pause.fill" : "play.fill",
-                    label: playing.isPlaying ? String(localized: "Pause") : String(localized: "Play"),
-                    size: 30
-                ) {
-                    model.togglePlayback()
-                }
-                MiniTransportButton(symbol: "forward.fill", label: String(localized: "Next"), size: 30) {
-                    model.nextTrack()
-                }
+            transportTiles
+        }
+        .frame(width: panelWidth)
+        .flyoutPanel()
+    }
+
+    /// Wide rounded tiles rather than the row's 30 pt circles — room enough that the panel reads
+    /// as a small player and not a shrunken copy of the compact row's buttons.
+    private var transportTiles: some View {
+        HStack(spacing: 8) {
+            TransportTile(symbol: "backward.fill", label: String(localized: "Previous"), size: size.tileSize) {
+                model.previousTrack()
+            }
+            TransportTile(
+                symbol: playing.isPlaying ? "pause.fill" : "play.fill",
+                label: playing.isPlaying ? String(localized: "Pause") : String(localized: "Play"),
+                size: size.tileSize
+            ) {
+                model.togglePlayback()
+            }
+            TransportTile(symbol: "forward.fill", label: String(localized: "Next"), size: size.tileSize) {
+                model.nextTrack()
             }
         }
-        .padding(12)
-        .frame(width: Self.width)
+    }
+}
+
+/// A wide rounded transport button for the now-playing flyout, the size the reference screenshot
+/// gives it — `MiniTransportButton`'s circle is what the bar's own rows still use.
+private struct TransportTile: View {
+    let symbol: String
+    let label: String
+    let size: CGSize
+    let action: () -> Void
+
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: size.height * 0.4, weight: .medium))
+            .frame(width: size.width, height: size.height)
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.quinary))
+            }
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
+                    isHovered = hovering
+                }
+            }
+            .nexusRow(onClick: action)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
     }
 }
 
