@@ -572,6 +572,37 @@ and the fixes turned into a small milestone of their own (M24). What shipped:
 - **`scripts/build-app.sh` and `scripts/make-dmg.sh`**, so assembling and packaging a signed build is
   one command each and `make` is only the front door.
 
+## Milestone 25 — Window switcher
+
+**Shipped** 2026-08-24. Spec: `docs/design/window-switcher.md`. What shipped:
+
+- **A full-screen grid**, one key away: `⌃⌥W` opens every window on the machine as one card per
+  window rather than per application — `⌘Tab` already reaches applications and cannot reach a
+  second window (D112). Minimized windows appear too, marked, with no capture. It opens on the
+  display holding the pointer, over a full-screen application, without switching Spaces.
+- **Filter, sort, group**: type to filter by application name or window title; sort by recency,
+  application or window title, reversible; group flat, by application, or by display. Remembered in
+  `behavior.windowSwitcherGrouping` / `windowSwitcherSort` / `windowSwitcherSortReversed`.
+- **Bulk thumbnails** (D113): one `SCShareableContent` fetch per batch instead of one per window,
+  at most four captures in flight, the shared preview cache's ceiling raised from 32 to 64.
+  Screen Recording is the one place this milestone asks for a permission the flyout does not — a
+  wall of identical icons is the switcher failing at its only job (D114).
+- **Card actions**: click activates and closes the panel; a card's close button presses the
+  window's AX close button through the new `WindowService.close`, leaving the card in place until
+  the next `windowsChanged` rather than removing it optimistically — an unsaved document still
+  shows its sheet. `⌘`-click selects across cards; **Add Stack** turns the selection's distinct
+  applications into a group in the bar, the same kind a stack made there already is (D115).
+- **Keyboard**: arrows move and wrap at row ends, `Return` activates, `⌘W` closes, `Tab` moves
+  between sections. Escape clears a non-empty filter before it closes the panel (D116).
+- **A Shortcuts tab**: every global shortcut — palette, bar focus, switcher — in one place instead
+  of scattered across the tabs of the features they belong to (D117), with a conflict note when two
+  share a combination.
+
+**Permissions:** Accessibility for the window list, Screen Recording optional for thumbnails.
+
+**Acceptance criteria:** see the manual checks in `docs/verification.md` — the switcher itself has
+not yet been driven end to end on a running app; the Shortcuts tab has.
+
 ## What is not built, and why
 
 - **Per-display edge and width.** Deleted rather than left half-built: multi-display shipped with

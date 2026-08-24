@@ -175,3 +175,29 @@ reports, and one of those being minimized is not a window anybody wants back.
 
 This was never only about M22: the window flyout has claimed to list minimized windows since M4, and
 it could not have.
+
+## D112. The switcher shows one card per window, not per application.
+`⌘Tab` already reaches every application and cannot reach a second window belonging to one — a
+switcher that repeated it would be a worse `⌘Tab`. Two Finder windows are two cards, and grouping
+by application (§4) is a view drawn on top of that, never a collapse of it.
+
+## D113. Bulk previews fetch `SCShareableContent` once and capture four at a time.
+`WindowPreviewService.preview` fetches `SCShareableContent` per call, and that fetch is the
+expensive part of a capture — a twelve-window grid asking for it twelve times made the grid
+unusable rather than merely slow. The bulk entry point fetches it once and hands the captures to a
+task group capped at four in flight, each result delivered as it lands rather than held for the
+whole batch to finish. Four rather than all of them at once because the work is one compositor's
+either way; the cache the hover flyout already keeps rose from 32 entries to 64 to hold a grid's
+worth alongside it.
+
+## D114. The switcher asks for Screen Recording; the hover flyout still does not.
+`design/mvp.md` §3.5 says a missing permission degrades in silence, and every feature but this one
+keeps to that. A missing thumbnail in a flyout is a garnish; a wall of identical application icons
+is the switcher failing at the only job it has. The offer is the existing `PermissionRequestView`,
+one row above the grid, dismissible and never shown again once dismissed or granted — the grid
+below it stays fully usable, with icons, whether or not the offer is showing.
+
+## D116. Escape clears the filter before it closes the panel.
+What every macOS search field does. The switcher's filter needed the rule spelled out because a
+mistyped filter here would otherwise cost the whole panel: clearing it first is what stops one
+Escape from closing a panel the user only meant to empty a field in.

@@ -532,3 +532,11 @@ the bar over their full-screen video.
 state — "temporarily over full screen" — with its own hide rule, since auto-hide's belongs to the
 auto-hide preference. That is more state than the gesture is worth, and a bar that reappears over a
 full-screen app is the bug this decision fixes. Recorded in ROADMAP as not built.
+
+## D115. Add Stack stores applications, not windows.
+The selection `Add Stack` acts on is windows, but window identity does not survive a relaunch — a
+stack of "these three Safari windows" would empty itself the next time Safari restarted. So the
+selected cards are reduced to their distinct bundle identifiers first, and what lands in the dock is
+the same `ApplicationGroup` a stack made in the bar already is, auto-named the same way. Restoring
+frames instead — a session snapshot — is a different milestone: it needs `setFrame` on windows that
+may never come back.

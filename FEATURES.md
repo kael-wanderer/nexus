@@ -113,6 +113,17 @@ permission and belong to the automation engine (§46, out of scope).
 
 ---
 
+## Added after the MVP (M25)
+
+| Feature | Permission | Notes |
+|---|---|---|
+| Window switcher | **Accessibility**, **Screen Recording** *(optional, thumbnails)* | `⌃⌥W` opens a full-screen grid, one card per window, not per application (D112). Filters by application and window title, sorts by recency / application / title, groups flat / by application / by display — remembered in `behavior`. `general.windowSwitcherShortcut`, default `⌃⌥W`, `nil` off |
+| Bulk window previews | **Screen Recording** *(optional)* | One `SCShareableContent` fetch per batch, at most four captures in flight, shared cache raised from 32 to 64 entries (D113). Off entirely with `behavior.windowSwitcherThumbnails` false — icons only, no permission ever asked |
+| Add Stack | None | Selecting cards across applications and choosing Add Stack turns their distinct bundle identifiers into a group in the bar, the same kind a stack made in the bar already is (D115) |
+| Shortcuts tab | None | Every global shortcut — palette, bar focus, switcher — in one settings tab instead of scattered across the tabs of the features they belong to; flags a conflict when two share a combination (D117) |
+
+---
+
 ## Explicitly out of the MVP (§28, §101)
 
 AI · full automation engine · plugin marketplace · widget system · workspaces and workspace
