@@ -131,6 +131,14 @@ public final class SwitcherViewModel {
         // whichever fetch happens to resolve last win, silently discarding a possibly newer one.
         guard generation == reloadGeneration else { return }
         windows = fetched
+        // Drop `applicationURLCache` entries for applications no longer among the live windows,
+        // rather than clearing it outright: a full clear would re-pay the LaunchServices round
+        // trip for every still-visible application on every `reload()`, which is exactly the cost
+        // the memo exists to avoid (see `applicationURL(forBundleIdentifier:)`). Pruning by the
+        // fresh enumeration is cheap and still catches an application that was replaced or moved,
+        // since its bundle identifier stops showing up the moment its windows do.
+        let liveBundleIdentifiers = Set(fetched.map(\.identity.owner.bundleIdentifier))
+        applicationURLCache = applicationURLCache.filter { liveBundleIdentifiers.contains($0.key) }
         rebuild()
         requestPreviews()
     }

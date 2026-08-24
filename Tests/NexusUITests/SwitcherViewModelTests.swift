@@ -367,20 +367,49 @@ struct SwitcherViewModelTests {
         #expect(model.showsPreviewsOffer == false)
     }
 
-    @Test("An application URL resolves to the same value on repeated lookups, and a bogus bundle identifier resolves to nil both times")
-    func applicationURLIsMemoized() async {
+    @Test("A bogus bundle identifier resolves to nil, consistently")
+    func applicationURLIsNilForABogusBundleIdentifier() async {
+        // `applicationURL` is a thin memo over `NSWorkspace.shared.urlForApplication`, which is
+        // itself deterministic — repeated lookups agree whether or not anything is cached, so a
+        // test built only on return values cannot prove the memoization exists. Proving it for
+        // real would need a seam over `NSWorkspace`, which nothing else in this codebase wants
+        // for one call site. What is left worth asserting: a bundle identifier LaunchServices
+        // can't resolve stays nil rather than latching onto a stale non-nil answer.
         let model = await self.model([])
-        // Finder is present on every machine this test runs on; two lookups must agree, which is
-        // what the cache promises (`SwitcherCard` reads this twice per body evaluation and must
-        // never see it flip between calls).
-        let first = model.applicationURL(forBundleIdentifier: "com.apple.finder")
-        let second = model.applicationURL(forBundleIdentifier: "com.apple.finder")
-        #expect(first != nil)
-        #expect(first == second)
+        #expect(model.applicationURL(forBundleIdentifier: "not.a.real.bundle.id") == nil)
+        #expect(model.applicationURL(forBundleIdentifier: "not.a.real.bundle.id") == nil)
+    }
 
-        // A bundle identifier LaunchServices can't resolve stays nil on every call, rather than
-        // caching a bad answer.
-        #expect(model.applicationURL(forBundleIdentifier: "not.a.real.bundle.id") == nil)
-        #expect(model.applicationURL(forBundleIdentifier: "not.a.real.bundle.id") == nil)
+    @Test("A window that disappears on reload leaves selection, and canAddStack goes false once none are left")
+    func rebuildPrunesSelection() async {
+        let service = FakeWindowService()
+        let safari = window("com.apple.Safari", "Safari", "Google", number: 1)
+        let finder = window("com.apple.finder", "Finder", "Downloads", number: 2)
+        await service.setWindows([safari], for: "com.apple.Safari")
+        await service.setWindows([finder], for: "com.apple.finder")
+        let model = SwitcherViewModel(
+            service: service,
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted]),
+            events: EventBus(),
+            configuration: ConfigurationController(store: InMemoryConfigurationStore(), events: EventBus(), saveDelay: .zero)
+        )
+        await model.reload()
+
+        model.toggleSelection(safari.id)
+        model.toggleSelection(finder.id)
+        #expect(model.canAddStack)
+
+        await service.setWindows([], for: "com.apple.Safari")
+        await model.reload()
+
+        #expect(model.selection == [finder.id])
+        #expect(model.canAddStack)
+
+        await service.setWindows([], for: "com.apple.finder")
+        await model.reload()
+
+        #expect(model.selection.isEmpty)
+        #expect(model.canAddStack == false)
     }
 }

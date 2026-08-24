@@ -77,6 +77,11 @@ struct SwitcherCard: View {
         )
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
+        // `onTapGesture`, not `nexusRow`, on purpose: a card has no drag or context menu to give,
+        // and it needs `NSEvent.modifierFlags` to tell a plain click (activate) from a ⌘-click
+        // (toggle selection) apart — `nexusRow`'s `onClick` takes no event, so it cannot make that
+        // distinction. Reach for `nexusRow` for anything else in this module; reach for this only
+        // if a future row also needs to read the click's modifiers.
         .onTapGesture {
             if NSEvent.modifierFlags.contains(.command) { onToggleSelection() } else { onActivate() }
         }
