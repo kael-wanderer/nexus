@@ -22,6 +22,9 @@ public final class SwitcherViewModel {
     public var sort: WindowSwitcherSort { didSet { persist(); rebuild() } }
     public var isReversed: Bool { didSet { persist(); rebuild() } }
     public private(set) var sections: [SwitcherSection] = []
+    /// How many cards are across, published by the view so arrow-key focus moves by a real row
+    /// (Task 6, and `moveFocus`'s `columns` parameter).
+    public var columns = 1
 
     @ObservationIgnored private let service: any WindowServing
     @ObservationIgnored private let previewService: any WindowPreviewing
