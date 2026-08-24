@@ -603,6 +603,29 @@ and the fixes turned into a small milestone of their own (M24). What shipped:
 **Acceptance criteria:** see the manual checks in `docs/verification.md` — the switcher itself has
 not yet been driven end to end on a running app; the Shortcuts tab has.
 
+## Milestone 26 — The hover panels, groups and settings
+
+**Shipped** 2026-08-24. What shipped:
+
+- **One chrome for both hover panels** — `flyoutPanel()`, `FlyoutHeader`, `LabelChip`. A window's
+  card is its thumbnail full-bleed with the title as a chip over the bottom-leading corner rather
+  than a caption under it, and a hovered card gets an accent ring (D118). The now-playing panel is
+  the same panel with a player's artwork and transport in it.
+- **Quit and New Window** in the flyout's header (D119). New Window walks the application's own menu
+  bar through the accessibility tree — off the main thread, since that walk can block — and does
+  nothing, with a notice in the log, where the application maps ⌘N to nothing. Quit asks first.
+- **`behavior.flyoutSize`** (D120), small / medium / large, sizing both panels together and live,
+  in Settings → Behavior beside the hover preview switches.
+- **An opened group as a list** (D122): a row per application, icon beside name, one width for every
+  group, picked by `behavior.groupLayout`. The grid stays the default.
+- **Settings search** (D121): a field above the tabs filtering a hand-kept index by title, by the
+  words a setting is known under elsewhere, and by its tab, since nine tabs is more than anybody
+  reads.
+
+**Acceptance criteria:** the group layouts and the settings picker were driven on screen; the
+now-playing restyle, the Quit dialog, the New Window menu walk and typing in the search field are
+the manual checks left at the bottom of `docs/verification.md`.
+
 ## What is not built, and why
 
 - **Per-display edge and width.** Deleted rather than left half-built: multi-display shipped with

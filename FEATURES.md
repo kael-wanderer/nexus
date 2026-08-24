@@ -124,6 +124,18 @@ permission and belong to the automation engine (§46, out of scope).
 
 ---
 
+## Added after the MVP (M26)
+
+| Feature | Permission | Notes |
+|---|---|---|
+| Restyled hover panels | **Accessibility** *(window titles)*, **Screen Recording** *(optional, thumbnails)* | The window flyout and the now-playing panel share their chrome — the rounded popover material, the header with the application's icon and name, and the title chip over a thumbnail's bottom-leading corner instead of a caption underneath (D118). A hovered card gets an accent ring rather than a tinted background |
+| Quit and New Window | **Accessibility** | Two buttons in the window flyout's header. New Window presses the application's own ⌘N menu item through the accessibility tree, off the main thread, and does nothing where no such item exists; Quit asks first, in a confirmation dialog naming the application (D119) |
+| Panel size | None | `behavior.flyoutSize` — small, medium or large — sizes both hover panels together, live. Settings → Behavior, beside the hover preview switches (D120) |
+| Opened group as a list | None | `behavior.groupLayout`: the grid, or a row per application with its icon beside its name, one width for every group. Clicks, the context menu, dragging a member out and the remove badge are the same either way (D122) |
+| Settings search | None | A field above the tabs filters a hand-kept index of every setting by title, by the words it is known under elsewhere, and by its tab; Return or a click goes to the tab holding the match (D121) |
+
+---
+
 ## Explicitly out of the MVP (§28, §101)
 
 AI · full automation engine · plugin marketplace · widget system · workspaces and workspace

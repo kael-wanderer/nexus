@@ -25,12 +25,13 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Sidebar on any edge** | Left, right, top or bottom, configurable width, icon size, spacing, corner radius and opacity. A horizontal bar sizes its own thickness to the icons it holds. Auto-hide with an edge-hover reveal, or always visible. |
 | **Applications** | Pin, unpin, reorder by dragging one icon onto another, launch, activate, quit and force quit. Running indicator and per-app window count. |
 | **Windows** | An application's windows are in its context menu, frontmost ticked. Hovering an icon opens a flyout with live titles and optional thumbnails; **Show All Windows** opens the same flyout from the menu. *(Accessibility)* |
+| **Window switcher** | `⌃⌥W` opens every window on the machine as one card per window — filter by application or title, sort and group, arrows and Return, `⌘W` to close one. Selected cards become a group in the bar. *(Accessibility; Screen Recording only for the thumbnails)* |
 | **Trash** | Always in the bar, before Search, with the macOS Trash icon showing full or empty. Click opens it; the context menu empties it, after asking. |
 | **Start menu** | Optional launcher button and a browsable grid of everything installed, with a filter field and Sleep / Restart / Shut Down / Log Out. Off by default. |
 | **Media player** | Optional: artwork, track name, ⏮ ⏯ ⏭ and a draggable timeline, all in the bar — nothing to hover, nothing to open. *(Timeline for Music, Spotify and VLC.)* |
 | **Now playing** | Optional: the track and transport controls in the bar, for any player — Music and Spotify publish theirs, and everything else is named by its window. *(Accessibility for the latter)* |
 | **Always in reach** | Trash and Search sit in a zone that never scrolls. The applications between them fill the edge — as many rows as the screen holds — and scroll only once it is full. |
-| **Groups** | Drag one icon onto another and hold to make a folder. Auto-named from the applications' own category — or after its members, when they declare none — renameable from the popover's title, 9 or 16 per group. Hovering a member shows a badge that takes it out. |
+| **Groups** | Drag one icon onto another and hold to make a folder. Auto-named from the applications' own category — or after its members, when they declare none — renameable from the popover's title, 9 or 16 per group. Opened as a grid of icons or as a list, a row per application. Hovering a member shows a badge that takes it out. |
 | **Keyboard control** | `⌃⌥Space` puts the keyboard on the bar — arrows walk it, Return opens, Escape gives it straight back. The bar takes focus only while you ask it to. |
 | **Minimized windows** | The windows you minimise get rows of their own before the Trash — newest first, at most three — and a click puts one back. *(Accessibility)* |
 | **Folder stacks** | Drag a folder from Finder onto the bar. Clicking it shows what is inside on a grid — folders first, a file opens in its own application, a subfolder opens in Finder. |
@@ -38,7 +39,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Reserved space** | Optional: windows that overlap the bar are moved off it, full-screen windows left alone. *(Accessibility)* |
 | **Search** | A command palette on a global shortcut, centred like Spotlight — or opened from a search box in the bar, beside it. Applications, windows, files and actions, ranked by match quality, provider weight and frecency, with one scope filter — `⌃1`…`⌃6` or `⇥` — for applications, files, folders, or System Settings panes and actions. |
 | **Dock replacement** | Optional: the macOS Dock hides while Nexus runs and comes back when it quits. Your Dock settings are saved first and restored exactly. |
-| **Settings** | Eight panes — General, Dock (where the bar is), Bar (what it shows), Appearance (how it looks), Behavior, Search, Permissions, About. Everything applies live. |
+| **Settings** | Nine panes — General, Dock (where the bar is), Bar (what it shows), Appearance (how it looks), Behavior, Shortcuts, Search, Permissions, About — with a search field above them, since nine tabs is more than anybody reads. Everything applies live. |
 | **Onboarding** | Six skippable steps. Skipping all of them still leaves a working launcher. |
 | **Accessible** | VoiceOver labels on every element, Reduce Motion and Increase Contrast honoured. |
 
