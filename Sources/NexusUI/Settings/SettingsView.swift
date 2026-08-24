@@ -36,7 +36,9 @@ public struct SettingsView: View {
                 .tabItem { Label(String(localized: "Appearance"), systemImage: "paintbrush") }
             BehaviorPane(configuration: configuration, permissions: permissions)
                 .tabItem { Label(String(localized: "Behavior"), systemImage: "slider.horizontal.3") }
-            SearchPane(configuration: configuration, validateShortcut: validateShortcut)
+            ShortcutsPane(configuration: configuration, validateShortcut: validateShortcut)
+                .tabItem { Label(String(localized: "Shortcuts"), systemImage: "keyboard") }
+            SearchPane(configuration: configuration)
                 .tabItem { Label(String(localized: "Search"), systemImage: "magnifyingglass") }
             PermissionsPane(permissions: permissions)
                 .tabItem { Label(String(localized: "Permissions"), systemImage: "lock.shield") }
@@ -404,16 +406,19 @@ struct BehaviorPane: View {
     }
 }
 
-// MARK: - Search
+// MARK: - Shortcuts
 
-struct SearchPane: View {
+/// Every global shortcut in one place. They used to live in the tab of the feature they belonged
+/// to, which answered "how do I change the palette's shortcut" and never "what is bound to what"
+/// (design/window-switcher.md §9).
+struct ShortcutsPane: View {
     @Bindable var configuration: ConfigurationController
     let validateShortcut: (NexusCore.KeyboardShortcut) -> String?
 
     var body: some View {
         Form {
             Section {
-                LabeledContent(String(localized: "Global shortcut")) {
+                LabeledContent(String(localized: "Open search")) {
                     ShortcutRecorder(
                         shortcut: configuration.binding(\.search.shortcut),
                         validate: validateShortcut
@@ -423,6 +428,95 @@ struct SearchPane: View {
                     SpotlightGuideView()
                 }
             }
+            Section {
+                Toggle(
+                    String(localized: "Keyboard access to the bar"),
+                    isOn: Binding(
+                        get: { configuration.configuration.general.focusBarShortcut != nil },
+                        set: { on in
+                            configuration.update { $0.general.focusBarShortcut = on ? .focusBarDefault : nil }
+                        }
+                    )
+                )
+                if let current = configuration.configuration.general.focusBarShortcut {
+                    LabeledContent(String(localized: "Focus the bar")) {
+                        ShortcutRecorder(
+                            shortcut: Binding(
+                                get: { current },
+                                set: { new in configuration.update { $0.general.focusBarShortcut = new } }
+                            ),
+                            validate: { _ in nil }
+                        )
+                    }
+                }
+                Text("Puts the keyboard on the bar: arrows move along it, Return opens what is focused, Escape gives the keyboard back. It also returns on its own after ten seconds of nothing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle(
+                    String(localized: "Window switcher"),
+                    isOn: Binding(
+                        get: { configuration.configuration.general.windowSwitcherShortcut != nil },
+                        set: { on in
+                            configuration.update {
+                                $0.general.windowSwitcherShortcut = on ? .windowSwitcherDefault : nil
+                            }
+                        }
+                    )
+                )
+                if let current = configuration.configuration.general.windowSwitcherShortcut {
+                    LabeledContent(String(localized: "Open the switcher")) {
+                        ShortcutRecorder(
+                            shortcut: Binding(
+                                get: { current },
+                                set: { new in configuration.update { $0.general.windowSwitcherShortcut = new } }
+                            ),
+                            validate: { _ in nil }
+                        )
+                    }
+                }
+                Text("A grid of every open window: type to filter it, arrows to move, Return to go there. ⌘-click cards and Add Stack puts their applications in the bar as a group.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if !Self.conflicts(in: configuration.configuration).isEmpty {
+                Section {
+                    Text("Two shortcuts are the same combination. Only the first one registered will work.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    /// Combinations claimed by more than one slot. Carbon registers the first and refuses the
+    /// rest, which is silent — so it is said here instead.
+    ///
+    /// `nonisolated`: `ShortcutsPane` infers `@MainActor` from `View`, and this touches no view
+    /// state — leaving it isolated would make it a runtime trap to call from the test's
+    /// synchronous, non-main-actor context, rather than a compile error to catch here instead.
+    nonisolated static func conflicts(in configuration: NexusConfiguration) -> Set<NexusCore.KeyboardShortcut> {
+        let all = [
+            configuration.search.shortcut,
+            configuration.general.focusBarShortcut,
+            configuration.general.windowSwitcherShortcut,
+        ].compactMap { $0 }
+        var seen: Set<NexusCore.KeyboardShortcut> = []
+        var repeated: Set<NexusCore.KeyboardShortcut> = []
+        for shortcut in all where !seen.insert(shortcut).inserted { repeated.insert(shortcut) }
+        return repeated
+    }
+}
+
+// MARK: - Search
+
+struct SearchPane: View {
+    @Bindable var configuration: ConfigurationController
+
+    var body: some View {
+        Form {
             Section {
                 Picker(
                     String(localized: "In the bar, show"),
@@ -574,35 +668,6 @@ struct BarPane: View {
                     isOn: configuration.binding(\.behavior.groupColorsAndEmoji)
                 )
                 Text("A group can carry a colour and an emoji, chosen where its name is edited. Off hides both without forgetting them.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section {
-                Toggle(
-                    String(localized: "Keyboard access to the bar"),
-                    isOn: Binding(
-                        get: { configuration.configuration.general.focusBarShortcut != nil },
-                        set: { on in
-                            configuration.update {
-                                $0.general.focusBarShortcut = on ? .focusBarDefault : nil
-                            }
-                        }
-                    )
-                )
-                if let current = configuration.configuration.general.focusBarShortcut {
-                    LabeledContent(String(localized: "Focus the bar")) {
-                        ShortcutRecorder(
-                            shortcut: Binding(
-                                get: { current },
-                                set: { new in
-                                    configuration.update { $0.general.focusBarShortcut = new }
-                                }
-                            ),
-                            validate: { _ in nil }
-                        )
-                    }
-                }
-                Text("Puts the keyboard on the bar: arrows move along it, Return opens what is focused, Escape gives the keyboard back. It also returns on its own after ten seconds of nothing.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
