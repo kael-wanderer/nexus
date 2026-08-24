@@ -19,6 +19,7 @@ One file per feature.
 | [`minimized-windows.md`](minimized-windows.md) | Where a window goes when you minimise it: three rows in the tail, newest first, and why not more. |
 | [`folder-stacks.md`](folder-stacks.md) | A folder in the bar: drop one in, click it, see what is inside — and what a stack does when macOS will not let it read. |
 | [`app-groups.md`](app-groups.md) | Folders in the dock, and the configuration migration they bring with them. |
+| [`window-switcher.md`](window-switcher.md) | A full-screen grid of every window on the machine: filter it, group it, go there — and one tab that finally holds every shortcut. |
 
 New feature? New file here, named after the feature. Keep it to what is specific — the focus,
 permission and layout rules already live in `mvp.md`, and the reasons behind individual calls live
