@@ -155,3 +155,4 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D119** | Quit and New Window joined the flyout's header, and New Window presses an AX menu item | [Windows](decisions/windows.md) |
 | **D120** | One `behavior.flyoutSize` setting sizes both hover panels | [Windows](decisions/windows.md) |
 | **D121** | The settings window is searched through a hand-kept index | [Search](decisions/search.md) |
+| **D122** | An opened group draws its members as icons or as a list | [The bar](decisions/bar.md) |

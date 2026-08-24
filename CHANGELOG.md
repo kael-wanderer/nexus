@@ -12,7 +12,7 @@ this project follows [Semantic Versioning](https://semver.org).
 - An opened group draws its applications as icons on a grid (as before) or as a list — a row per
   application, icon beside name — picked by **Settings → Behavior → Opened group shows**. The list is
   one width for every group, so a long group reads down instead of wrapping; clicks, the context
-  menu, dragging a member out and the remove badge work the same either way.
+  menu, dragging a member out and the remove badge work the same either way (D122).
 - The window flyout and the now-playing panel share a restyle, and their chrome (`flyoutPanel()`,
   `FlyoutHeader`, `LabelChip`). A window's card is now its thumbnail full-bleed, with the title as
   a chip over its bottom-leading corner instead of a caption underneath (D118); a hovered card gets

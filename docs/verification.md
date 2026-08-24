@@ -212,3 +212,32 @@ with something playing:
   before anything happens, and that its Quit button reads as destructive (tinted, and announced as
   such by VoiceOver). Cancel it and confirm the application is still running; only then confirm the
   dialog's own Quit button ends it.
+
+## The group list layout and settings search — 2026-08-24, 19:45
+
+`make run` against the real `com.congbui.nexus` defaults domain, backed up with `defaults export`
+first. Driven through the accessibility tree (System Events) and `screencapture -R`, because the
+application would not come frontmost under automation — `NSApp.activate()` leaves the settings
+window `AXMain` and `AXFocused` inside Nexus while the frontmost process stays whatever the human
+last clicked, so synthetic keystrokes land in that application instead.
+
+| Check | Result |
+|---|---|
+| Settings → Behavior holds the new picker | Pass — "Opened group shows" sits under "Applications per group", above the "Drag one icon onto another" note, and reads back the stored `behavior.groupLayout` |
+| A group opened as a list | Pass — "Productivity" draws Brave Browser and Safari as rows, icon beside name, the running dot still under Brave's icon, the title and its pencil unchanged |
+| A group opened as icons | Pass — the same group after switching the picker: two 40 pt icons across with names beneath. The layout changes on the next open, not while the popover is on screen |
+| The search field | Pass, as far as drawing goes — a magnifying glass and "Search settings" above the tab strip, in the 620 × 790 window |
+
+Not verified: typing in the search field. Setting the field's accessibility value fills it without
+the results appearing, which is SwiftUI's `TextField` not routing an `AXSetValue` into its binding
+rather than a fault in the search — and key events posted to the process with `CGEvent.postToPid`
+are dropped, because the field is not first responder in an application that is not active. Both
+paths prove nothing about `SettingsSearch`, whose matching is covered by `SettingsSearchTests`.
+
+For whoever is next at the keyboard, five seconds of real typing:
+
+- Type "group" in the field: the tabs give way to a result list, "Applications per group" and
+  "Opened group shows" among the rows, each naming its tab.
+- Press Return: the window shows the first result's tab and the field empties.
+- Click a result instead: the same, for that result's tab.
+- Type something no setting matches, and confirm what the empty state says.

@@ -540,3 +540,20 @@ selected cards are reduced to their distinct bundle identifiers first, and what 
 the same `ApplicationGroup` a stack made in the bar already is, auto-named the same way. Restoring
 frames instead — a session snapshot — is a different milestone: it needs `setFrame` on windows that
 may never come back.
+
+## D122. An opened group draws its members as icons or as a list, and the list is one width.
+A group holding a dozen applications wrapped its grid into a popover wider than most of the screen's
+windows, and reading it meant scanning rows of unlabelled-until-hovered icons. The grid stays the
+default — three across is the shape people expect from a folder — and `behavior.groupLayout` adds a
+list: one row per application, its icon at 20 pt beside its name, the running dot where it already
+was.
+
+The list is a fixed width for every group rather than one sized to its longest name, because a
+popover that changes width as its contents change reads as a different popover each time; a long
+group now reads down instead of wrapping. Everything a member row can do — click to activate,
+context menu, drag out of the group, the remove badge — is the same view logic in both layouts, so
+neither is a second implementation of the group popover.
+
+Rejected: choosing the layout automatically from the member count. The threshold would be a guess,
+and a group that reshapes itself when its ninth application arrives is worse than one that stays
+however it was set.
