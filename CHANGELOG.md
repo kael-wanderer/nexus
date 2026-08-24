@@ -6,6 +6,9 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- **Settings search.** A field above the tabs filters every setting by name, by the words it is
+  known under elsewhere ("favorites" finds Favourites, "grid" finds the group layout) and by its
+  tab; Return or a click goes to the tab holding it. Nine tabs is more than anybody reads (D121).
 - An opened group draws its applications as icons on a grid (as before) or as a list — a row per
   application, icon beside name — picked by **Settings → Behavior → Opened group shows**. The list is
   one width for every group, so a long group reads down instead of wrapping; clicks, the context
