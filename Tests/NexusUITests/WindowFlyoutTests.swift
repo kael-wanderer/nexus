@@ -10,6 +10,7 @@ actor FakeWindowService: WindowServing {
     private(set) var activated: [WindowIdentity] = []
     private(set) var framesSet: [(window: WindowIdentity, frame: CGRect)] = []
     private(set) var closed: [WindowIdentity] = []
+    private(set) var newWindowRequested: [ApplicationIdentity] = []
     private var refuses: Set<CGWindowID> = []
     private var putsBack: Set<CGWindowID> = []
     private var trusted: Bool
@@ -54,6 +55,11 @@ actor FakeWindowService: WindowServing {
     func close(_ window: WindowIdentity) async throws {
         guard trusted else { throw NexusError.permissionDenied(.accessibility) }
         closed.append(window)
+    }
+
+    func newWindow(for application: ApplicationIdentity) async throws {
+        guard trusted else { throw NexusError.permissionDenied(.accessibility) }
+        newWindowRequested.append(application)
     }
 
     /// Windows whose application refuses to move them at all.
@@ -267,23 +273,27 @@ struct WindowFlyoutTests {
         #expect(model.target == nil)
     }
 
-    @Test("New Window asks the target application and hides the flyout either way")
+    @Test("New Window asks the service for the target application and hides the flyout")
     func newWindowHidesFlyout() async {
+        let service = FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]])
         let model = WindowFlyoutViewModel(
-            service: FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]]),
+            service: service,
             previewService: FakePreviewService(),
             permissions: FakePermissions([.accessibility: .granted]),
             events: EventBus()
         )
-        model.show(ApplicationIdentity(bundleIdentifier: "com.apple.Safari"), name: "Safari")
+        let target = ApplicationIdentity(bundleIdentifier: "com.apple.Safari")
+        model.show(target, name: "Safari")
         await model.reload()
         #expect(model.target != nil)
 
-        // The AX menu walk itself needs a live process to talk to, which a unit test does not
-        // have; what is reachable without one is that a target with no running process is a no-op
-        // rather than a crash, and that the flyout still hides (§4 of the flyout restyle spec).
+        // The AX menu walk itself now lives on `WindowService`, off the main thread (the critical
+        // finding this closed); what the view model owns is asking for it and hiding regardless of
+        // outcome (§4 of the flyout restyle spec).
         model.newWindow()
         #expect(model.target == nil)
+        await until { await service.newWindowRequested == [target] }
+        #expect(await service.newWindowRequested == [target])
     }
 
     @Test("Closing a window asks the service and leaves the list alone until it changes")

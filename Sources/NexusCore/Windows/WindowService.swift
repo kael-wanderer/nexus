@@ -14,6 +14,10 @@ public protocol WindowServing: Sendable {
     /// is expected to stop asking rather than retry.
     @discardableResult
     func setFrame(_ frame: CGRect, for window: WindowIdentity) async throws -> Bool
+    /// Presses whatever the application maps to ⌘N, if anything. No AX action means "open a new
+    /// window" the way `activate` and `close` mean "raise" and "press the close button" — this is
+    /// the closest approximation there is (D119).
+    func newWindow(for application: ApplicationIdentity) async throws
 }
 
 /// Accessibility window enumeration. Everything here is synchronous IPC into another process
@@ -191,6 +195,42 @@ public actor WindowService: WindowServing {
         }
         let pressed = AX.perform(button, kAXPressAction)
         Log.windows.notice("Close \(pressed ? "succeeded" : "failed", privacy: .public) for window \(window.number, privacy: .public)")
+    }
+
+    /// There is no "open a new window" API — no AX action, no `NSRunningApplication` method — so
+    /// this walks the application's AX menu bar for the item bound to ⌘N and presses that
+    /// (D119). Lives here rather than on the view model because it is the same synchronous IPC
+    /// `windows(for:)` makes, on the same actor, with the same unresponsive-application and trust
+    /// handling; a menu walk on the main thread would freeze Nexus for as long as the target takes
+    /// to answer (`AXBridge.swift`'s own warning).
+    public func newWindow(for application: ApplicationIdentity) throws {
+        guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
+        guard let pid = application.processIdentifier ?? Self.processIdentifier(for: application) else {
+            throw NexusError.targetDisappeared
+        }
+        let applicationElement = AX.application(pid: pid)
+        let item: AXUIElement?
+        do {
+            item = try AX.menuItem(of: applicationElement, commandChar: "n")
+        } catch NexusError.timedOut {
+            unresponsive.insert(application)
+            Log.windows.debug("\(application.bundleIdentifier, privacy: .public) did not answer in time; skipping")
+            return
+        } catch NexusError.permissionDenied {
+            checkTrust()
+            throw NexusError.permissionDenied(.accessibility)
+        } catch NexusError.targetDisappeared {
+            forget(application)
+            return
+        }
+        unresponsive.remove(application)
+        guard let item else {
+            Log.windows.notice(
+                "No \u{2318}N menu item for \(application.bundleIdentifier, privacy: .public); nothing to press"
+            )
+            return
+        }
+        AX.perform(item, kAXPressAction)
     }
 
     /// Moves and resizes one window, in Accessibility coordinates. Reserved Space (M12) is the

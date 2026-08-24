@@ -79,9 +79,14 @@ public struct WindowFlyoutView: View {
     /// The application's icon and name, and two buttons: Quit, and New Window (§4 of the flyout
     /// restyle). Both live on the view model, not here — a header button is a trigger, not a place
     /// to decide what pressing it does.
+    ///
+    /// The panel opens on passive hover, so Quit sits behind a confirmation — terminating another
+    /// application is not reversible the way opening a window is. New Window gets no such gate
+    /// (D119); wider spacing between the two is the actual guard against a stray click, the dialog
+    /// is the backstop for the one that lands anyway.
     private var header: some View {
         FlyoutHeader(icon: model.applicationIcon, name: model.applicationName) {
-            HStack(spacing: 2) {
+            HStack(spacing: 10) {
                 FlyoutHeaderButton(
                     symbol: "macwindow.badge.plus",
                     label: String(localized: "New window")
@@ -92,7 +97,16 @@ public struct WindowFlyoutView: View {
                     symbol: "power",
                     label: String(localized: "Quit \(model.applicationName)")
                 ) {
-                    model.quit()
+                    model.confirmingQuit = true
+                }
+                .confirmationDialog(
+                    String(localized: "Quit \(model.applicationName)?"),
+                    isPresented: $model.confirmingQuit
+                ) {
+                    Button(String(localized: "Quit \(model.applicationName)"), role: .destructive) {
+                        model.quit()
+                    }
+                    Button(String(localized: "Cancel"), role: .cancel) {}
                 }
             }
         }

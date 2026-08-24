@@ -208,3 +208,7 @@ with something playing:
 - New Window, on an application that does and does not map ⌘N to it (e.g. Safari vs. a utility with
   no such menu item) — confirm the AX menu walk presses the right item where one exists, and does
   nothing (with a `.notice` in `make logs`) where it does not.
+- Quit, from the flyout header — confirm a `confirmationDialog` appears naming the application
+  before anything happens, and that its Quit button reads as destructive (tinted, and announced as
+  such by VoiceOver). Cancel it and confirm the application is still running; only then confirm the
+  dialog's own Quit button ends it.

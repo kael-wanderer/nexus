@@ -114,18 +114,27 @@ public enum AX {
     /// `"n"` for whatever an application maps to ⌘N. Titles are localized and vary by application
     /// ("New Window", "New Tab"); the command character is neither, which is the only reason this
     /// works at all for "press whatever ⌘N does" without knowing what that is in advance.
-    public static func menuItem(of application: AXUIElement, commandChar: String) -> AXUIElement? {
-        guard let menuBar: AXUIElement = try? value(application, kAXMenuBarAttribute) else { return nil }
-        return menuItem(in: menuBar, commandChar: commandChar)
+    /// Throws rather than swallowing, unlike the per-child command-character read below: a timeout
+    /// or a vanished process partway through the walk has to reach `WindowService`, the same way
+    /// `windows(of:)`'s does, so it can mark the application unresponsive instead of reporting "no
+    /// ⌘N item" for an application that never actually answered.
+    public static func menuItem(of application: AXUIElement, commandChar: String) throws -> AXUIElement? {
+        guard let menuBar: AXUIElement = try value(application, kAXMenuBarAttribute) else { return nil }
+        AXUIElementSetMessagingTimeout(menuBar, messagingTimeout)
+        return try menuItem(in: menuBar, commandChar: commandChar)
     }
 
-    private static func menuItem(in element: AXUIElement, commandChar: String) -> AXUIElement? {
-        guard let children: [AXUIElement] = try? value(element, kAXChildrenAttribute) else { return nil }
+    private static func menuItem(in element: AXUIElement, commandChar: String) throws -> AXUIElement? {
+        guard let children: [AXUIElement] = try value(element, kAXChildrenAttribute) else { return nil }
         for child in children {
+            // Every element the walk touches needs its own timeout set — `windows(of:)` does the
+            // same for the windows it returns, and a menu bar can run just as deep and just as
+            // unresponsive as a window list (§65).
+            AXUIElementSetMessagingTimeout(child, messagingTimeout)
             if let char: String = try? value(child, kAXMenuItemCmdCharAttribute), char == commandChar {
                 return child
             }
-            if let found = menuItem(in: child, commandChar: commandChar) { return found }
+            if let found = try menuItem(in: child, commandChar: commandChar) { return found }
         }
         return nil
     }

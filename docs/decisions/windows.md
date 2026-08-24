@@ -212,7 +212,8 @@ second line for a long title, and a chip truncates to one. Accepted, because the
 "windows of this application" screenshot is judged against, and the caption's second line was never
 the point of it.
 
-## D119. Quit and New Window joined the flyout's header, and New Window presses an AX menu item.
+## D119. Quit and New Window joined the flyout's header; New Window presses an AX menu item on
+`WindowService`, and Quit sits behind a confirmation.
 The header grew two buttons: Quit (`NSRunningApplication.terminate()`, the same request the Dock's
 own "Quit" sends) and New Window. There is no API for "open a new window" — no AX action, no
 `NSRunningApplication` method — so New Window instead walks the target's AX menu bar for the item
@@ -223,6 +224,31 @@ target, since the flyout takes no keyboard focus (D3) — and rejected matching 
 which is localized and varies ("New Window", "New Tab", "Nouvelle fenêtre"). An application that
 does not map ⌘N to a new window does whatever it does map: the search finds nothing, and logs at
 `.notice` rather than guessing at a substitute.
+
+The walk shipped first as a synchronous method on the `@MainActor` view model, called straight from
+the button — which meant an unresponsive application's AX round trip froze Nexus's whole UI, not
+just the flyout, for as long as `AXBridge`'s own 0.25 s messaging timeout allowed it to run. A
+whole-branch review caught it: `AXBridge.swift` says outright that every AX call blocks for as long
+as the target takes to answer and that callers live on `WindowService`'s actor, never the main
+thread, and the menu walk was the one caller that did not. Moved to `WindowService.newWindow(for:)`,
+beside `activate` and `close`, with the same trust check, the same per-application unresponsive-set
+bookkeeping, and the same `NexusError.timedOut` / `.permissionDenied` / `.targetDisappeared`
+handling `windows(for:)` already has — the view model now reaches it through a `Task`, exactly the
+way it already reaches `activate`. The same review found `AXBridge`'s menu walk was also missing
+`AXUIElementSetMessagingTimeout` on the children it discovers — `windows(of:)` sets it on every
+window it returns, deliberately, and the menu walk now matches: every menu-bar child the recursion
+touches gets the same 0.25 s ceiling, or an application that answers slowly on one submenu but not
+another could still block past it.
+
+Quit, unlike New Window, got a `confirmationDialog` naming the application and giving the Quit
+action the destructive role. The flyout opens on passive hover and the two buttons sit 26×26 pt
+apart with only their SF Symbol to tell them apart (`macwindow.badge.plus` vs. `power`) — close
+enough that a whole-branch review flagged a slip as one mis-click from terminating another
+application, which `NSRunningApplication.terminate()` does not undo. The bar's own Quit
+(`SidebarView`'s context menu) already asks for two deliberate steps — right-click, then choose
+Quit from the menu — before it fires; the flyout's button had none. New Window gets no such gate:
+opening an unwanted window costs a keystroke to close and nothing else, which is not the kind of
+mistake a confirmation earns its interruption for.
 
 ## D120. One `behavior.flyoutSize` setting sizes both hover panels.
 Small / medium / large, default medium — medium being the reference screenshot's own measurements

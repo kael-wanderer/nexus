@@ -1,5 +1,4 @@
 import AppKit
-import ApplicationServices
 import CoreGraphics
 import NexusCore
 import SwiftUI
@@ -21,6 +20,10 @@ public final class WindowFlyoutViewModel {
     /// How big the cards and header draw themselves — set from `behavior.flyoutSize` before the
     /// flyout opens, the same way `isVertical` is.
     public var flyoutSize: FlyoutSize = .medium
+    /// Drives the header's `confirmationDialog`. The panel opens on passive hover and quitting
+    /// another application is not reversible, so the button itself only asks; `quit()` is what
+    /// actually terminates, and only the dialog's own destructive button calls it.
+    public var confirmingQuit = false
 
     @ObservationIgnored private let service: any WindowServing
     @ObservationIgnored private let previewService: any WindowPreviewing
@@ -145,28 +148,13 @@ public final class WindowFlyoutViewModel {
         hide()
     }
 
-    /// There is no "open a new window" API. What every application does have, if it has anything,
-    /// is a menu item bound to ⌘N — so this walks the AX menu bar for the item whose command
-    /// character is `n` and presses it. An application that does not map ⌘N to a new window does
-    /// whatever it does map; this is not a promise that the result is a window.
-    ///
-    /// No keystroke synthesis: a synthesized ⌘N goes to whichever application is frontmost, which
-    /// is Nexus's own panel host, not necessarily the flyout's target.
+    /// The AX menu walk is synchronous IPC into another process, so it runs on `WindowService`'s
+    /// actor, never here — the same reason `activate` and `close` are also just a `Task` around a
+    /// service call (`AXBridge.swift`'s own warning about what blocks on the main thread).
     public func newWindow() {
         defer { hide() }
-        guard let target,
-              let pid = target.processIdentifier ?? NSRunningApplication
-                  .runningApplications(withBundleIdentifier: target.bundleIdentifier)
-                  .first?.processIdentifier
-        else { return }
-        let application = AX.application(pid: pid)
-        guard let item = AX.menuItem(of: application, commandChar: "n") else {
-            Log.windows.notice(
-                "No \u{2318}N menu item for \(target.bundleIdentifier, privacy: .public); nothing to press"
-            )
-            return
-        }
-        AX.perform(item, kAXPressAction)
+        guard let target else { return }
+        Task { [service] in try? await service.newWindow(for: target) }
     }
 
     /// Captures every window's thumbnail, if Screen Recording allows it. Cheap to call twice: the
