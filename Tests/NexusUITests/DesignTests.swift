@@ -49,6 +49,39 @@ struct DesignTests {
     }
 }
 
+@Suite("Flyout sizes")
+struct FlyoutSizeTests {
+    @Test("Every metric grows from small to medium to large")
+    func monotonic() {
+        let sizes: [FlyoutSize] = [.small, .medium, .large]
+        let cardWidths = sizes.map(\.cardSize.width)
+        let cardHeights = sizes.map(\.cardSize.height)
+        let artworkSizes = sizes.map(\.artworkSize)
+        let tileWidths = sizes.map(\.tileSize.width)
+        let tileHeights = sizes.map(\.tileSize.height)
+
+        #expect(cardWidths == cardWidths.sorted())
+        #expect(cardHeights == cardHeights.sorted())
+        #expect(artworkSizes == artworkSizes.sorted())
+        #expect(tileWidths == tileWidths.sorted())
+        #expect(tileHeights == tileHeights.sorted())
+        // Strictly increasing, not just non-decreasing: three sizes that drew the same thing would
+        // not be a setting.
+        #expect(Set(cardWidths).count == 3)
+        #expect(Set(cardHeights).count == 3)
+        #expect(Set(artworkSizes).count == 3)
+        #expect(Set(tileWidths).count == 3)
+        #expect(Set(tileHeights).count == 3)
+    }
+
+    @Test("Medium matches the reference screenshot's measurements")
+    func mediumIsTheReference() {
+        #expect(FlyoutSize.medium.cardSize == CGSize(width: 340, height: 210))
+        #expect(FlyoutSize.medium.artworkSize == 190)
+        #expect(FlyoutSize.medium.tileSize == CGSize(width: 96, height: 48))
+    }
+}
+
 @Suite("Shortcuts pane")
 struct ShortcutsPaneTests {
     @Test("Two slots holding the same combination is reported")

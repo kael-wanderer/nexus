@@ -39,6 +39,12 @@ public struct NexusWindow: Identifiable, Sendable, Equatable {
 
     public var id: String { "\(identity.owner.bundleIdentifier)#\(identity.number)" }
 
+    /// What the window list, the flyout's cards and its chips all show — a window with no title
+    /// still needs a row to click, and blank is not a label.
+    public var displayTitle: String {
+        title.isEmpty ? String(localized: "Untitled window") : title
+    }
+
     public init(
         identity: WindowIdentity,
         title: String,
