@@ -178,3 +178,33 @@ session did not have:
   claim is untested against a real full-screen application.
 - A second display, since "the display holding the pointer" has only been read from the code, not
   from two actual screens.
+
+## The flyout restyle — 2026-08-24
+
+The suite (490 tests) passes. `make run` built and ran a debug app against the real
+`com.congbui.nexus` defaults domain (backed up first with `defaults export`; `dock.replacementEnabled`
+was already `false`, so nothing touched the real Dock). Hovering was driven with a synthetic
+`CGEvent` mouse move rather than a real cursor, since there is no `cliclick` on this machine.
+
+| Check | Result |
+|---|---|
+| Window flyout, hovering an application with two windows (Google Chrome) | Pass — `FlyoutHeader` draws the app icon, "Google Chrome" at 17 pt semibold, and the two header buttons (`macwindow.badge.plus`, `power`) side by side on the trailing edge. Two full-bleed cards, each with its window's real title as a white-on-dark chip truncated with an ellipsis at the bottom-leading corner. The panel itself is the 24 pt rounded popover material with a hairline border |
+| Hovering a card | Pass — the accent-coloured ring appears around the hovered card, replacing the old tinted background |
+| Header buttons, close up | Pass — `macwindow.badge.plus` and `power`, both legible at their 26×26 pt size |
+
+Not run live: the now-playing panel. Nothing was playing media at the time (Music, Spotify, VLC and
+every browser tab were idle), and `showsNowPlayingRow` gates the row — and therefore the panel — on
+an active player. Its restyle shares every piece verified above (`flyoutPanel()`, `FlyoutHeader`,
+`LabelChip`) with the window flyout, but the artwork border, the title chip specifically on
+artwork, and the wide transport tiles have not been seen on screen. Whoever is next at the keyboard
+with something playing:
+
+- Rest the pointer on the compact now-playing row (narrow vertical bar). Confirm the artwork has a
+  visible border, the title chip sits over its bottom-leading corner, the artist line and scrubber
+  are unchanged, and the three transport buttons are wide tiles rather than circles.
+- Confirm the panel's header shows the player's icon and name with no buttons beside them.
+- Change `behavior.flyoutSize` in Settings → Bar between small/medium/large and confirm both panels
+  resize together, live, without needing to reopen them.
+- New Window, on an application that does and does not map ⌘N to it (e.g. Safari vs. a utility with
+  no such menu item) — confirm the AX menu walk presses the right item where one exists, and does
+  nothing (with a `.notice` in `make logs`) where it does not.

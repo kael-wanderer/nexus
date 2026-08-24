@@ -201,3 +201,34 @@ below it stays fully usable, with icons, whether or not the offer is showing.
 What every macOS search field does. The switcher's filter needed the rule spelled out because a
 mistyped filter here would otherwise cost the whole panel: clearing it first is what stops one
 Escape from closing a panel the user only meant to empty a field in.
+
+## D118. The window card's title moved onto the thumbnail as a chip.
+The card used to be a thumbnail with a caption underneath (M10); the restyle reference draws the
+title inside the card, over the bottom-leading corner of the image, and nothing sits below it any
+more. `LabelChip` — white text on a dark rounded tile — is the piece both flyouts use for this, so
+a card's title and the now-playing panel's track title are drawn the same way rather than two
+near-identical one-off overlays. The trade is real: `WindowCard`'s caption used to wrap onto a
+second line for a long title, and a chip truncates to one. Accepted, because the card is what a
+"windows of this application" screenshot is judged against, and the caption's second line was never
+the point of it.
+
+## D119. Quit and New Window joined the flyout's header, and New Window presses an AX menu item.
+The header grew two buttons: Quit (`NSRunningApplication.terminate()`, the same request the Dock's
+own "Quit" sends) and New Window. There is no API for "open a new window" — no AX action, no
+`NSRunningApplication` method — so New Window instead walks the target's AX menu bar for the item
+whose `kAXMenuItemCmdCharAttribute` is `n` and presses that, `AX.perform`, the same primitive
+`WindowService.activate` and `.close` already press buttons with. Rejected: synthesizing a ⌘N
+keystroke, which would go to whichever application is frontmost — not necessarily the flyout's
+target, since the flyout takes no keyboard focus (D3) — and rejected matching by the item's title,
+which is localized and varies ("New Window", "New Tab", "Nouvelle fenêtre"). An application that
+does not map ⌘N to a new window does whatever it does map: the search finds nothing, and logs at
+`.notice` rather than guessing at a substitute.
+
+## D120. One `behavior.flyoutSize` setting sizes both hover panels.
+Small / medium / large, default medium — medium being the reference screenshot's own measurements
+for the window flyout's cards, the now-playing panel's artwork, and its transport tiles. One
+setting rather than one per panel, because the two panels are one visual family after this restyle
+(`FlyoutPanel.swift`) and a person resizing "the flyouts" should not have to find and match two
+separate controls to keep them looking like they belong together. The per-size numbers live in one
+table next to the views that read them, not in the configuration type itself — `NexusConfiguration`
+knows the setting exists, not what a "medium" card measures.

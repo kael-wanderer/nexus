@@ -6,6 +6,17 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- The window flyout and the now-playing panel share a restyle, and their chrome (`flyoutPanel()`,
+  `FlyoutHeader`, `LabelChip`). A window's card is now its thumbnail full-bleed, with the title as
+  a chip over its bottom-leading corner instead of a caption underneath (D118); a hovered card gets
+  an accent ring. The flyout's header gains two buttons: **New Window**, which walks the target's
+  AX menu bar for the item bound to ⌘N and presses it — there is no API for "open a new window",
+  and an application that does not map ⌘N to one does whatever it does map (D119) — and **Quit**
+  (`NSRunningApplication.terminate()`). The now-playing panel's artwork gains a light border and
+  the same title chip, replacing its wrapped title block; its three transport buttons become wide
+  rounded tiles; its header carries the player's icon and name with no buttons. New setting
+  `behavior.flyoutSize` (small / medium / large, default medium, Settings → Bar) sizes both panels
+  together (D120).
 - A window switcher (M25): `⌃⌥W` opens a full-screen grid of every window on the machine, one card
   per window rather than per application — `⌘Tab` already reaches applications and cannot reach a
   second window (D112). Type to filter by application or window title; sort by recency,

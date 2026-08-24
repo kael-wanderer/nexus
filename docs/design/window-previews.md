@@ -46,11 +46,40 @@ twelve-window application scrolls rather than spanning the screen.
 `behavior.hoverPreview` (default **on**) and `behavior.hoverPreviewDelay` (0.2–1.5 s). Off means
 today's behaviour exactly: the flyout opens from the context menu's **Show All Windows** only.
 
+`behavior.flyoutSize` (small / medium / large, default medium, Settings → Bar) picks the card size
+— see §4.
+
+## 4. The restyle: cards, a header, and a size setting
+
+A later pass matched the flyout to a reference screenshot, sharing its chrome with the now-playing
+panel (`design/media-player-row.md`) rather than restyling either alone.
+
+- **The card is the thumbnail, full-bleed.** The caption that used to sit underneath it is gone;
+  the title is a `LabelChip` — white text on a dark rounded tile — over the card's bottom-leading
+  corner instead (D118). A hovered card gets an accent-coloured ring where it used to get a tinted
+  background, matching the ring in the reference.
+- **The header gained two buttons.** Beside the application's icon and name: **New Window**, and
+  **Quit**. Quit is `NSRunningApplication.terminate()`. New Window has no API to call, so it walks
+  the target's AX menu bar for the item bound to ⌘N and presses that (D119) — an application that
+  does not map ⌘N to a new window does whatever it does map, and the button does nothing rather
+  than guess at a substitute.
+- **`behavior.flyoutSize`** sizes the cards (small/medium/large, default medium — about 340×210 at
+  medium). The same setting sizes the now-playing panel's artwork and transport tiles (D120), so
+  resizing "the flyouts" is one control, not two that have to be kept in step by hand.
+- The vertical-bar row list (`WindowRow`) was left alone beyond inheriting the shared header and
+  panel chrome: the reference was the card, and restyling rows too was outside what was approved.
+
 ## What shipped
 
 `9cba6bc`, as specified. One thing the spec did not anticipate: a thumbnail arriving *after* the
 flyout is on screen has to trigger a re-measure, or it is drawn outside the panel's frame and
 never seen (D65).
+
+The restyle in §4 shipped as specified too, including the two header buttons and the size setting.
+`WindowFlyoutViewModel.newWindow()` is the one piece of it a unit test cannot reach end to end — it
+needs a live AX connection to another process — so its test coverage stops at "hides the flyout,
+and a target with nothing running is a no-op rather than a crash," which is what a fake service
+can prove.
 
 ## Rules it inherits
 
@@ -67,3 +96,8 @@ never seen (D65).
 - Flyout frame sits beside a vertical bar and above/below a horizontal one, clamped on screen
   (extends the existing `SidebarLayout` suite).
 - `hoverPreview = false` opens nothing on hover, and still opens from the menu.
+- Every `FlyoutSize` case has its own card size, artwork size and transport-tile size, and all
+  three grow strictly from small to medium to large.
+- Quit and New Window both hide the flyout; a target with no matching running process is a no-op,
+  not a crash.
+- An untitled window still has a readable `displayTitle` ("Untitled window") for the card's chip.

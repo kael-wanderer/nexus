@@ -134,6 +134,8 @@ bit", and the player's own window is where anyone doing the former is already lo
 - The clock formats a duration as `1:58` and `1:02:07`, and a position past the duration is clamped.
 - Dragging the thumb seeks once, on release, with the value under the pointer.
 - Position polling starts when the player appears on screen and stops when it goes away.
+- With no player at all, `nowPlayingPlayerName` falls back to a plain "Now Playing" rather than an
+  empty header.
 
 ## The two bugs it shipped with (D83)
 
@@ -168,4 +170,36 @@ What it cost, beyond the code: a panel, a hover-out grace period, a re-layout on
 a global click monitor to dismiss it, and an anchor sentinel in `PanelController` for a row that is
 not an application. All of that is gone; the group popover and the window flyout keep the machinery
 they actually need.
+
+## The compact player's panel came back
+
+Everything above was still true for the *wide* row — but a 64 pt compact row is artwork and a
+progress line, nothing else, and the title, the artist and the scrubber D85 moved onto the wide row
+had nowhere to go on a narrow bar. So the panel returned for the compact player specifically:
+resting on the row opens it after 400 ms, hover-expanding the bar into the wide player closes it
+again — the same rule D85 wrote, now enforced for the one case it did not cover rather than assumed
+for both. It takes no click monitor, like the window flyout: nothing in it is a commitment.
+
+## The restyle: a chip, a border, and wide tiles
+
+A later pass matched this panel to the same reference screenshot as the window flyout, sharing its
+chrome (`design/window-previews.md` §4, `FlyoutPanel.swift`) rather than restyling either alone.
+
+- **The wrapped title block is gone.** The artwork gains a light border and a `LabelChip` — white
+  text on a dark rounded tile — over its bottom-leading corner, carrying the track title (D118).
+  The trade: the old block wrapped onto up to three lines; a chip truncates to one. The artist line
+  underneath is unchanged, and the scrubber stays exactly where it was.
+- **The three transport buttons became wide rounded tiles** instead of `MiniTransportButton`'s
+  30 pt circles — room enough that the panel reads as a small player in its own right rather than a
+  shrunken copy of the row's own buttons.
+- **The header is new**: the player's icon and name, `FlyoutHeader`, with no buttons beside them.
+  Quit and New Window (`design/window-previews.md` §4) are AX actions on an application; a media
+  player is not one, so this panel gets none of them.
+- **`behavior.flyoutSize`** sizes the artwork and the tiles here the same way it sizes the window
+  flyout's cards (D120) — one setting for both panels, since after this restyle they are one visual
+  family and not two popovers that happen to look similar.
+
+Shipped as specified. Nothing here needed a fake beyond what `NowPlayingFlyoutTests` already had —
+`nowPlayingPlayerName`'s one deterministic path (no player at all) is covered; the paths through a
+real `NSRunningApplication` are not, for the same reason `newWindow()` in the other panel is not.
 
