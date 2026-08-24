@@ -75,6 +75,13 @@ func until(_ condition: () async -> Bool) async {
 struct FakePreviewService: WindowPreviewing {
     func preview(for window: WindowIdentity, maxDimension: CGFloat) async -> SendableImage? { nil }
     func invalidate(_ window: WindowIdentity) async {}
+
+    func previews(
+        for windows: [WindowIdentity],
+        maxDimension: CGFloat
+    ) async -> AsyncStream<(WindowIdentity, SendableImage)> {
+        AsyncStream { $0.finish() }
+    }
 }
 
 final class FakePermissions: PermissionChecking, @unchecked Sendable {
