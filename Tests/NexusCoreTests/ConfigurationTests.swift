@@ -41,6 +41,55 @@ struct ConfigurationTests {
         #expect(reloaded == configuration)
     }
 
+    @Test("Window switcher defaults")
+    func windowSwitcherDefaults() {
+        let configuration = NexusConfiguration()
+        #expect(configuration.general.windowSwitcherShortcut == .windowSwitcherDefault)
+        #expect(configuration.behavior.windowSwitcherGrouping == .flat)
+        #expect(configuration.behavior.windowSwitcherSort == .recent)
+        #expect(configuration.behavior.windowSwitcherSortReversed == false)
+        #expect(configuration.behavior.windowSwitcherThumbnails == true)
+    }
+
+    @Test("The switcher shortcut is a valid, non-colliding combination")
+    func windowSwitcherShortcutIsValid() {
+        let shortcut = KeyboardShortcut.windowSwitcherDefault
+        #expect(shortcut.isValid)
+        #expect(shortcut != .optionSpace)
+        #expect(shortcut != .focusBarDefault)
+    }
+
+    @Test("A file written before the switcher existed keeps its other fields")
+    func windowSwitcherTolerantDecode() throws {
+        // A behavior section from an earlier version: no switcher keys at all.
+        let json = Data("""
+        {"autoHide": true, "groupCapacity": 16}
+        """.utf8)
+        let behavior = try JSONDecoder().decode(BehaviorConfiguration.self, from: json)
+        #expect(behavior.autoHide == true)
+        #expect(behavior.groupCapacity == 16)
+        #expect(behavior.windowSwitcherGrouping == .flat)
+        #expect(behavior.windowSwitcherSort == .recent)
+        #expect(behavior.windowSwitcherThumbnails == true)
+    }
+
+    @Test("Switcher preferences round-trip through the store")
+    func windowSwitcherRoundTrip() throws {
+        let store = ConfigurationStore(defaults: makeDefaults())
+        var configuration = NexusConfiguration()
+        configuration.behavior.windowSwitcherGrouping = .display
+        configuration.behavior.windowSwitcherSort = .title
+        configuration.behavior.windowSwitcherSortReversed = true
+        configuration.general.windowSwitcherShortcut = nil
+
+        try store.save(configuration)
+        let loaded = store.load()
+        #expect(loaded.behavior.windowSwitcherGrouping == .display)
+        #expect(loaded.behavior.windowSwitcherSort == .title)
+        #expect(loaded.behavior.windowSwitcherSortReversed == true)
+        #expect(loaded.general.windowSwitcherShortcut == nil)
+    }
+
     @Test("Absent stored configuration falls back to defaults")
     func absent() {
         let store = ConfigurationStore(defaults: makeDefaults())

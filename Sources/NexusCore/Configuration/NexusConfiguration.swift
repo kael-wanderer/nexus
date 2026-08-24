@@ -49,6 +49,21 @@ public enum ClickBehavior: String, Codable, Sendable, CaseIterable {
     case showWindowList
 }
 
+/// How the switcher's grid is divided up (M25).
+public enum WindowSwitcherGrouping: String, Codable, Sendable, CaseIterable {
+    case flat
+    case application
+    case display
+}
+
+/// What orders the switcher's cards (M25). `recent` is the order applications were last
+/// activated, which is the order a switcher is normally reached for.
+public enum WindowSwitcherSort: String, Codable, Sendable, CaseIterable {
+    case recent
+    case application
+    case title
+}
+
 public enum DisplayPreference: Codable, Sendable, Equatable {
     case main
     case withMouse
@@ -92,6 +107,13 @@ public struct KeyboardShortcut: Codable, Sendable, Equatable, Hashable {
     public static let optionSpace = KeyboardShortcut(keyCode: spaceKeyCode, modifiers: optionKey)
     public static let commandSpace = KeyboardShortcut(keyCode: spaceKeyCode, modifiers: cmdKey)
 
+    /// `⌃⌥W` — the window switcher (M25). `⌥Space` is the palette and `⌃⌥Space` is the bar (D101);
+    /// `⌘Tab` and `⌃↓` belong to the system and never reach a Carbon hotkey.
+    public static let windowSwitcherDefault = KeyboardShortcut(
+        keyCode: 13,                                     // kVK_ANSI_W
+        modifiers: controlKey | optionKey
+    )
+
     public var isCommandSpace: Bool { self == .commandSpace }
 
     /// At least one non-shift modifier is required; modifier-only combinations are rejected (§5).
@@ -122,7 +144,18 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
     /// The now-playing row in the bar's tail (M15). Off by default, and its row gives its slot back
     /// to the applications when it is off (D74).
     public var showNowPlaying = false
+    /// The window switcher's shortcut (M25). `nil` switches the feature off entirely — there is no
+    /// other way in, by design: a switcher reached with the pointer is the bar.
+    public var windowSwitcherShortcut: KeyboardShortcut? = .windowSwitcherDefault
     public init() {}
+
+    // Written out because `encode(to:)` is now hand-written too (to give `windowSwitcherShortcut`
+    // an explicit null instead of an omitted key); once both halves of `Codable` are provided,
+    // Swift stops synthesising `CodingKeys` for either of them.
+    private enum CodingKeys: String, CodingKey {
+        case launchAtLogin, showInMenuBar, globalShortcutEnabled, showStartMenu
+        case focusBarShortcut, showNowPlaying, windowSwitcherShortcut
+    }
 
     /// Tolerant like `NexusConfiguration`'s: a synthesised decoder treats a missing key as an
     /// error, so adding a field would silently reset every other field in the section on the
@@ -141,6 +174,28 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
             focusBarShortcut = .focusBarDefault
         }
         showNowPlaying = try container.decodeIfPresent(Bool.self, forKey: .showNowPlaying) ?? false
+        // `decodeIfPresent(_:forKey:) ?? default` cannot tell "key absent" (an upgrade, fall back
+        // to the default) apart from "key present and explicitly null" (the user switched the
+        // shortcut off, honour that) — both decode to Swift `nil`. `contains` disambiguates, which
+        // is why `encode(to:)` below writes the key even when its value is nil.
+        windowSwitcherShortcut = container.contains(.windowSwitcherShortcut)
+            ? try container.decode(KeyboardShortcut?.self, forKey: .windowSwitcherShortcut)
+            : .windowSwitcherDefault
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(launchAtLogin, forKey: .launchAtLogin)
+        try container.encode(showInMenuBar, forKey: .showInMenuBar)
+        try container.encode(globalShortcutEnabled, forKey: .globalShortcutEnabled)
+        try container.encode(showStartMenu, forKey: .showStartMenu)
+        try container.encodeIfPresent(focusBarShortcut, forKey: .focusBarShortcut)
+        try container.encode(showNowPlaying, forKey: .showNowPlaying)
+        // Written unconditionally, unlike `focusBarShortcut` above: a synthesised `encodeIfPresent`
+        // omits the key entirely for `nil`, which is indistinguishable on decode from a field an
+        // older build never wrote at all. Writing an explicit null keeps "switched off" persisting
+        // as "switched off" rather than reverting to the default on the next load.
+        try container.encode(windowSwitcherShortcut, forKey: .windowSwitcherShortcut)
     }
 }
 
@@ -238,6 +293,13 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     public var hideOverFullScreen = true
     public var clickBehavior: ClickBehavior = .activateOrLaunch
     public var reduceMotionOverride: Bool?
+    /// How the switcher opened last time (M25). Remembered rather than reset, because a grouping is
+    /// a way of working, not a one-off.
+    public var windowSwitcherGrouping: WindowSwitcherGrouping = .flat
+    public var windowSwitcherSort: WindowSwitcherSort = .recent
+    public var windowSwitcherSortReversed = false
+    /// Off skips ScreenCaptureKit entirely: icons only, and no permission ever asked for.
+    public var windowSwitcherThumbnails = true
     public init() {}
 
     public static let hoverPreviewDelayRange: ClosedRange<Double> = 0.2...1.5
@@ -262,6 +324,13 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         hideOverFullScreen = try container.decodeIfPresent(Bool.self, forKey: .hideOverFullScreen) ?? true
         clickBehavior = try container.decodeIfPresent(ClickBehavior.self, forKey: .clickBehavior) ?? .activateOrLaunch
         reduceMotionOverride = try container.decodeIfPresent(Bool.self, forKey: .reduceMotionOverride)
+        windowSwitcherGrouping = try container.decodeIfPresent(
+            WindowSwitcherGrouping.self,
+            forKey: .windowSwitcherGrouping
+        ) ?? .flat
+        windowSwitcherSort = try container.decodeIfPresent(WindowSwitcherSort.self, forKey: .windowSwitcherSort) ?? .recent
+        windowSwitcherSortReversed = try container.decodeIfPresent(Bool.self, forKey: .windowSwitcherSortReversed) ?? false
+        windowSwitcherThumbnails = try container.decodeIfPresent(Bool.self, forKey: .windowSwitcherThumbnails) ?? true
     }
 
     public static let groupCapacities = [9, 16]
