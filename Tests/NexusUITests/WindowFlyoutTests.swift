@@ -9,6 +9,7 @@ actor FakeWindowService: WindowServing {
     private var byApplication: [String: [NexusWindow]]
     private(set) var activated: [WindowIdentity] = []
     private(set) var framesSet: [(window: WindowIdentity, frame: CGRect)] = []
+    private(set) var closed: [WindowIdentity] = []
     private var refuses: Set<CGWindowID> = []
     private var putsBack: Set<CGWindowID> = []
     private var trusted: Bool
@@ -48,6 +49,11 @@ actor FakeWindowService: WindowServing {
             byApplication[window.owner.bundleIdentifier] = list
         }
         return true
+    }
+
+    func close(_ window: WindowIdentity) async throws {
+        guard trusted else { throw NexusError.permissionDenied(.accessibility) }
+        closed.append(window)
     }
 
     /// Windows whose application refuses to move them at all.
@@ -222,6 +228,23 @@ struct WindowFlyoutTests {
         bus.publish(.applicationTerminated(identity))
         try await Task.sleep(for: .milliseconds(100))
         #expect(model.target == nil)
+    }
+
+    @Test("Closing a window asks the service and leaves the list alone until it changes")
+    func closeIsRequestedNotAssumed() async throws {
+        let service = FakeWindowService()
+        let window = NexusWindow(
+            identity: WindowIdentity(owner: ApplicationIdentity(bundleIdentifier: "com.apple.Safari"), number: 1),
+            title: "Google",
+            applicationName: "Safari"
+        )
+        await service.setWindows([window], for: "com.apple.Safari")
+
+        try await service.close(window.identity)
+
+        #expect(await service.closed == [window.identity])
+        // Nothing was removed: an unsaved document puts up a sheet and the window is still there.
+        #expect(try await service.windows(for: window.identity.owner).count == 1)
     }
 }
 
