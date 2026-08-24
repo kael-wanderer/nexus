@@ -109,6 +109,16 @@ struct LoginItemLocationTests {
     }
 }
 
+@Suite("HotKeyService slots")
+struct HotKeySlotTests {
+    @Test("Every hotkey slot has its own Carbon identifier")
+    func slotsAreDistinct() {
+        let identifiers = HotKeyService.Slot.allCases.map(\.rawValue)
+        #expect(Set(identifiers).count == identifiers.count)
+        #expect(HotKeyService.Slot.allCases.contains(.windowSwitcher))
+    }
+}
+
 @Suite("Which windows count as windows")
 struct WindowSubroleTests {
     @Test("A standard window counts, minimized or not")
