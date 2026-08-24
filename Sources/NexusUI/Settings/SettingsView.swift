@@ -672,6 +672,19 @@ struct BarPane: View {
                     .foregroundStyle(.secondary)
             }
             Section {
+                Picker(
+                    String(localized: "Flyout size"),
+                    selection: configuration.binding(\.behavior.flyoutSize)
+                ) {
+                    Text("Small").tag(FlyoutSize.small)
+                    Text("Medium").tag(FlyoutSize.medium)
+                    Text("Large").tag(FlyoutSize.large)
+                }
+                Text("How big the window flyout's cards and the now-playing panel draw themselves.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Stepper(
                     value: configuration.binding(\.appearance.pinnedLimit),
                     in: AppearanceConfiguration.rowLimitRange
