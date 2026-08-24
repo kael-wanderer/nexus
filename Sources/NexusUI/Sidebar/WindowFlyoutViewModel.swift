@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import CoreGraphics
 import NexusCore
 import SwiftUI
@@ -17,6 +18,9 @@ public final class WindowFlyoutViewModel {
     /// Which way the flyout lays its windows out — set from the sidebar's edge before it opens.
     /// Beside a vertical bar they stack; above or below a horizontal one they sit side by side.
     public var isVertical = true
+    /// How big the cards and header draw themselves — set from `behavior.flyoutSize` before the
+    /// flyout opens, the same way `isVertical` is.
+    public var flyoutSize: FlyoutSize = .medium
 
     @ObservationIgnored private let service: any WindowServing
     @ObservationIgnored private let previewService: any WindowPreviewing
@@ -119,6 +123,50 @@ public final class WindowFlyoutViewModel {
     public func activate(_ window: NexusWindow) {
         Task { [service] in try? await service.activate(window.identity) }
         hide()
+    }
+
+    /// The header's icon. `IconCache` is keyed on a file URL rather than a bundle identifier, so
+    /// this is the same `urlForApplication` lookup `ApplicationService` and the switcher use.
+    public var applicationIcon: NSImage {
+        guard let target,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: target.bundleIdentifier)
+        else { return NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage() }
+        return IconCache.shared.icon(for: url, size: 20)
+    }
+
+    /// `NSRunningApplication.terminate()` — the same request Quit in the menu bar sends. No AX
+    /// involved, so nothing here can fail silently the way `newWindow()` can.
+    public func quit() {
+        guard let target else { return }
+        NSRunningApplication
+            .runningApplications(withBundleIdentifier: target.bundleIdentifier)
+            .first?
+            .terminate()
+        hide()
+    }
+
+    /// There is no "open a new window" API. What every application does have, if it has anything,
+    /// is a menu item bound to ⌘N — so this walks the AX menu bar for the item whose command
+    /// character is `n` and presses it. An application that does not map ⌘N to a new window does
+    /// whatever it does map; this is not a promise that the result is a window.
+    ///
+    /// No keystroke synthesis: a synthesized ⌘N goes to whichever application is frontmost, which
+    /// is Nexus's own panel host, not necessarily the flyout's target.
+    public func newWindow() {
+        defer { hide() }
+        guard let target,
+              let pid = target.processIdentifier ?? NSRunningApplication
+                  .runningApplications(withBundleIdentifier: target.bundleIdentifier)
+                  .first?.processIdentifier
+        else { return }
+        let application = AX.application(pid: pid)
+        guard let item = AX.menuItem(of: application, commandChar: "n") else {
+            Log.windows.notice(
+                "No \u{2318}N menu item for \(target.bundleIdentifier, privacy: .public); nothing to press"
+            )
+            return
+        }
+        AX.perform(item, kAXPressAction)
     }
 
     /// Captures every window's thumbnail, if Screen Recording allows it. Cheap to call twice: the

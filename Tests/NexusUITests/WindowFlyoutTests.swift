@@ -237,6 +237,55 @@ struct WindowFlyoutTests {
         #expect(model.target == nil)
     }
 
+    @Test("The flyout draws at medium size until told otherwise")
+    func defaultSize() {
+        let model = WindowFlyoutViewModel(
+            service: FakeWindowService(),
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted]),
+            events: EventBus()
+        )
+        #expect(model.flyoutSize == .medium)
+    }
+
+    @Test("Quit hides the flyout")
+    func quitHidesFlyout() async {
+        let model = WindowFlyoutViewModel(
+            service: FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]]),
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted]),
+            events: EventBus()
+        )
+        model.show(ApplicationIdentity(bundleIdentifier: "com.apple.Safari"), name: "Safari")
+        await model.reload()
+        #expect(model.target != nil)
+
+        // No real Safari process is running under a test's bundle identity, so this also proves
+        // the no-match path — `NSRunningApplication.runningApplications` empty — does not throw or
+        // hang; it just has nothing to terminate.
+        model.quit()
+        #expect(model.target == nil)
+    }
+
+    @Test("New Window asks the target application and hides the flyout either way")
+    func newWindowHidesFlyout() async {
+        let model = WindowFlyoutViewModel(
+            service: FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]]),
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted]),
+            events: EventBus()
+        )
+        model.show(ApplicationIdentity(bundleIdentifier: "com.apple.Safari"), name: "Safari")
+        await model.reload()
+        #expect(model.target != nil)
+
+        // The AX menu walk itself needs a live process to talk to, which a unit test does not
+        // have; what is reachable without one is that a target with no running process is a no-op
+        // rather than a crash, and that the flyout still hides (§4 of the flyout restyle spec).
+        model.newWindow()
+        #expect(model.target == nil)
+    }
+
     @Test("Closing a window asks the service and leaves the list alone until it changes")
     func closeIsRequestedNotAssumed() async throws {
         let service = FakeWindowService()

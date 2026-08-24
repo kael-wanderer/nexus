@@ -109,4 +109,24 @@ public enum AX {
         else { return false }
         return settable.boolValue
     }
+
+    /// Depth-first search of a menu bar for the item whose command-key character matches —
+    /// `"n"` for whatever an application maps to ⌘N. Titles are localized and vary by application
+    /// ("New Window", "New Tab"); the command character is neither, which is the only reason this
+    /// works at all for "press whatever ⌘N does" without knowing what that is in advance.
+    public static func menuItem(of application: AXUIElement, commandChar: String) -> AXUIElement? {
+        guard let menuBar: AXUIElement = try? value(application, kAXMenuBarAttribute) else { return nil }
+        return menuItem(in: menuBar, commandChar: commandChar)
+    }
+
+    private static func menuItem(in element: AXUIElement, commandChar: String) -> AXUIElement? {
+        guard let children: [AXUIElement] = try? value(element, kAXChildrenAttribute) else { return nil }
+        for child in children {
+            if let char: String = try? value(child, kAXMenuItemCmdCharAttribute), char == commandChar {
+                return child
+            }
+            if let found = menuItem(in: child, commandChar: commandChar) { return found }
+        }
+        return nil
+    }
 }
