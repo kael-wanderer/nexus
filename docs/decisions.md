@@ -145,3 +145,9 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D109** | A category suggestion is an offer, not a rearrangement | [The bar](decisions/bar.md) |
 | **D110** | A badge that hangs over the edge of a row is outside the row | [The bar](decisions/bar.md) |
 | **D111** | Full screen means full screen: the bar steps aside, per display | [The bar](decisions/bar.md) |
+| **D112** | The switcher shows one card per window, not per application | [Windows](decisions/windows.md) |
+| **D113** | Bulk previews fetch `SCShareableContent` once and capture four at a time | [Windows](decisions/windows.md) |
+| **D114** | The switcher asks for Screen Recording; the hover flyout still does not | [Windows](decisions/windows.md) |
+| **D115** | Add Stack stores applications, not windows | [The bar](decisions/bar.md) |
+| **D116** | Escape clears the filter before it closes the panel | [Windows](decisions/windows.md) |
+| **D117** | Every global shortcut moved to one Shortcuts tab | [Search](decisions/search.md) |

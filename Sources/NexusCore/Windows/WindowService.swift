@@ -7,6 +7,9 @@ public protocol WindowServing: Sendable {
     func windows(for application: ApplicationIdentity) async throws -> [NexusWindow]
     func allWindows() async throws -> [NexusWindow]
     func activate(_ window: WindowIdentity) async throws
+    /// Presses the window's own close button. Nothing is removed from the snapshot here: a window
+    /// with unsaved work puts up a sheet and stays, and the list must show what is actually there.
+    func close(_ window: WindowIdentity) async throws
     /// Moves and resizes one window. `false` means the application would not have it — the caller
     /// is expected to stop asking rather than retry.
     @discardableResult
@@ -173,6 +176,21 @@ public actor WindowService: WindowServing {
                 .first?
                 .activate()
         }
+    }
+
+    public func close(_ window: WindowIdentity) throws {
+        guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
+        guard let element = elements[window.owner]?[window.number] else {
+            throw NexusError.targetDisappeared
+        }
+        // A window without a close button — a panel, a sheet's parent — is not an error worth
+        // showing anybody: there is simply nothing to press.
+        guard let button: AXUIElement = try AX.value(element, kAXCloseButtonAttribute) else {
+            Log.windows.notice("No close button on window \(window.number, privacy: .public)")
+            return
+        }
+        let pressed = AX.perform(button, kAXPressAction)
+        Log.windows.notice("Close \(pressed ? "succeeded" : "failed", privacy: .public) for window \(window.number, privacy: .public)")
     }
 
     /// Moves and resizes one window, in Accessibility coordinates. Reserved Space (M12) is the

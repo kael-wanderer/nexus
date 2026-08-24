@@ -5,6 +5,44 @@ import ScreenCaptureKit
 public protocol WindowPreviewing: Sendable {
     func preview(for window: WindowIdentity, maxDimension: CGFloat) async -> SendableImage?
     func invalidate(_ window: WindowIdentity) async
+
+    /// Every thumbnail for one grid, delivered as each lands rather than all at the end (M25).
+    /// One `SCShareableContent` fetch serves the whole batch: it is the expensive part of a capture,
+    /// and paying it per window is what made the grid unusable at twelve.
+    func previews(
+        for windows: [WindowIdentity],
+        maxDimension: CGFloat
+    ) async -> AsyncStream<(WindowIdentity, SendableImage)>
+}
+
+/// Runs a batch with a ceiling on how much of it happens at once.
+///
+/// A grid of twenty windows asking ScreenCaptureKit for twenty captures at the same moment is
+/// slower than four at a time, not faster: the work is one compositor's, and the queue is where
+/// it ends up either way (M25).
+enum PreviewBatch {
+    static func run<T: Sendable>(
+        _ items: [T],
+        maxInFlight: Int,
+        work: @Sendable @escaping (T) async -> Void
+    ) async {
+        guard !items.isEmpty else { return }
+        await withTaskGroup(of: Void.self) { group in
+            var next = 0
+            let limit = max(1, min(maxInFlight, items.count))
+            while next < limit {
+                let item = items[next]
+                group.addTask { await work(item) }
+                next += 1
+            }
+            while await group.next() != nil {
+                guard next < items.count else { continue }
+                let item = items[next]
+                group.addTask { await work(item) }
+                next += 1
+            }
+        }
+    }
 }
 
 /// `CGImage` is not `Sendable`. This is the one audited place where one crosses an isolation
@@ -23,10 +61,20 @@ public actor WindowPreviewService: WindowPreviewing {
     }
 
     private static let timeToLive: TimeInterval = 5
-    private static let maximumEntries = 32
+    // A grid holds more windows than a flyout ever did (§5).
+    private static let maximumEntries = 64
+    private static let maximumInFlight = 4
 
     private var cache: [CGWindowID: Entry] = [:]
     private var inFlight: Set<CGWindowID> = []
+    /// The bulk batch currently running, if any. A second `previews(for:maxDimension:)` call
+    /// while one is still in flight — two `windowsChanged` events, or `prepareForDisplay()`'s
+    /// `reload()` racing the event loop's — supersedes it rather than letting both pay for their
+    /// own `SCShareableContent` fetch and their own `PreviewBatch.run` (§5). Tracking per-window
+    /// `inFlight` state the way `preview(for:)` does would mean the superseded call's caller never
+    /// hears about windows the first call already claimed; superseding is the simpler rule and the
+    /// newer call is always what the caller wants anyway (a fresher snapshot of the same grid).
+    private var activeBatch: (id: UUID, task: Task<Void, Never>)?
 
     public init() {}
 
@@ -61,22 +109,9 @@ public actor WindowPreviewService: WindowPreviewing {
                 )
                 return nil
             }
-            let filter = SCContentFilter(desktopIndependentWindow: target)
-            let configuration = SCStreamConfiguration()
-            let scale = min(
-                1,
-                maxDimension / max(CGFloat(target.frame.width), CGFloat(target.frame.height), 1)
-            )
-            configuration.width = max(1, Int(CGFloat(target.frame.width) * scale))
-            configuration.height = max(1, Int(CGFloat(target.frame.height) * scale))
-            configuration.showsCursor = false
-
-            let image = try await SCScreenshotManager.captureImage(
-                contentFilter: filter,
-                configuration: configuration
-            )
-            store(SendableImage(image), for: window.number)
-            return SendableImage(image)
+            guard let image = await Self.capture(target, maxDimension: maxDimension) else { return nil }
+            store(image, for: window.number)
+            return image
         } catch {
             // A denial or a window that vanished mid-capture is a normal state change (§3.5),
             // never an alert — but it is a state change, so it is `.notice`, not `.debug` (D48).
@@ -85,7 +120,110 @@ public actor WindowPreviewService: WindowPreviewing {
         }
     }
 
-    private func store(_ image: SendableImage, for identifier: CGWindowID) {
+    /// Every thumbnail for one grid (§5). Cached windows are answered before anything is
+    /// fetched — reopening the switcher twice in five seconds should cost nothing at all — and
+    /// the stream always finishes, on every path, so a caller's `for await` loop is guaranteed
+    /// to end even when Screen Recording is denied, everything was cached, or the fetch throws.
+    public func previews(
+        for windows: [WindowIdentity],
+        maxDimension: CGFloat
+    ) async -> AsyncStream<(WindowIdentity, SendableImage)> {
+        let (stream, continuation) = AsyncStream<(WindowIdentity, SendableImage)>.makeStream()
+
+        guard CGPreflightScreenCaptureAccess() else {
+            continuation.finish()
+            return stream
+        }
+
+        // Cancel rather than let it run to completion alongside this one — cancellation is
+        // cooperative, so an older batch already mid-fetch still pays for that one fetch, but it
+        // is checked again right after and will not go on to run its (far more expensive)
+        // captures. Finishing its stream here, rather than waiting for it to notice cancellation,
+        // means its consumer's `for await` ends immediately instead of hanging until the old
+        // fetch drains.
+        activeBatch?.task.cancel()
+        let batchID = UUID()
+
+        var pending: [WindowIdentity] = []
+        for window in windows {
+            if let entry = cache[window.number], Date().timeIntervalSince(entry.capturedAt) < Self.timeToLive {
+                continuation.yield((window, entry.image))
+            } else {
+                pending.append(window)
+            }
+        }
+        guard !pending.isEmpty else {
+            continuation.finish()
+            return stream
+        }
+
+        let task = Task { [weak self] in
+            defer { continuation.finish() }
+            guard let self else { return }
+            let content: SCShareableContent
+            do {
+                content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            } catch {
+                // A denial, or a fetch that raced a display change: normal state, never an alert
+                // (D48).
+                Log.windows.notice("Bulk previews unavailable: \(String(describing: error), privacy: .public)")
+                return
+            }
+            guard !Task.isCancelled else { return }
+
+            let targets = pending.compactMap { identity -> CaptureTarget? in
+                guard let window = content.windows.first(where: { $0.windowID == identity.number }) else { return nil }
+                return CaptureTarget(identity: identity, window: window)
+            }
+            await PreviewBatch.run(targets, maxInFlight: Self.maximumInFlight) { target in
+                guard !Task.isCancelled else { return }
+                guard let image = await Self.capture(target.window, maxDimension: maxDimension) else { return }
+                await self.store(image, for: target.identity.number)
+                continuation.yield((target.identity, image))
+            }
+            await self.clearActiveBatch(batchID)
+        }
+        activeBatch = (batchID, task)
+        return stream
+    }
+
+    /// Clears the slot only if it still holds this call's own id: a batch that was itself
+    /// superseded and returned early (the `Task.isCancelled` guards above) never reaches this
+    /// call, but a batch that ran to completion could still be racing a newer one that has
+    /// already taken the slot, and must not erase it.
+    private func clearActiveBatch(_ batchID: UUID) {
+        if activeBatch?.id == batchID { activeBatch = nil }
+    }
+
+    /// `SCWindow` is not `Sendable`; this crosses the same audited boundary as `SendableImage`
+    /// above, carrying a fetch result into the capped task group untouched and unread.
+    private struct CaptureTarget: @unchecked Sendable {
+        let identity: WindowIdentity
+        let window: SCWindow
+    }
+
+    private static func capture(_ window: SCWindow, maxDimension: CGFloat) async -> SendableImage? {
+        let filter = SCContentFilter(desktopIndependentWindow: window)
+        let configuration = SCStreamConfiguration()
+        let scale = min(1, maxDimension / max(CGFloat(window.frame.width), CGFloat(window.frame.height), 1))
+        configuration.width = max(1, Int(CGFloat(window.frame.width) * scale))
+        configuration.height = max(1, Int(CGFloat(window.frame.height) * scale))
+        configuration.showsCursor = false
+        do {
+            let image = try await SCScreenshotManager.captureImage(
+                contentFilter: filter,
+                configuration: configuration
+            )
+            return SendableImage(image)
+        } catch {
+            // Same normal-state logging as the single-window path (§3.5, D48); one capture
+            // failing inside a batch does not stop the rest.
+            Log.windows.notice("Preview unavailable: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    func store(_ image: SendableImage, for identifier: CGWindowID) {
         if cache.count >= Self.maximumEntries {
             let oldest = cache.min { $0.value.capturedAt < $1.value.capturedAt }?.key
             if let oldest { cache[oldest] = nil }

@@ -149,3 +149,32 @@ synthetic CGEvents for the drag, the clicks and the keys.
 | The group popover | Title reads as a title and carries a pencil; hovering a member shows the minus badge. Both verified on the real popover at 2× |
 | Settings | 620 × 790, resizable, eight tabs. Dock holds where the bar is, Bar what it shows, Appearance how it looks. About shows `Version 0.1.0 (1)`, author, licence and `/Applications` |
 | `make dmg` | `build/Nexus-0.1.0.dmg`, 3.2 MB, mounts as `Nexus 0.1.0` with `Nexus.app` and the `Applications` shortcut inside |
+
+## Milestone 25 — window switcher, not yet run
+
+The suite (477 tests) passes and the Shortcuts tab was checked on screen — the toggles, the
+recorders, and the conflict note. The switcher itself has not: nobody has pressed `⌃⌥W` on a real
+screen and used the grid end to end yet. Manual checks for whoever is next at the keyboard:
+
+### Window switcher (M25)
+
+- `⌃⌥W` opens the grid on the display holding the pointer, over a full-screen application, without
+  switching Spaces.
+- Every open window has a card, minimized ones included and marked.
+- Typing filters by application and by window title; Escape clears the filter, Escape again closes.
+- Arrows move the highlight and wrap at the ends of a row; Return activates; ⌘W closes a window.
+- Clicking a card activates that window and closes the panel; clicking the background just closes.
+- With Screen Recording denied: the offer appears once, dismissing it hides it for good, and the
+  grid still works with icons.
+- With Accessibility denied: the panel shows the gate and no cards.
+- ⌘-click two cards from different applications, Add Stack, and the group appears in the bar.
+- VoiceOver reads each card as "<application> — <title>", and the toolbar controls are labelled.
+
+None of the above has a live pass yet. Nor do these, which need hardware or a permission state this
+session did not have:
+
+- Screen Recording granted, and denied — both states of the offer above, not just the code path.
+- A full-screen space, since the panel is `.canJoinAllSpaces` / `.fullScreenAuxiliary` and that
+  claim is untested against a real full-screen application.
+- A second display, since "the display holding the pointer" has only been read from the code, not
+  from two actual screens.

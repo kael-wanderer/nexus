@@ -18,6 +18,7 @@ public final class HotKeyService {
     public enum Slot: UInt32, Sendable, CaseIterable {
         case search = 1
         case focusBar = 2
+        case windowSwitcher = 3
     }
 
     private var hotKeyRefs: [Slot: EventHotKeyRef] = [:]

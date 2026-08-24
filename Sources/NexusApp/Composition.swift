@@ -27,6 +27,8 @@ final class Composition {
     let panels: PanelController
     let reservedSpace: ReservedSpaceController
     let searchPanel: SearchPanelController
+    let switcherModel: SwitcherViewModel
+    let switcherPanel: SwitcherPanelController
     let startMenuModel: StartMenuViewModel
     let startMenu: StartMenuPanelController
     let onboardingModel: OnboardingViewModel
@@ -97,6 +99,14 @@ final class Composition {
             windows: windows
         )
         searchPanel = SearchPanelController(model: searchModel)
+        switcherModel = SwitcherViewModel(
+            service: windows,
+            previewService: previews,
+            permissions: permissions,
+            events: events,
+            configuration: configuration
+        )
+        switcherPanel = SwitcherPanelController(model: switcherModel)
         startMenuModel = StartMenuViewModel(
             index: applicationIndex.snapshot,
             configuration: configuration,
@@ -213,6 +223,7 @@ final class Composition {
         startNowPlaying()
         observeWindowTitles()
         searchPanel.start()
+        switcherPanel.start()
         startMenu.start()
         applicationMonitor.start()
         windowMonitor.start()
@@ -368,6 +379,7 @@ final class Composition {
             switch slot {
             case .search: searchPanel.toggle()
             case .focusBar: panels.focusBar()
+            case .windowSwitcher: switcherPanel.toggle()
             }
         }
         guard configuration.configuration.general.globalShortcutEnabled else {
@@ -386,6 +398,15 @@ final class Composition {
             }
         } else {
             hotKeys.unregister(.focusBar)
+        }
+        // The switcher's shortcut (M25). Optional in the same way the bar's is: a machine where
+        // something else already owns the combination simply does not get it.
+        if let switcher = configuration.configuration.general.windowSwitcherShortcut {
+            if case .failure(let error) = hotKeys.register(switcher, for: .windowSwitcher) {
+                Log.system.error("Could not register the switcher shortcut: \(String(describing: error), privacy: .public)")
+            }
+        } else {
+            hotKeys.unregister(.windowSwitcher)
         }
     }
 
@@ -415,6 +436,8 @@ final class Composition {
         let stream = events.events()
         var lastShortcut = configuration.configuration.search.shortcut
         var lastEnabled = configuration.configuration.general.globalShortcutEnabled
+        var lastFocusBarShortcut = configuration.configuration.general.focusBarShortcut
+        var lastSwitcherShortcut = configuration.configuration.general.windowSwitcherShortcut
         var lastPosition = configuration.configuration.appearance.position
         var lastShowStartMenu = configuration.configuration.general.showStartMenu
         configurationTask = Task { [weak self] in
@@ -423,9 +446,13 @@ final class Composition {
                 guard case .configurationChanged(let updated) = event else { continue }
                 self.applySearchConfiguration()
                 if updated.search.shortcut != lastShortcut
-                    || updated.general.globalShortcutEnabled != lastEnabled {
+                    || updated.general.globalShortcutEnabled != lastEnabled
+                    || updated.general.focusBarShortcut != lastFocusBarShortcut
+                    || updated.general.windowSwitcherShortcut != lastSwitcherShortcut {
                     lastShortcut = updated.search.shortcut
                     lastEnabled = updated.general.globalShortcutEnabled
+                    lastFocusBarShortcut = updated.general.focusBarShortcut
+                    lastSwitcherShortcut = updated.general.windowSwitcherShortcut
                     self.registerHotKey()
                 }
                 if updated.appearance.position != lastPosition {
@@ -491,6 +518,7 @@ final class Composition {
         onboardingWindow?.stop()
         startMenu.stop()
         searchPanel.stop()
+        switcherPanel.stop()
         applicationIndex.stop()
         windowTitleTask?.cancel()
         nowPlaying.stop()

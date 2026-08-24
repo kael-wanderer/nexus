@@ -6,6 +6,22 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- A window switcher (M25): `⌃⌥W` opens a full-screen grid of every window on the machine, one card
+  per window rather than per application — `⌘Tab` already reaches applications and cannot reach a
+  second window (D112). Type to filter by application or window title; sort by recency,
+  application or title, reversible; group flat, by application, or by display — remembered in
+  `behavior.windowSwitcherGrouping` / `windowSwitcherSort` / `windowSwitcherSortReversed`. A card's
+  close button presses the window's AX close button (`WindowService.close`) rather than removing
+  the card itself, so a document with unsaved work still shows its sheet. `⌘`-click cards and
+  **Add Stack** turns the selection's distinct applications into a group in the bar (D115).
+  Bulk thumbnails fetch `SCShareableContent` once per batch and capture at most four windows at a
+  time, rather than once per window (D113); the shared preview cache's ceiling rises from 32 to 64.
+  With Screen Recording ungranted the switcher — unlike the hover flyout — offers to request it,
+  because a wall of identical icons is the feature failing at its only job (D114). New shortcut:
+  `general.windowSwitcherShortcut`, default `⌃⌥W`, `nil` switches the feature off entirely.
+- Every global shortcut moved out of its feature's own tab and into one **Shortcuts** tab: the
+  palette's out of Search, the bar's out of Bar, beside the new switcher's (D117). A conflict note
+  appears when two of the three share a combination.
 - The bar hides on a display showing a native full-screen space, which is what the Dock does. Per
   display: a full-screen window on one monitor leaves the other monitor's bar alone, and the
   edge-reveal strip and reserved space go with it. Detected from the window list on

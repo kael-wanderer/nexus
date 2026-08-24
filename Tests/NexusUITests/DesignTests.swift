@@ -1,4 +1,5 @@
 import Foundation
+import NexusCore
 import Testing
 
 @testable import NexusUI
@@ -45,5 +46,27 @@ struct DesignTests {
             in: CGSize(width: 120, height: 120)
         )
         #expect(roomy == CGPoint(x: 30, y: 30))
+    }
+}
+
+@Suite("Shortcuts pane")
+struct ShortcutsPaneTests {
+    @Test("Two slots holding the same combination is reported")
+    func shortcutConflictIsFound() {
+        var configuration = NexusConfiguration()
+        configuration.search.shortcut = .optionSpace
+        configuration.general.focusBarShortcut = .optionSpace
+
+        #expect(ShortcutsPane.conflicts(in: configuration).contains(.optionSpace))
+    }
+
+    @Test("Distinct combinations conflict with nothing")
+    func noConflictWhenDistinct() {
+        var configuration = NexusConfiguration()
+        configuration.search.shortcut = .optionSpace
+        configuration.general.focusBarShortcut = .focusBarDefault
+        configuration.general.windowSwitcherShortcut = .windowSwitcherDefault
+
+        #expect(ShortcutsPane.conflicts(in: configuration).isEmpty)
     }
 }

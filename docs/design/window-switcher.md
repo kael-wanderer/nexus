@@ -110,11 +110,16 @@ Cards render immediately with the application icon at full card size and swap in
 when it arrives. Nothing about the grid waits on ScreenCaptureKit.
 
 Screen Recording is the one place this milestone deliberately departs from
-`design/mvp.md` §3.5's "degrade in silence". The first open with previews unavailable shows the
-existing `PermissionRequestView` offer inside the panel — one row above the grid, dismissible,
-never shown again once dismissed or granted. The grid below it stays fully usable. The reason it
-earns a prompt here and not in the flyout: a hover preview is a garnish, whereas a wall of
-identical application icons is the switcher failing at its only job.
+`design/mvp.md` §3.5's "degrade in silence". `SwitcherViewModel.showsPreviewsOffer` is true on
+every open where Accessibility is granted, thumbnails are on in Settings, there is at least one
+window to show, Screen Recording is not yet granted, and the offer has not already been dismissed
+— not only the first open: it keeps reappearing until one of those stops holding. Dismissing sets
+`previewsOfferDismissed`, which lives on the view model for the life of the running app, not in
+`NexusConfiguration` — it starts showing again after a relaunch. The offer is the existing
+`PermissionRequestView`, one row above the grid; the grid below it stays fully usable whether or
+not the offer is showing. The reason it earns a prompt here and not in the flyout: a hover preview
+is a garnish, whereas a wall of identical application icons is the switcher failing at its only
+job.
 
 Accessibility, as everywhere, is not optional — with it denied the panel shows the standard
 Accessibility gate and no grid, because there are no windows to list.
@@ -168,30 +173,69 @@ selection is broken.
 ## 9. The Shortcuts tab
 
 Nexus has three global shortcuts now — palette, bar focus, switcher — and today two of them live
-in unrelated tabs: the palette's in **Search**, the bar's in **Behavior**. A third would make the
+in unrelated tabs: the palette's in **Search**, the bar's in **Bar**. A third would make the
 question "what is bound to what" unanswerable from any one screen.
 
 So the settings window gains a **Shortcuts** tab (`keyboard`), after Behavior, holding all three
 rows and nothing else. The two existing recorders move there; their homes lose them rather than
-duplicate them. Each row is a `ShortcutRecorder`, a clear button, and a conflict note when two
-slots hold the same combination — a state the recorder can already produce and currently reports
-nowhere.
+duplicate them. The palette's shortcut is always on, so its row is just a `ShortcutRecorder`. The
+bar's and the switcher's are each optional, so their rows are a toggle — off sets the field to
+`nil` and hides the recorder, on restores the default and shows it again — followed by the
+`ShortcutRecorder` while the toggle is on. `ShortcutRecorder` already clears with `⌫` while
+recording, so no row needs a separate clear button. A conflict note appears below all three rows
+when two of them hold the same combination, a state the recorder could already produce and had
+nowhere to report.
 
 This is a move, not a rewrite: `ShortcutRecorder` and the `KeyboardShortcut` bindings are
 unchanged.
 
 ## 10. Settings
 
-In `behavior`:
+In `general`, beside `focusBarShortcut`, because that is where a global shortcut already lives:
 
 | | |
 |---|---|
 | `windowSwitcherShortcut` | `KeyboardShortcut?`, default `⌃⌥W`. `nil` switches it off. |
+
+
+And in `behavior`:
+
+| | |
+|---|---|
 | `windowSwitcherGrouping` | `flat` / `application` / `display`, default `flat`. |
 | `windowSwitcherSort` | `recent` / `application` / `title`, default `recent`, plus a `Bool` for reversed. |
 | `windowSwitcherThumbnails` | Default on. Off skips ScreenCaptureKit entirely — icons only, no permission prompt. |
 
 All four decode with `decodeIfPresent` and a default, like every field added since D67.
+
+## What shipped
+
+The grid, the filter, the sort and grouping menus, Add Stack, the close button on a card, and the
+Shortcuts tab, as specified. Corrections to §5, §9 and §10 above bring this document in line with
+what actually landed; three things beyond the spec are worth recording here too.
+
+`GeneralConfiguration` grew a hand-written `encode(to:)` alongside its hand-written decoder. A
+synthesised encoder omits a key entirely for a `nil` value, which is indistinguishable on the next
+decode from a field an older build never wrote — so an explicitly disabled `windowSwitcherShortcut`
+would have reverted to the default on the very next load rather than staying off. Once one half of
+`Codable` is hand-written the other stops being synthesised for free, so `encode(to:)` for the whole
+section had to be written out (D9, D67).
+
+`observeConfiguration` used to apply a changed shortcut to `HotKeyService` only for the palette's
+slot, and the other two took a restart to notice. Wiring in the switcher's slot was the occasion to
+fix that properly rather than add a third special case: it now re-registers whichever of the three
+shortcuts actually changed, so turning `focusBarShortcut` or `windowSwitcherShortcut` on or off from
+the Shortcuts tab takes effect immediately.
+
+`ShortcutsPane.conflicts(in:)` had to be marked `nonisolated`. `ShortcutsPane` is a `View`, and Swift
+infers `@MainActor` for the whole type from that conformance — which would have made a pure function
+over a `NexusConfiguration` value isolated for no reason, and a runtime trap rather than a compile
+error when a test called it from a synchronous, non-main-actor context.
+
+One more: `SwitcherViewModel.applicationURL(forBundleIdentifier:)` memoizes the
+`NSWorkspace.urlForApplication` lookup a card's icon needs, because a card's body reads it on every
+hover, scroll and selection change — not something the spec called out, but a LaunchServices round
+trip per read was the obvious next thing to measure and fix.
 
 ## Rules it inherits
 

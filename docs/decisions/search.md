@@ -155,3 +155,12 @@ words.
 
 The scope is now called **Settings & Actions**. It reaches one provider holding both, and a filter
 whose name promises one of the two things it returns is a small lie told six times a day.
+
+## D117. Every global shortcut moved to one Shortcuts tab.
+Two of Nexus's three global shortcuts lived in the tab of the feature they belonged to — the
+palette's in Search, the bar's in Bar — which answers "how do I change this one" and never "what is
+bound to what". A third shortcut, for the switcher, made that second question unanswerable from any
+single screen, so the settings window gains a Shortcuts tab holding all three rows, and the two
+existing recorders move out of their old homes rather than being duplicated there too.
+`ShortcutsPane.conflicts(in:)` reports two slots holding the same combination — a state the recorder
+could already produce and had nowhere to say so.
