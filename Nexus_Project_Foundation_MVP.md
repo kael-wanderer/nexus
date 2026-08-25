@@ -3091,7 +3091,158 @@ Low Value + High Complexity
     → Avoid
 ```
 
-> **Editor note:** Sections 104–110 from the original ChatGPT conversation belong here. Paste them between this note and Section 111 below.
+# 104. User Experience Hierarchy
+
+Nexus should have three levels of interaction.
+
+**Level 1 — Instant.** Actions that should require almost no thought.
+
+- Launch App
+- Switch Window
+- Open Search
+- Activate Workspace
+
+Target: 1 interaction.
+
+**Level 2 — Discoverable.** Features that users may not know exist but can easily discover.
+
+- System Controls
+- Window Actions
+- Recent Items
+- Stacks
+- Automation
+
+These should be available through contextual UI and search.
+
+**Level 3 — Advanced.** Features for power users.
+
+- Plugins
+- Shell Commands
+- Automation Pipelines
+- Developer Tools
+- AI
+- Advanced Workspace Rules
+
+Advanced features should not clutter the default UI.
+
+---
+
+# 105. UX Rule: Search Should Be the Universal Escape Hatch
+
+If a user cannot find a feature in the UI, they should be able to search for it.
+
+For example:
+
+```text
+⌘ Space
+
+> move window left
+> bluetooth
+> development
+> restart docker
+```
+
+Search should gradually become the universal navigation and action mechanism of Nexus.
+
+---
+
+# 106. UX Rule: Every Feature Needs an Entry Point
+
+Every major feature should have at least one obvious entry point:
+
+- Sidebar
+- Search
+- Keyboard Shortcut
+- Context Menu
+- Workspace
+- System Menu
+
+A feature that can only be accessed through a deeply nested Settings screen should be reconsidered.
+
+---
+
+# 107. UX Rule: Never Block the User
+
+Nexus should avoid unnecessary confirmation dialogs.
+
+Reversible actions execute immediately:
+
+- Launch App
+- Open File
+- Switch Window
+- Move Window
+- Change Workspace
+
+Potentially destructive actions provide an appropriate confirmation mechanism:
+
+- Delete
+- Kill Process
+- Terminate Service
+- Run Dangerous Command
+
+The goal is: fast by default, careful when necessary.
+
+---
+
+# 108. Open Source Sustainability
+
+If Nexus becomes a widely used open-source project, sustainability should be considered early.
+
+Possible future funding models may include:
+
+- Sponsorship
+- Donations
+- Paid optional services
+- Commercial support
+- Enterprise integrations
+- Hosted services
+
+Core functionality should remain open and useful. The project should avoid creating artificial
+limitations purely to force users into a paid plan.
+
+---
+
+# 109. Community Ecosystem
+
+The long-term Nexus ecosystem may include:
+
+```text
+Nexus Core
+     │
+     ├── Themes
+     ├── Plugins
+     ├── Widgets
+     ├── Automations
+     ├── Workspaces
+     └── Integrations
+```
+
+Community contributions may eventually become one of the strongest reasons to use Nexus.
+
+The ecosystem should remain optional. A clean Nexus installation should still provide an excellent
+experience without third-party extensions.
+
+---
+
+# 110. Final Guiding Principle
+
+Nexus should not try to win by having the most features. It should win by making the most common Mac
+interactions feel effortless.
+
+The product should always optimize for:
+
+- Fast
+- Simple
+- Native
+- Powerful
+- Private
+- Extensible
+
+The ultimate test is simple:
+
+> After using Nexus for a week, does the user feel that macOS is easier to use without Nexus?
+
+If the answer is no, Nexus needs to improve. If the answer is yes, Nexus is doing its job.
 
 ---
 
