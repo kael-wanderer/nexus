@@ -163,6 +163,10 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
     /// The window switcher's shortcut (M25). `nil` switches the feature off entirely — there is no
     /// other way in, by design: a switcher reached with the pointer is the bar.
     public var windowSwitcherShortcut: KeyboardShortcut? = .windowSwitcherDefault
+    /// The clock in the bar's tail (M27): the time over the date, two slots. Opens a calendar.
+    public var showClock = true
+    /// The volume control in the bar's tail (M27): one slot, opens a slider.
+    public var showVolume = true
     public init() {}
 
     // Written out because `encode(to:)` is now hand-written too (to give `windowSwitcherShortcut`
@@ -171,6 +175,7 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case launchAtLogin, showInMenuBar, globalShortcutEnabled, showStartMenu
         case focusBarShortcut, showNowPlaying, windowSwitcherShortcut
+        case showClock, showVolume
     }
 
     /// Tolerant like `NexusConfiguration`'s: a synthesised decoder treats a missing key as an
@@ -202,6 +207,8 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
         windowSwitcherShortcut = container.contains(.windowSwitcherShortcut)
             ? try container.decode(KeyboardShortcut?.self, forKey: .windowSwitcherShortcut)
             : .windowSwitcherDefault
+        showClock = try container.decodeIfPresent(Bool.self, forKey: .showClock) ?? true
+        showVolume = try container.decodeIfPresent(Bool.self, forKey: .showVolume) ?? true
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -218,6 +225,8 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
         try container.encode(focusBarShortcut, forKey: .focusBarShortcut)
         try container.encode(showNowPlaying, forKey: .showNowPlaying)
         try container.encode(windowSwitcherShortcut, forKey: .windowSwitcherShortcut)
+        try container.encode(showClock, forKey: .showClock)
+        try container.encode(showVolume, forKey: .showVolume)
     }
 }
 

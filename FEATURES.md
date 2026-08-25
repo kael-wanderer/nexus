@@ -61,6 +61,8 @@ have; the Foundation numbering stops there.
 | Bar zones | M14 | None | Fixed head and tail, scrolling middle. Capacity measured from the edge — height for a side bar, width for a top or bottom one — with optional ceilings and a two-row floor for running applications (D73, D74) |
 | Application groups | M13 | None | Drag one icon onto another and hold; 2×2 tile, popover on click, auto-named from `LSApplicationCategoryType`, capacity 9 or 16. Brings configuration version 2 and the first migration (D71, D72) |
 | Reserved space | M12 | Accessibility | Windows overlapping the bar are moved off it — pushed if they fit, resized only if they do not. Full-screen exempt; an application that puts a window back wins after four tries. Off by default. macOS reserves space for no third party, so this moves windows rather than making the space unavailable (D70) |
+| Clock and calendar | M27 | None | Time over date at the very end of the bar, two slots, opening the system's own graphical month grid. `TimelineView(.everyMinute)` rather than a timer; locale decides both formats. On by default (D123) |
+| Volume | M27 | None | One slot at the end of the bar, the speaker glyph for the current state, opening a slider; right-click mutes. CoreAudio's virtual main volume on the default output device, re-read on every access so headphones do not strand it, with property listeners for the keyboard keys and the menu bar's own slider. On by default (D123) |
 | Trash | M9 | None | Always-present row before Search, drawn with the macOS Trash icons and showing full vs empty (counted with `stat`, no Full Disk Access — D58). Click opens it; the context menu opens or empties it, asking first |
 
 No shell execution, no AppleScript, no `osascript` in the MVP. Those need Automation

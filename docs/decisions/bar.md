@@ -557,3 +557,36 @@ neither is a second implementation of the group popover.
 Rejected: choosing the layout automatically from the member count. The threshold would be a guess,
 and a group that reshapes itself when its ninth application arrives is worse than one that stays
 however it was set.
+
+## D123. The clock and the volume live at the end of the bar, and neither reinvents what macOS draws.
+A bar that replaces the Dock is where people look for the time, and the volume is the one system
+control reached often enough to be worth a slot. Both go after Search, at the very end — the far
+edge is where every taskbar puts them, and putting them before the Trash would move a row people
+already know the position of.
+
+The clock costs two slots and draws the time over the date, the same "one view across several rows'
+extent" the search box and the wide player use (D82), so the layout maths stays row-based. It
+refreshes on `TimelineView(.everyMinute)` rather than a `Timer`: the platform's own schedule lands
+on the minute instead of drifting a second past it, and it stops while the view is off screen —
+nothing here polls (§65). Both formats come from the locale, so the date reads 25/08/2026 or
+25.08.2026 wherever it is read.
+
+**The calendar is a graphical `DatePicker`.** The month arrows, the first day of the week, the
+localisation and the VoiceOver rotor all arrive already working, which a hand-drawn grid would have
+to earn back line by line. The cost is the two things the grid could have had that this cannot:
+ISO week numbers down the left, and a large clock in the popover's header. The selection is thrown
+away — this is a calendar to look at — and it is put back to today on each open, so a visit that
+wandered off to March does not greet the next one.
+
+**Volume through CoreAudio's virtual main volume**, not `kAudioDevicePropertyVolumeScalar`: the
+latter is per-channel and missing on plenty of devices, while the virtual main is the single fader
+the menu bar moves. The default output device is re-read on every access rather than cached, because
+plugging in headphones changes which device that is and a cached ID would go on setting the volume
+of one nobody is listening to. Property listeners on volume, mute and the default device keep the
+glyph honest when the level is changed from the keyboard or the menu bar; the listeners are rebuilt
+when the device changes, since the old device's volume is not the new one's. A device that reports
+no volume property draws no row at all — a slider that moves nothing is worse than no slider.
+
+Left click opens the slider and right click mutes, the same split the Trash row makes between "show
+me" and "act now". Raising a muted device unmutes it, because a slider that moves in silence reads
+as broken; dragging to zero does not, because that is not a request to unmute.

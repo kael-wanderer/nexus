@@ -41,6 +41,11 @@ public final class PanelController {
     private var playerPanel: NonActivatingPanel?
     private var playerHosting: NSView?
     private var playerHideTask: Task<Void, Never>?
+    private var volumePanel: NonActivatingPanel?
+    private var volumeHosting: NSView?
+    private var calendarPanel: NonActivatingPanel?
+    private var calendarHosting: NSView?
+    private let calendarModel = CalendarViewModel()
     /// Clicks elsewhere close the popovers. A non-activating panel never loses key status — it never
     /// had any — so nothing else would (D81).
     private var outsideClickMonitor: Any?
@@ -144,6 +149,27 @@ public final class PanelController {
             title: String(localized: "Nexus now playing")
         )
 
+        // Click-driven, unlike the player and the folder stack: opening a slider or a calendar by
+        // hovering past the end of the bar would be a popover nobody asked for. So neither takes a
+        // hide schedule — the outside-click monitor closes them.
+        model.showVolume = { [weak self] in self?.showVolume() }
+        model.showCalendar = { [weak self] in self?.showCalendar() }
+        let volumeHostingView = FirstMouseHostingView(rootView: VolumePopoverView(model: model))
+        volumeHosting = volumeHostingView
+        volumePanel = NonActivatingPanel(
+            contentView: volumeHostingView,
+            title: String(localized: "Nexus volume")
+        )
+        let calendarHostingView = FirstMouseHostingView(
+            rootView: CalendarPopoverView(model: calendarModel)
+        )
+        calendarHosting = calendarHostingView
+        calendarPanel = NonActivatingPanel(
+            contentView: calendarHostingView,
+            title: String(localized: "Nexus calendar")
+        )
+        model.volume.start()
+
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -207,6 +233,9 @@ public final class PanelController {
         groupPanel?.orderOut(nil)
         folderPanel?.orderOut(nil)
         playerPanel?.orderOut(nil)
+        volumePanel?.orderOut(nil)
+        calendarPanel?.orderOut(nil)
+        model.volume.stop()
     }
 
     // MARK: - Dismissing the popovers
@@ -233,11 +262,18 @@ public final class PanelController {
         if folderModel.folder != nil, folderPanel?.frame.contains(point) != true {
             folderModel.hide()
         }
+        if volumePanel?.isVisible == true, volumePanel?.frame.contains(point) != true {
+            hideVolume()
+        }
+        if calendarPanel?.isVisible == true, calendarPanel?.frame.contains(point) != true {
+            hideCalendar()
+        }
         removeOutsideClickMonitorIfIdle()
     }
 
     private func removeOutsideClickMonitorIfIdle() {
         guard groupModel.group == nil, folderModel.folder == nil else { return }
+        guard volumePanel?.isVisible != true, calendarPanel?.isVisible != true else { return }
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
     }
@@ -456,6 +492,71 @@ public final class PanelController {
               let hosting = playerHosting,
               let (sidebar, screen) = barUnderPointer(),
               let section = model.nowPlayingSectionIndex
+        else { return }
+
+        hosting.layoutSubtreeIfNeeded()
+        let margin = SidebarLayout.screenMargin * 2
+        let fitting = hosting.fittingSize
+        let size = CGSize(
+            width: min(fitting.width, screen.visibleFrame.width - margin),
+            height: min(fitting.height, screen.visibleFrame.height - margin)
+        )
+        panel.setFrame(
+            SidebarLayout.flyoutFrame(
+                size: size,
+                beside: sidebar.frame,
+                anchor: SidebarLayout.rowCentre(
+                    sectionRowCounts: model.sectionRowCounts,
+                    section: section,
+                    row: 0,
+                    appearance: model.appearance
+                ),
+                in: screen.visibleFrame,
+                position: model.appearance.position
+            ),
+            display: true
+        )
+    }
+
+    // MARK: - Volume and calendar (M27)
+
+    private func showVolume() {
+        guard model.showsVolumeRow else { return }
+        hideCalendar()
+        // The device may have changed under a popover nobody had open — cheaper to re-read once
+        // here than to keep a listener honest about a slider that is not on screen.
+        model.volume.refresh()
+        layout(panel: volumePanel, hosting: volumeHosting, section: model.volumeSectionIndex)
+        volumePanel?.orderFrontRegardless()
+        installOutsideClickMonitor()
+    }
+
+    private func hideVolume() {
+        volumePanel?.orderOut(nil)
+        removeOutsideClickMonitorIfIdle()
+    }
+
+    private func showCalendar() {
+        guard model.showsClockRow else { return }
+        hideVolume()
+        calendarModel.reset()
+        layout(panel: calendarPanel, hosting: calendarHosting, section: model.clockSectionIndex)
+        calendarPanel?.orderFrontRegardless()
+        installOutsideClickMonitor()
+    }
+
+    private func hideCalendar() {
+        calendarPanel?.orderOut(nil)
+        removeOutsideClickMonitorIfIdle()
+    }
+
+    /// The framing every tail popover does: measure the hosting view, cap it to the screen, and
+    /// hang it off the centre of the row that opened it.
+    private func layout(panel: NonActivatingPanel?, hosting: NSView?, section: Int?) {
+        guard let panel,
+              let hosting,
+              let section,
+              let (sidebar, screen) = barUnderPointer()
         else { return }
 
         hosting.layoutSubtreeIfNeeded()

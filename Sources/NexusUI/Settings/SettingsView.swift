@@ -708,6 +708,19 @@ struct BarPane: View {
                     .foregroundStyle(.secondary)
             }
             Section {
+                Toggle(
+                    String(localized: "Clock"),
+                    isOn: configuration.binding(\.general.showClock)
+                )
+                Toggle(
+                    String(localized: "Volume"),
+                    isOn: configuration.binding(\.general.showVolume)
+                )
+                Text("Both sit at the very end of the bar. The clock takes two slots — the time over the date — and opens a calendar; the volume takes one, and opens a slider. Right-clicking it mutes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Toggle(String(localized: "Running applications"), isOn: configuration.binding(\.behavior.showRunningApplications))
                 Toggle(String(localized: "Minimized windows"), isOn: configuration.binding(\.behavior.showMinimizedWindows))
                 Text("Minimized windows sit before the Trash, newest first, at most three.")

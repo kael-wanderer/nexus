@@ -78,6 +78,8 @@ public enum SettingsSearch {
         SettingsEntry(String(localized: "Start menu button"), "launcher applications list", .bar),
         SettingsEntry(String(localized: "Opens from"), "start menu corner anchor", .bar),
         SettingsEntry(String(localized: "What is playing"), "now playing media music player", .bar),
+        SettingsEntry(String(localized: "Clock"), "clock time date calendar", .bar),
+        SettingsEntry(String(localized: "Volume"), "volume sound audio mute speaker slider", .bar),
         SettingsEntry(String(localized: "Running applications"), "open apps section", .bar),
         SettingsEntry(String(localized: "Minimized windows"), "minimised section", .bar),
         SettingsEntry(String(localized: "Window count badges"), "how many windows dots", .bar),

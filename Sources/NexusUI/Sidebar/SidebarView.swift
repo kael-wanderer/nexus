@@ -145,8 +145,9 @@ public struct SidebarView: View {
     }
 
     /// The fixed tail, as parts of its own: now playing when something is playing, the minimized
-    /// windows when there are any, Trash, and Search. Each is separated, because they are different
-    /// kinds of thing and the bar says so everywhere else (D77).
+    /// windows when there are any, Trash, Search, and — at the very end, where a taskbar puts them
+    /// — the volume and the clock (M27). Each is separated, because they are different kinds of
+    /// thing and the bar says so everywhere else (D77).
     private var utilitySection: some View {
         axis {
             if model.showsNowPlayingRow {
@@ -166,6 +167,14 @@ public struct SidebarView: View {
             if model.showsSearchRow {
                 separator
                 searchRow
+            }
+            if model.showsVolumeRow {
+                separator
+                SidebarVolumeRow(model: model)
+            }
+            if model.showsClockRow {
+                separator
+                SidebarClockRow(model: model)
             }
         }
     }
