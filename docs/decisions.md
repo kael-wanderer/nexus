@@ -156,3 +156,4 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D120** | One `behavior.flyoutSize` setting sizes both hover panels | [Windows](decisions/windows.md) |
 | **D121** | The settings window is searched through a hand-kept index | [Search](decisions/search.md) |
 | **D122** | An opened group draws its members as icons or as a list | [The bar](decisions/bar.md) |
+| **D123** | The clock and the volume live at the end of the bar, and neither reinvents what macOS draws | [The bar](decisions/bar.md) |

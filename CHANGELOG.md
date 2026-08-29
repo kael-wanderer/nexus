@@ -6,6 +6,11 @@ this project follows [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- **A clock and a volume control at the end of the bar.** The clock draws the time over the date in
+  two slots and opens the system's own month grid; the volume takes one slot, follows the level and
+  the mute state in its glyph, and opens a slider — right-clicking it mutes. The volume row is absent
+  for an output device that has no volume to set, and both are switched in **Settings → Bar**, on by
+  default (D123).
 - **Settings search.** A field above the tabs filters every setting by name, by the words it is
   known under elsewhere ("favorites" finds Favourites, "grid" finds the group layout) and by its
   tab; Return or a click goes to the tab holding it. Nine tabs is more than anybody reads (D121).

@@ -241,3 +241,22 @@ For whoever is next at the keyboard, five seconds of real typing:
 - Press Return: the window shows the first result's tab and the field empties.
 - Click a result instead: the same, for that result's tab.
 - Type something no setting matches, and confirm what the empty state says.
+
+## Milestone 27 — the clock and the volume
+
+Not verified on screen. What a keyboard should confirm, once the bar is running:
+
+- The clock sits at the very end of the bar, time over date, and the date follows the system's
+  locale rather than a hard-coded order.
+- Clicking it opens the calendar beside the row; the month arrows walk months, and closing and
+  reopening it comes back to this month rather than the one it was left on.
+- The speaker glyph gains and loses waves as the volume moves — from the slider, from the
+  keyboard's volume keys, and from the menu bar's own slider, since all three go through the same
+  CoreAudio listener.
+- Right-clicking the volume row mutes, and the menu item reads "Unmute" the second time.
+- Plugging in headphones and moving the slider changes the volume of the headphones, not of the
+  speakers that were the default output device when the bar launched.
+- Switching either off in Settings → Bar takes the row off the bar and gives its slots back to the
+  applications; switching them back on restores them without a relaunch.
+- An output device with no volume control of its own (some HDMI displays) draws no volume row at
+  all, rather than a slider that moves nothing.

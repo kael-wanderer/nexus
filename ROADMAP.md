@@ -626,6 +626,24 @@ not yet been driven end to end on a running app; the Shortcuts tab has.
 now-playing restyle, the Quit dialog, the New Window menu walk and typing in the search field are
 the manual checks left at the bottom of `docs/verification.md`.
 
+## Milestone 27 — The clock and the volume
+
+**Shipped** 2026-08-25. What shipped:
+
+- **A clock at the very end of the bar** — the time over the date, two slots, opening the system's
+  own graphical month grid (D123). `TimelineView(.everyMinute)` rather than a timer, and the locale
+  decides both formats.
+- **A volume control** beside it — one slot, the speaker glyph following the level and the mute
+  state, opening a slider; right-clicking the row mutes. CoreAudio's virtual main volume on the
+  default output device, with property listeners so the keyboard's volume keys and the menu bar's
+  own slider keep the glyph honest. No row at all for an output device with no volume to set.
+- **Settings → Bar → Clock / Volume**, two switches, both on by default. A row that is switched off
+  gives its slots back to the applications (D74).
+
+**Acceptance criteria:** 516 tests pass. The row arithmetic, the keyboard order and the volume
+service's clamping and muting are covered; the calendar's month arrows and the slider under a real
+output device are manual checks.
+
 ## What is not built, and why
 
 - **Per-display edge and width.** Deleted rather than left half-built: multi-display shipped with

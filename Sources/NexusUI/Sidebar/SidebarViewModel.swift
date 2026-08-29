@@ -276,6 +276,15 @@ public final class SidebarViewModel {
     @ObservationIgnored public var showGroup: ((SidebarGroup) -> Void)?
     /// Opens a pinned folder's stack, the same way `showGroup` opens a group (M21).
     @ObservationIgnored public var showFolder: ((SidebarFolder) -> Void)?
+    /// The system volume, held rather than pushed: the row draws three of its properties and the
+    /// slider writes one back, which is a lot of pushing for what is already `@Observable`. Nothing
+    /// starts until the composition root calls `start()`, so tests get an inert one for free.
+    public let volume: VolumeService
+
+    /// Opens the volume slider and the calendar (M27). Both are click-driven popovers, so unlike
+    /// the player and the folder stack neither has a hide schedule: the click monitor closes them.
+    @ObservationIgnored public var showVolume: (() -> Void)?
+    @ObservationIgnored public var showCalendar: (() -> Void)?
     /// Transport controls and the now-playing flyout. Injected at Milestone 15; without them the
     /// row is absent whatever the setting says.
     @ObservationIgnored public var mediaCommand: ((MediaKey) -> Void)?
@@ -290,11 +299,13 @@ public final class SidebarViewModel {
     public init(
         applications: any ApplicationServing,
         configuration: ConfigurationController,
-        events: EventBus
+        events: EventBus,
+        volume: VolumeService = VolumeService()
     ) {
         self.applications = applications
         self.configuration = configuration
         self.events = events
+        self.volume = volume
     }
 
     public func start() {
@@ -352,6 +363,8 @@ public final class SidebarViewModel {
         if showsNowPlayingRow { counts.append(nowPlayingRowCount) }
         counts.append(1)                                    // Trash
         if showsSearchRow { counts.append(searchRowCount) }
+        if showsVolumeRow { counts.append(1) }
+        if showsClockRow { counts.append(clockRowCount) }
         return counts
     }
 
@@ -365,6 +378,8 @@ public final class SidebarViewModel {
             + minimizedRowCount
             + 1
             + (showsSearchRow ? searchRowCount : 0)
+            + (showsVolumeRow ? 1 : 0)
+            + (showsClockRow ? clockRowCount : 0)
     }
 
     /// Rows the minimized section draws: none when it is switched off, when Accessibility is not
@@ -391,6 +406,43 @@ public final class SidebarViewModel {
     /// order, the flyout anchor — asks this one question, so switching it off cannot leave a
     /// phantom row behind in one of them.
     public var showsSearchRow: Bool { openSearch != nil && search.barStyle != .disabled }
+
+    /// The volume control: one slot, and only once the popover is wired up (M27). Nothing is drawn
+    /// for an output device that has no volume to set — a slider that moves nothing is worse than
+    /// no slider.
+    public var showsVolumeRow: Bool {
+        general.showVolume && showVolume != nil && volume.isAvailable
+    }
+
+    /// The clock: the time over the date, so two slots — the same "one view across two rows'
+    /// extent" trick the compact player uses (D82), which keeps the layout maths row-based.
+    public var showsClockRow: Bool { general.showClock && showCalendar != nil }
+
+    public var clockRowCount: Int { 2 }
+
+    /// Where the volume row sits among the sections actually drawn, counted the way
+    /// `nowPlayingSectionIndex` counts: `SidebarLayout` drops the empty ones, so an index into
+    /// `sectionRowCounts` is not an index into what is on screen.
+    public var volumeSectionIndex: Int? {
+        showsVolumeRow ? sectionsBeforeVolume : nil
+    }
+
+    public var clockSectionIndex: Int? {
+        guard showsClockRow else { return nil }
+        return sectionsBeforeVolume + (showsVolumeRow ? 1 : 0)
+    }
+
+    private var sectionsBeforeVolume: Int {
+        let zones = zones
+        var before: [Int] = []
+        if showsStartMenuRow { before.append(1) }
+        before.append(zones.pinnedRows)
+        if behavior.showRunningApplications { before.append(zones.runningRows) }
+        if showsNowPlayingRow { before.append(nowPlayingRowCount) }
+        before.append(1)                                    // Trash
+        if showsSearchRow { before.append(searchRowCount) }
+        return before.filter { $0 > 0 }.count
+    }
 
     /// A box only where a box fits. A vertical bar is 64 points across, and three rows of *height*
     /// buy nothing a search box can use, so it stays an icon unless hover has expanded the bar.
@@ -459,6 +511,8 @@ public final class SidebarViewModel {
         rows.append(1)                                      // Trash
         if showsMinimizedRows { rows.append(minimizedRowCount) }
         if showsSearchRow { rows.append(searchRowCount) }
+        if showsVolumeRow { rows.append(1) }
+        if showsClockRow { rows.append(clockRowCount) }
         return rows
     }
 
@@ -824,12 +878,16 @@ public final class SidebarViewModel {
         ids += minimizedRows.map(\.id)
         ids.append(Self.trashRowID)
         if showsSearchRow { ids.append(Self.searchRowID) }
+        if showsVolumeRow { ids.append(Self.volumeRowID) }
+        if showsClockRow { ids.append(Self.clockRowID) }
         return ids
     }
 
     public static let startMenuRowID = "row:startMenu"
     public static let trashRowID = "row:trash"
     public static let searchRowID = "row:search"
+    public static let volumeRowID = "row:volume"
+    public static let clockRowID = "row:clock"
 
     public var isKeyboardNavigating: Bool { focusedRowID != nil }
 
@@ -882,6 +940,8 @@ public final class SidebarViewModel {
         case Self.startMenuRowID: openStartMenu?()
         case Self.trashRowID: openTrash()
         case Self.searchRowID: openSearch?()
+        case Self.volumeRowID: showVolume?()
+        case Self.clockRowID: showCalendar?()
         default:
             if let row = pinned.first(where: { $0.id == id }) {
                 switch row {

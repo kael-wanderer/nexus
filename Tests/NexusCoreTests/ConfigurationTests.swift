@@ -206,6 +206,8 @@ struct ConfigurationTests {
         #expect(configuration.behavior.hoverPreviewDelay == 0.5)
         #expect(configuration.behavior.reserveSpace == false)
         #expect(configuration.general.showStartMenu == false)
+        #expect(configuration.general.showClock)
+        #expect(configuration.general.showVolume)
         #expect(configuration.dock.replacementEnabled == false)
         #expect(configuration.runningApplicationOrder.isEmpty)
     }
