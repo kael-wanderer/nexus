@@ -288,3 +288,10 @@ Still not driven, and why:
   hotkey — no handler line in `make logs` — where the same method fires the palette's. Every check
   under "Milestone 25" above is therefore still open, and one real keypress would clear most of them.
 - **The now-playing panel.** Nothing was playing, again.
+
+## 0.2.0, packaged — 2026-09-02
+
+`make dmg` on `main` at the `v0.2.0` tag: `build/Nexus-0.2.0-arm64.dmg`, 3.3 MB, SHA-256
+`a588b637…5d16c8cb`, signature verified from the mounted image. Release build, arm64, minimum
+macOS 14.0, `0.2.0 (2)`. Not notarised — the identity is self-signed, so Gatekeeper warns on
+another machine, which is what the README says too. 516 tests pass on `main`.
