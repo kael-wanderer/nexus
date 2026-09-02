@@ -5,6 +5,10 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-09-02
+
+Milestones 8–27 of [`ROADMAP.md`](ROADMAP.md): everything after the MVP.
+
 ### Added
 - **A clock and a volume control at the end of the bar.** The clock draws the time over the date in
   two slots and opens the system's own month grid; the volume takes one slot, follows the level and
