@@ -39,13 +39,18 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Reserved space** | Optional: windows that overlap the bar are moved off it, full-screen windows left alone. *(Accessibility)* |
 | **Search** | A command palette on a global shortcut, centred like Spotlight — or opened from a search box in the bar, beside it. Applications, windows, files and actions, ranked by match quality, provider weight and frecency, with one scope filter — `⌃1`…`⌃6` or `⇥` — for applications, files, folders, or System Settings panes and actions. |
 | **Dock replacement** | Optional: the macOS Dock hides while Nexus runs and comes back when it quits. Your Dock settings are saved first and restored exactly. |
+| **Clock and volume** | The time over the date at the far end of the bar, opening the system's own month grid, and a volume row beside it — the speaker glyph follows the level and the mute state, a click opens a slider, a right-click mutes. Both on by default, both switchable in Settings → Bar. |
 | **Settings** | Nine panes — General, Dock (where the bar is), Bar (what it shows), Appearance (how it looks), Behavior, Shortcuts, Search, Permissions, About — with a search field above them, since nine tabs is more than anybody reads. Everything applies live. |
 | **Onboarding** | Six skippable steps. Skipping all of them still leaves a working launcher. |
 | **Accessible** | VoiceOver labels on every element, Reduce Motion and Increase Contrast honoured. |
 
 ### Screenshots
 
-_Placeholder — add `docs/images/sidebar.png`, `docs/images/search.png`, `docs/images/settings.png`._
+| The bar | Search | Settings |
+|---|---|---|
+| <img src="docs/images/sidebar.png" alt="The Nexus bar on the right edge of the screen" height="420"> | <img src="docs/images/search.png" alt="The search palette showing an application, a window, an action and files" width="420"> | <img src="docs/images/settings.png" alt="Settings, the Bar pane" height="420"> |
+
+Taken on macOS 26.6 at 2×, with the bar on the right edge.
 
 ## Permissions
 
@@ -226,10 +231,11 @@ documents in [`docs/design/`](docs/design), one per feature, and the decision lo
 
 ## Roadmap
 
-Milestones 1–23 in [`ROADMAP.md`](ROADMAP.md) are shipped: the MVP (1–7), then Dock replacement,
+Milestones 1–27 in [`ROADMAP.md`](ROADMAP.md) are shipped: the MVP (1–7), then Dock replacement,
 dock parity, hover previews, the start menu, reserved space, groups, bar zones, now playing, the
 media player, install and launch at login, search scope, multiple displays, folder stacks, minimized
-windows and keyboard control.
+windows, keyboard control, the drag round, the window switcher, the restyled hover panels, and the
+clock and the volume.
 
 What is deliberately **not** built is everything the foundation document files under later —
 workspaces, widgets, plugins, automation, AI. The architecture leaves three seams open for it:

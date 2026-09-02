@@ -260,3 +260,31 @@ Not verified on screen. What a keyboard should confirm, once the bar is running:
   applications; switching them back on restores them without a relaunch.
 - An output device with no volume control of its own (some HDMI displays) draws no volume row at
   all, rather than a slider that moves nothing.
+
+## Screenshots, and what the session confirmed on screen — 2026-09-02, 13:30
+
+`make run` (debug, signed "Bugler Local Dev") against the real `com.congbui.nexus` defaults domain,
+exported first with `defaults export`; `dock.replacementEnabled` was already `false`, so the real
+Dock was never touched. Two displays were connected — 2560 × 1440 each at 2×, `appearance.display`
+= **Every display** — which is the first time the multi-display claims have been looked at rather
+than read.
+
+| Check | Result |
+|---|---|
+| The bar, both displays | Pass — one bar on each monitor's right edge, same applications and same tail. `docs/images/sidebar.png` is display 1's, captured from the panel's own AX frame (`pos 2488,71 size 100×1238`; the other reported `5048,116`, the second screen's edge) |
+| The tail, in order | Pass — separator, group, Trash (drawn full, and it was), volume, clock. The clock reads the time over the date, and truncates the date at 64 pt of bar |
+| Palette, `⌥Space` | Pass — a Carbon hotkey fires from a synthetic `key code 49 using option down`. Typing "safari" gave **Applications** → Safari (running), **Windows** → its real window title, **Actions** → Quit Safari, **Files** → Spotlight hits, each row numbered `⌘1`…`⌘7`, the scope chip reading Everything. `docs/images/search.png` |
+| Settings → Bar | Pass — the nine tabs, the search field above them, and the Clock and Volume switches with the shared explanatory line under them. `docs/images/settings.png` |
+| Reserved space | Pass, incidentally — the terminal window ends at the bar on both monitors, and its window shrank rather than moved when the bar appeared |
+
+Still not driven, and why:
+
+- **Typing in the settings search field.** Tried again, and it still cannot be automated: with
+  `frontmost` set, an AX click on the field, and `keystroke "group"`, the field stayed empty and the
+  keystrokes landed in whatever application was really frontmost. `SettingsSearch` is unit-tested;
+  five seconds of real typing is what is missing.
+- **The window switcher.** The stored shortcut is `⌥⇥` (`key code 48, modifiers 2048` — the log
+  confirms it registered), not the `⌃⌥W` default, and a synthetic Tab with Option never reached the
+  hotkey — no handler line in `make logs` — where the same method fires the palette's. Every check
+  under "Milestone 25" above is therefore still open, and one real keypress would clear most of them.
+- **The now-playing panel.** Nothing was playing, again.
