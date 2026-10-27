@@ -496,3 +496,170 @@ git commit -m "docs: README status and claims match the app"
   reproduce under `--filter NexusUITests`; it may only appear in the full run.)
 - [x] **Step 4:** Report: branch name, `git log --oneline main..HEAD`, test counts from Step 2,
   and anything that did not match this plan.
+
+---
+
+### Task 8: The search-selection test waits for results instead of guessing (follow-up from review)
+
+**Files:**
+- Modify: `Tests/NexusUITests/SearchSelectionTests.swift`
+
+**Why:** the full-run `Fatal error: Index out of range` (signal 5) is this test, not the app. The
+crash report puts it at `SearchSelectionTests.keyboardSelectionSurvivesLaterSnapshot()`, line 102:
+`model.results[1]` after a fixed 80 ms sleep. When the machine is busy (the full suite runs both
+test libraries in parallel), the first snapshot has not arrived yet, `results` is empty, and the
+subscript traps, which kills the whole test process. Reproduced 4 runs out of 5 under CPU load.
+`rowZeroPreselected()` has the same shape (`model.results[1]` after a fixed 200 ms).
+
+- [x] **Step 1: Add a wait helper.** In `SearchSelectionTests.swift`, directly after the
+`makeSearch(_:)` function (before `@Suite("Search selection stability")`), add:
+
+```swift
+/// Waits until the model shows at least `count` results — a fixed sleep guesses how long the
+/// providers take, and on a busy machine the guess is wrong and `results[1]` traps.
+@MainActor
+private func waitForResults(
+    _ model: SearchViewModel,
+    count: Int,
+    timeout: Duration = .seconds(2)
+) async throws {
+    let deadline = ContinuousClock.now + timeout
+    while model.results.count < count, ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    try #require(model.results.count >= count)
+}
+```
+
+- [x] **Step 2: Fix `keyboardSelectionSurvivesLaterSnapshot()`.** Replace its body with:
+
+```swift
+        let model = makeSearch([
+            DelayedProvider(identifier: .application, category: .application, titles: ["One", "Two"], score: 0.95),
+            DelayedProvider(
+                identifier: .file,
+                category: .file,
+                delay: .milliseconds(500),
+                titles: ["a file"],
+                score: 0.10
+            ),
+        ])
+        model.query = "o"
+        try await waitForResults(model, count: 2)
+        // The file snapshot has to land *after* the arrow key, or this tests nothing.
+        #expect(model.results.count == 2)
+        model.moveSelection(by: 1)
+        let chosen = model.selectedID
+        #expect(chosen == model.results[1].id)
+
+        try await waitForResults(model, count: 3)
+        #expect(model.selectedID == chosen)
+```
+
+(The file delay goes from 150 to 500 ms so the late snapshot still arrives after the arrow key
+on a slow machine. Keep the `@Test(…)` line and the `func` line unchanged.)
+
+- [x] **Step 3: Fix `rowZeroPreselected()`.** Replace only its first
+`try await Task.sleep(for: .milliseconds(200))` (the one right after `model.query = "o"`) with
+`try await waitForResults(model, count: 2)`. Leave the second sleep, after `model.query = "on"`,
+as it is.
+
+- [x] **Step 4: Verify on a quiet machine.**
+Run: `swift test --filter SearchSelectionTests` — expected: all pass.
+
+- [x] **Step 5: Verify under load (this is what used to crash).** Run exactly:
+
+```bash
+for n in $(seq 1 $(sysctl -n hw.ncpu)); do (yes > /dev/null &); done
+for i in 1 2 3 4 5; do swift test > /tmp/nexus-load-$i.txt 2>&1; echo "run $i exit $?"; rg -c "Fatal|recorded an issue" /tmp/nexus-load-$i.txt; done
+pkill -x yes
+```
+
+Expected: five lines `run N exit 0`, and no count printed after any of them. Always run the
+`pkill -x yes` line, even if a run fails. If any run fails, report that run's
+`rg -n -B2 -A8 "Fatal|recorded an issue" /tmp/nexus-load-N.txt` output and stop.
+
+- [x] **Step 6:** `make lint` — expected: exits 0, no warnings.
+
+- [x] **Step 7: Commit.**
+```bash
+git add Tests/NexusUITests/SearchSelectionTests.swift docs/plans/2026-10-27-review-baseline-fixes.md
+git commit -m "test: wait for search results instead of a fixed sleep"
+```
+
+**Review note on Task 8 Step 5 (2026-10-27):** the one failure under load was
+`WindowFlyoutTests.grantWhileOpen` (`WindowFlyoutTests.swift:248`), a different test with the
+same fixed-sleep weakness; the search crash itself is gone in all five runs. Task 8 is accepted:
+run its Step 6 (`make lint`) and Step 7 (commit) now, then do Task 9.
+
+---
+
+### Task 9: Permission tests wait for the event's effect (follow-up from review)
+
+**Files:**
+- Create: `Tests/NexusUITests/WaitUntil.swift`
+- Modify: `Tests/NexusUITests/WindowFlyoutTests.swift` (`grantWhileOpen()`, around line 246)
+- Modify: `Tests/NexusUITests/DisplayAndRecoveryTests.swift` (`flyoutDegrades()` around line 130, `revocationDuringLoad()`)
+
+**Why:** these tests publish a permission event, sleep a fixed 150 ms, then check its effect.
+With every core busy the event takes longer than 150 ms and the check fails
+(`model.windows.count → 0`). They should wait for the effect, with a generous timeout.
+
+- [ ] **Step 1: Create `Tests/NexusUITests/WaitUntil.swift`** with exactly:
+
+```swift
+import Foundation
+
+/// Polls until `condition` holds or `timeout` passes, for a state an event *will* produce — a
+/// fixed sleep guesses how long that takes, and on a busy machine the guess is wrong. It does not
+/// fail by itself: the caller's `#expect` says what was wanted. Never use it to show that
+/// something does *not* happen; that still needs a sleep.
+@MainActor
+func waitUntil(timeout: Duration = .seconds(2), _ condition: () -> Bool) async throws {
+    let deadline = ContinuousClock.now + timeout
+    while !condition(), ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+}
+```
+
+- [ ] **Step 2: `grantWhileOpen()`** in `WindowFlyoutTests.swift`: replace the line
+`try await Task.sleep(for: .milliseconds(150))` (right after
+`bus.publish(.permissionChanged(.accessibility, .granted))`) with
+`try await waitUntil { model.windows.count == 1 }`. Keep the `#expect` after it.
+
+- [ ] **Step 3: `flyoutDegrades()`** in `DisplayAndRecoveryTests.swift`: replace the line
+`try await Task.sleep(for: .milliseconds(150))` (right after
+`bus.publish(.permissionChanged(.accessibility, .denied))`) with
+`try await waitUntil { model.showsPermissionRequest && model.windows.isEmpty }`. Keep both
+`#expect` lines after it.
+
+- [ ] **Step 4: `revocationDuringLoad()`** in the same file: replace these five lines
+
+```swift
+        var waited = 0
+        while !model.showsPermissionRequest && waited < 100 {
+            try await Task.sleep(for: .milliseconds(5))
+            waited += 1
+        }
+```
+
+with `try await waitUntil { model.showsPermissionRequest }`. Leave the
+`try await Task.sleep(for: .milliseconds(50))` after `releaseHeldCall()` as it is: that one
+checks that something does *not* happen.
+
+- [ ] **Step 5: Verify on a quiet machine.**
+Run: `swift test --filter "WindowFlyout|RevocationTests"` — expected: all pass.
+
+- [ ] **Step 6: Verify under load.** Run Task 8 Step 5's three commands again, exactly.
+Expected: five `run N exit 0` lines, no counts. If a run fails, report its
+`rg -n -B2 -A8 "Fatal|recorded an issue" /tmp/nexus-load-N.txt` output and stop. Do NOT fix
+other tests that fail: report them.
+
+- [ ] **Step 7:** `make lint` — expected: exits 0, no warnings.
+
+- [ ] **Step 8: Commit.**
+```bash
+git add Tests/NexusUITests/WaitUntil.swift Tests/NexusUITests/WindowFlyoutTests.swift Tests/NexusUITests/DisplayAndRecoveryTests.swift docs/plans/2026-10-27-review-baseline-fixes.md
+git commit -m "test: permission tests wait for the event instead of a fixed sleep"
+```
