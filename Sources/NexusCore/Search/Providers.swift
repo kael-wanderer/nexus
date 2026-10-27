@@ -106,7 +106,8 @@ public struct FileSearchProvider: SearchProvider {
             await MetadataQueryRunner.shared.run(
                 .displayNamePrefix(text, kind: kind),
                 scope: .userHome,
-                limit: limit
+                limit: limit,
+                exclusion: .userLibrary(home: FileManager.default.homeDirectoryForCurrentUser)
             )
         }
     ) {
