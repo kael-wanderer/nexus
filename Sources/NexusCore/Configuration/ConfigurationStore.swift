@@ -31,6 +31,10 @@ public final class ConfigurationStore: ConfigurationStoring {
     private let migrations: [any ConfigurationMigration]
     private let lock = NSLock()
     nonisolated(unsafe) private var lastOutcome: ConfigurationLoadOutcome = .defaultsNoStoredData
+    /// Set when the stored configuration came from a newer Nexus: from then on `save` writes
+    /// nothing, so neither the launch flush nor a later edit replaces bytes this build cannot read
+    /// (D10). The session runs on defaults in memory; the newer build finds its file intact.
+    nonisolated(unsafe) private var preservesStoredBytes = false
 
     public init(
         defaults: UserDefaults = .standard,
@@ -81,7 +85,8 @@ public final class ConfigurationStore: ConfigurationStoring {
         let storedVersion = try decoder.decode(VersionProbe.self, from: data).version
 
         if storedVersion > NexusConfiguration.currentVersion {
-            // A newer Nexus wrote this. Run defaults in memory; leave the bytes untouched (D10).
+            // A newer Nexus wrote this. Run defaults in memory; leave the bytes untouched (D10) —
+            // `record` also stops `save` from writing for the rest of the session.
             record(.newerVersionIgnored(storedVersion))
             Log.app.warning(
                 "Stored configuration version \(storedVersion, privacy: .public) is newer than \(NexusConfiguration.currentVersion, privacy: .public); using defaults without overwriting"
@@ -117,6 +122,13 @@ public final class ConfigurationStore: ConfigurationStoring {
     }
 
     public func save(_ configuration: NexusConfiguration) throws {
+        lock.lock()
+        let preserves = preservesStoredBytes
+        lock.unlock()
+        guard !preserves else {
+            Log.app.notice("Configuration not saved: the stored one is from a newer Nexus")
+            return
+        }
         var stored = configuration
         stored.version = NexusConfiguration.currentVersion
         stored.appearance.clamp()
@@ -127,6 +139,11 @@ public final class ConfigurationStore: ConfigurationStoring {
     private func record(_ outcome: ConfigurationLoadOutcome) {
         lock.lock()
         lastOutcome = outcome
+        if case .newerVersionIgnored = outcome {
+            preservesStoredBytes = true
+        } else {
+            preservesStoredBytes = false
+        }
         lock.unlock()
     }
 }
