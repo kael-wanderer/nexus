@@ -127,7 +127,7 @@ struct RevocationTests {
 
         permissions.statuses[.accessibility] = .denied
         bus.publish(.permissionChanged(.accessibility, .denied))
-        try await Task.sleep(for: .milliseconds(150))
+        try await waitUntil { model.showsPermissionRequest && model.windows.isEmpty }
 
         #expect(model.showsPermissionRequest)
         #expect(model.windows.isEmpty)
@@ -161,11 +161,7 @@ struct RevocationTests {
 
         permissions.statuses[.accessibility] = .denied
         bus.publish(.permissionChanged(.accessibility, .denied))
-        var waited = 0
-        while !model.showsPermissionRequest && waited < 100 {
-            try await Task.sleep(for: .milliseconds(5))
-            waited += 1
-        }
+        try await waitUntil { model.showsPermissionRequest }
         #expect(model.showsPermissionRequest)
 
         await service.releaseHeldCall()

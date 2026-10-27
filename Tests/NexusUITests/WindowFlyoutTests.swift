@@ -244,7 +244,7 @@ struct WindowFlyoutTests {
 
         permissions.statuses[.accessibility] = .granted
         bus.publish(.permissionChanged(.accessibility, .granted))
-        try await Task.sleep(for: .milliseconds(150))
+        try await waitUntil { model.windows.count == 1 }
         #expect(model.windows.count == 1)
     }
 

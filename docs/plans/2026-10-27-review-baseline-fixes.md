@@ -605,7 +605,7 @@ run its Step 6 (`make lint`) and Step 7 (commit) now, then do Task 9.
 With every core busy the event takes longer than 150 ms and the check fails
 (`model.windows.count → 0`). They should wait for the effect, with a generous timeout.
 
-- [ ] **Step 1: Create `Tests/NexusUITests/WaitUntil.swift`** with exactly:
+- [x] **Step 1: Create `Tests/NexusUITests/WaitUntil.swift`** with exactly:
 
 ```swift
 import Foundation
@@ -623,18 +623,18 @@ func waitUntil(timeout: Duration = .seconds(2), _ condition: () -> Bool) async t
 }
 ```
 
-- [ ] **Step 2: `grantWhileOpen()`** in `WindowFlyoutTests.swift`: replace the line
+- [x] **Step 2: `grantWhileOpen()`** in `WindowFlyoutTests.swift`: replace the line
 `try await Task.sleep(for: .milliseconds(150))` (right after
 `bus.publish(.permissionChanged(.accessibility, .granted))`) with
 `try await waitUntil { model.windows.count == 1 }`. Keep the `#expect` after it.
 
-- [ ] **Step 3: `flyoutDegrades()`** in `DisplayAndRecoveryTests.swift`: replace the line
+- [x] **Step 3: `flyoutDegrades()`** in `DisplayAndRecoveryTests.swift`: replace the line
 `try await Task.sleep(for: .milliseconds(150))` (right after
 `bus.publish(.permissionChanged(.accessibility, .denied))`) with
 `try await waitUntil { model.showsPermissionRequest && model.windows.isEmpty }`. Keep both
 `#expect` lines after it.
 
-- [ ] **Step 4: `revocationDuringLoad()`** in the same file: replace these five lines
+- [x] **Step 4: `revocationDuringLoad()`** in the same file: replace these five lines
 
 ```swift
         var waited = 0
@@ -648,17 +648,17 @@ with `try await waitUntil { model.showsPermissionRequest }`. Leave the
 `try await Task.sleep(for: .milliseconds(50))` after `releaseHeldCall()` as it is: that one
 checks that something does *not* happen.
 
-- [ ] **Step 5: Verify on a quiet machine.**
+- [x] **Step 5: Verify on a quiet machine.**
 Run: `swift test --filter "WindowFlyout|RevocationTests"` — expected: all pass.
 
-- [ ] **Step 6: Verify under load.** Run Task 8 Step 5's three commands again, exactly.
+- [x] **Step 6: Verify under load.** Run Task 8 Step 5's three commands again, exactly.
 Expected: five `run N exit 0` lines, no counts. If a run fails, report its
 `rg -n -B2 -A8 "Fatal|recorded an issue" /tmp/nexus-load-N.txt` output and stop. Do NOT fix
 other tests that fail: report them.
 
-- [ ] **Step 7:** `make lint` — expected: exits 0, no warnings.
+- [x] **Step 7:** `make lint` — expected: exits 0, no warnings.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 ```bash
 git add Tests/NexusUITests/WaitUntil.swift Tests/NexusUITests/WindowFlyoutTests.swift Tests/NexusUITests/DisplayAndRecoveryTests.swift docs/plans/2026-10-27-review-baseline-fixes.md
 git commit -m "test: permission tests wait for the event instead of a fixed sleep"
