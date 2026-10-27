@@ -14,6 +14,9 @@ actor FakeWindowService: WindowServing {
     private var refuses: Set<CGWindowID> = []
     private var putsBack: Set<CGWindowID> = []
     private var trusted: Bool
+    private var holdsNextWindowsCall = false
+    private var heldCall: CheckedContinuation<Void, Never>?
+    private var heldCallWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(_ byApplication: [String: [NexusWindow]] = [:], trusted: Bool = true) {
         self.byApplication = byApplication
@@ -24,7 +27,29 @@ actor FakeWindowService: WindowServing {
         byApplication[bundleIdentifier] = windows
     }
 
+    /// The next `windows(for:)` suspends until `releaseHeldCall()`, so a test can change the
+    /// world while a load is in flight.
+    func holdNextWindowsCall() { holdsNextWindowsCall = true }
+
+    func waitUntilCallIsHeld() async {
+        if heldCall != nil { return }
+        await withCheckedContinuation { heldCallWaiters.append($0) }
+    }
+
+    func releaseHeldCall() {
+        heldCall?.resume()
+        heldCall = nil
+    }
+
     func windows(for application: ApplicationIdentity) async throws -> [NexusWindow] {
+        if holdsNextWindowsCall {
+            holdsNextWindowsCall = false
+            await withCheckedContinuation { continuation in
+                heldCall = continuation
+                heldCallWaiters.forEach { $0.resume() }
+                heldCallWaiters = []
+            }
+        }
         guard trusted else { throw NexusError.permissionDenied(.accessibility) }
         return byApplication[application.bundleIdentifier] ?? []
     }
