@@ -162,6 +162,43 @@ struct ConfigurationTests {
         #expect(defaults.data(forKey: ConfigurationStore.defaultKey) == raw)
     }
 
+    /// D10 is only kept if nothing writes afterwards: `Composition.start()` flushes on launch,
+    /// every edit schedules a save, and terminate flushes again.
+    @Test("A newer-versioned configuration survives the launch flush, an edit and the quit flush")
+    @MainActor
+    func newerVersionSurvivesWrites() async throws {
+        let defaults = makeDefaults()
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(NexusConfiguration())) as! [String: Any]
+        json["version"] = NexusConfiguration.currentVersion + 1
+        let raw = try JSONSerialization.data(withJSONObject: json)
+        defaults.set(raw, forKey: ConfigurationStore.defaultKey)
+
+        let store = ConfigurationStore(defaults: defaults)
+        let controller = ConfigurationController(store: store, events: EventBus(), saveDelay: .milliseconds(10))
+
+        controller.flush()
+        #expect(defaults.data(forKey: ConfigurationStore.defaultKey) == raw)
+
+        controller.update { $0.appearance.position = .bottom }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(defaults.data(forKey: ConfigurationStore.defaultKey) == raw)
+        // The edit still applies for this session — it just is not written over the newer file.
+        #expect(controller.configuration.appearance.position == .bottom)
+
+        controller.flush()
+        #expect(defaults.data(forKey: ConfigurationStore.defaultKey) == raw)
+    }
+
+    @Test("With nothing stored, the launch flush still writes the defaults")
+    @MainActor
+    func firstLaunchStillWrites() throws {
+        let defaults = makeDefaults()
+        let controller = ConfigurationController(store: ConfigurationStore(defaults: defaults), events: EventBus())
+        controller.flush()
+        let data = try #require(defaults.data(forKey: ConfigurationStore.defaultKey))
+        #expect(try JSONDecoder().decode(NexusConfiguration.self, from: data) == NexusConfiguration())
+    }
+
     @Test("A partial payload decodes, filling in defaults for missing groups")
     func partialPayload() {
         let defaults = makeDefaults()

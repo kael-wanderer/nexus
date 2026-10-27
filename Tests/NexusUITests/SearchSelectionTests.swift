@@ -40,6 +40,21 @@ private func makeSearch(_ providers: [any SearchProvider]) -> SearchViewModel {
     )
 }
 
+/// Waits until the model shows at least `count` results — a fixed sleep guesses how long the
+/// providers take, and on a busy machine the guess is wrong and `results[1]` traps.
+@MainActor
+private func waitForResults(
+    _ model: SearchViewModel,
+    count: Int,
+    timeout: Duration = .seconds(2)
+) async throws {
+    let deadline = ContinuousClock.now + timeout
+    while model.results.count < count, ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    try #require(model.results.count >= count)
+}
+
 @Suite("Search selection stability")
 @MainActor
 struct SearchSelectionTests {
@@ -71,7 +86,7 @@ struct SearchSelectionTests {
             DelayedProvider(identifier: .application, category: .application, titles: ["One", "Two"], score: 0.9)
         ])
         model.query = "o"
-        try await Task.sleep(for: .milliseconds(200))
+        try await waitForResults(model, count: 2)
         #expect(model.selectedID == model.results.first?.id)
 
         model.moveSelection(by: 1)
@@ -90,18 +105,20 @@ struct SearchSelectionTests {
             DelayedProvider(
                 identifier: .file,
                 category: .file,
-                delay: .milliseconds(150),
+                delay: .milliseconds(500),
                 titles: ["a file"],
                 score: 0.10
             ),
         ])
         model.query = "o"
-        try await Task.sleep(for: .milliseconds(80))
+        try await waitForResults(model, count: 2)
+        // The file snapshot has to land *after* the arrow key, or this tests nothing.
+        #expect(model.results.count == 2)
         model.moveSelection(by: 1)
         let chosen = model.selectedID
         #expect(chosen == model.results[1].id)
 
-        try await Task.sleep(for: .milliseconds(400))
+        try await waitForResults(model, count: 3)
         #expect(model.selectedID == chosen)
     }
 

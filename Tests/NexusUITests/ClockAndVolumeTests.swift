@@ -100,10 +100,10 @@ struct ClockAndVolumeTests {
     /// `SidebarLayout` drops the empty sections, so an index into `sectionRowCounts` is not an
     /// index into what is drawn — the clock's index has to move when the volume is switched off.
     @Test("The clock's section index closes up when the volume row goes")
-    func sectionIndicesFollowWhatIsDrawn() {
+    func sectionIndicesFollowWhatIsDrawn() throws {
         let (model, controller) = makeModel()
-        let volumeSection = try? #require(model.volumeSectionIndex)
-        #expect(model.clockSectionIndex == (volumeSection ?? 0) + 1)
+        let volumeSection = try #require(model.volumeSectionIndex)
+        #expect(model.clockSectionIndex == volumeSection + 1)
         controller.update { $0.general.showVolume = false }
         #expect(model.volumeSectionIndex == nil)
         #expect(model.clockSectionIndex == volumeSection)

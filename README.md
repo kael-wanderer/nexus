@@ -3,10 +3,10 @@
 **The command center for your Mac.**
 
 A native macOS vertical dock and a unified search palette in one agent application. Nexus runs
-in the menu bar, never takes focus away from what you are typing in, and never changes a single
-system setting on your behalf.
+in the menu bar, never takes focus away from what you are typing in, and changes no system
+setting unless you ask it to replace the Dock — and then puts the Dock back exactly as it was.
 
-> Status: Milestones 1–23 shipped — the MVP and sixteen milestones past it. Local builds only —
+> Status: Milestones 1–27 shipped — the MVP and twenty milestones past it. Local builds only —
 > see [Installation](#installation).
 
 ---
@@ -222,7 +222,8 @@ Package.swift
   never run on the main thread.
 - **Events, not polling.** Every update comes from `NSWorkspace`, an `AXObserver`, or a screen-
   parameters notification. There is exactly one poll in the whole app: permission status at 1 Hz
-  while a permission screen is on screen, because macOS publishes no TCC notification.
+  while a permission screen is on screen, because macOS publishes no TCC notification. (The
+  clock redraws once a minute on SwiftUI's own `TimelineView` schedule.)
 - **Swift 6 strict concurrency**, zero build warnings.
 
 Full detail: [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/`](docs/README.md) — the design

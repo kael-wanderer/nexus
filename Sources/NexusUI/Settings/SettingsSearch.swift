@@ -73,6 +73,7 @@ public enum SettingsSearch {
         SettingsEntry(String(localized: "macOS Dock"), "hidden visible system dock", .dock),
         SettingsEntry(String(localized: "Restore macOS Dock"), "bring back system dock", .dock),
         SettingsEntry(String(localized: "Display"), "screen monitor which display", .dock),
+        SettingsEntry(String(localized: "Position"), "edge left right top bottom", .dock),
 
         // Bar
         SettingsEntry(String(localized: "Start menu button"), "launcher applications list", .bar),
@@ -92,7 +93,6 @@ public enum SettingsSearch {
         SettingsEntry(String(localized: "Most running rows"), "limit how many running", .bar),
 
         // Appearance
-        SettingsEntry(String(localized: "Position"), "edge left right top bottom", .appearance),
         SettingsEntry(String(localized: "Sidebar width"), "how wide thickness", .appearance),
         SettingsEntry(String(localized: "Icon size"), "how big icons", .appearance),
         SettingsEntry(String(localized: "Icon spacing"), "gap between icons", .appearance),

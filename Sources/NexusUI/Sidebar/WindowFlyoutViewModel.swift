@@ -114,7 +114,9 @@ public final class WindowFlyoutViewModel {
         isLoading = true
         defer { isLoading = false }
         let loaded = (try? await service.windows(for: target)) ?? []
-        guard self.target == target else { return }
+        // Both can change while the load was suspended: a different application's flyout, or a
+        // revocation that already cleared the list — writing this result would put it back.
+        guard self.target == target, accessibility == .granted else { return }
         let changed = loaded.map(\.id) != windows.map(\.id)
         windows = loaded
         if changed { onContentChange?() }

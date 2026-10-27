@@ -40,9 +40,10 @@ public struct SettingsView: View {
             }
         }
         // Sized for the longest pane rather than the average one: a settings window that scrolls
-        // hides the switch somebody came looking for. The window is resizable for the screens this
-        // is still too tall for.
-        .frame(width: 620, height: 790)
+        // hides the switch somebody came looking for. 790 is only the ideal, though — on a screen
+        // too short for it the window opens shorter and the pane scrolls, rather than running
+        // off the bottom.
+        .frame(minWidth: 620, idealWidth: 620, minHeight: 420, idealHeight: 790)
     }
 
     /// Nine tabs is more than anybody reads: typing a word is the way through them (D121).

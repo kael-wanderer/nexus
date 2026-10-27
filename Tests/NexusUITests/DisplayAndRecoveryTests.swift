@@ -127,9 +127,45 @@ struct RevocationTests {
 
         permissions.statuses[.accessibility] = .denied
         bus.publish(.permissionChanged(.accessibility, .denied))
-        try await Task.sleep(for: .milliseconds(150))
+        try await waitUntil { model.showsPermissionRequest && model.windows.isEmpty }
 
         #expect(model.showsPermissionRequest)
+        #expect(model.windows.isEmpty)
+    }
+
+    @Test("A window load still in flight when Accessibility is revoked does not put its windows back")
+    func revocationDuringLoad() async throws {
+        let bus = EventBus()
+        let permissions = FakePermissions([.accessibility: .granted])
+        let identity = ApplicationIdentity(bundleIdentifier: "com.apple.Safari")
+        let service = FakeWindowService([
+            "com.apple.Safari": [
+                NexusWindow(
+                    identity: WindowIdentity(owner: identity, number: 1),
+                    title: "GitHub",
+                    applicationName: "Safari"
+                )
+            ]
+        ])
+        await service.holdNextWindowsCall()
+        let model = WindowFlyoutViewModel(
+            service: service,
+            previewService: FakePreviewService(),
+            permissions: permissions,
+            events: bus
+        )
+        model.start()
+        defer { model.stop() }
+        model.show(identity, name: "Safari")
+        await service.waitUntilCallIsHeld()
+
+        permissions.statuses[.accessibility] = .denied
+        bus.publish(.permissionChanged(.accessibility, .denied))
+        try await waitUntil { model.showsPermissionRequest }
+        #expect(model.showsPermissionRequest)
+
+        await service.releaseHeldCall()
+        try await Task.sleep(for: .milliseconds(50))
         #expect(model.windows.isEmpty)
     }
 

@@ -23,6 +23,14 @@ struct SettingsSearchTests {
         #expect(SettingsSearch.matches("favorites").map(\.tab) == [.bar])
     }
 
+    /// The edge picker lives with the rest of the Dock placement controls, not in Appearance.
+    @Test("Position takes you to the Dock tab, where the edge picker is")
+    func positionRoutesToDock() {
+        let results = SettingsSearch.matches("position")
+        #expect(results.map(\.title) == ["Position"])
+        #expect(results.first?.tab == .dock)
+    }
+
     @Test("Every token has to match, so two words narrow rather than widen")
     func tokensNarrow() {
         let one = SettingsSearch.matches("hover")
