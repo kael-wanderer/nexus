@@ -10,6 +10,32 @@ public struct MetadataItem: Sendable, Hashable {
     }
 }
 
+/// Excludes implementation files while keeping cloud documents searchable.
+public struct PathExclusion: Sendable {
+    public let root: URL
+    public let exceptions: [URL]
+
+    public init(root: URL, exceptions: [URL]) {
+        self.root = root
+        self.exceptions = exceptions
+    }
+
+    public static func userLibrary(home: URL) -> PathExclusion {
+        let library = home.appendingPathComponent("Library", isDirectory: true)
+        return PathExclusion(root: library, exceptions: [
+            library.appendingPathComponent("Mobile Documents", isDirectory: true),
+            library.appendingPathComponent("CloudStorage", isDirectory: true)
+        ])
+    }
+
+    public func excludes(_ url: URL) -> Bool {
+        let path = url.standardizedFileURL.pathComponents
+        let rootComponents = root.standardizedFileURL.pathComponents
+        guard path.starts(with: rootComponents) else { return false }
+        return !exceptions.contains { path.starts(with: $0.standardizedFileURL.pathComponents) }
+    }
+}
+
 public enum MetadataScope: Sendable {
     case localComputer
     case userHome
@@ -77,9 +103,10 @@ public final class MetadataQueryRunner {
         _ search: MetadataSearch,
         scope: MetadataScope,
         limit: Int,
+        exclusion: PathExclusion? = nil,
         timeout: Duration = .seconds(3)
     ) async -> [MetadataItem] {
-        let session = QuerySession(limit: limit)
+        let session = QuerySession(limit: limit, exclusion: exclusion)
         return await withCheckedContinuation { continuation in
             session.begin(
                 predicate: search.predicate,
@@ -89,6 +116,27 @@ public final class MetadataQueryRunner {
             )
         }
     }
+
+    /// Filter before applying the limit so implementation files cannot crowd out documents. Takes
+    /// any sequence so the query can hand over a lazy one: a two-letter prefix can match thousands
+    /// of items, and reading each one's attributes on the main actor stops at the limit, as before.
+    nonisolated static func collect(
+        _ entries: some Sequence<(path: String, name: String?)>,
+        limit: Int,
+        exclusion: PathExclusion?
+    ) -> [MetadataItem] {
+        guard limit > 0 else { return [] }
+        var results: [MetadataItem] = []
+        results.reserveCapacity(Swift.min(limit, entries.underestimatedCount))
+        for entry in entries {
+            let url = URL(fileURLWithPath: entry.path)
+            guard exclusion?.excludes(url) != true else { continue }
+            let name = entry.name ?? (entry.path as NSString).lastPathComponent
+            results.append(MetadataItem(url: url, displayName: name))
+            if results.count >= limit { break }
+        }
+        return results
+    }
 }
 
 /// Owns the `NSMetadataQuery` and its observer so the `@Sendable` notification block captures
@@ -96,12 +144,14 @@ public final class MetadataQueryRunner {
 private final class QuerySession: @unchecked Sendable {
     private let query = NSMetadataQuery()
     private let limit: Int
+    private let exclusion: PathExclusion?
     private var observer: (any NSObjectProtocol)?
     private var continuation: CheckedContinuation<[MetadataItem], Never>?
     private var timeoutTask: Task<Void, Never>?
 
-    init(limit: Int) {
+    init(limit: Int, exclusion: PathExclusion?) {
         self.limit = limit
+        self.exclusion = exclusion
     }
 
     @MainActor
@@ -147,17 +197,13 @@ private final class QuerySession: @unchecked Sendable {
 
     @MainActor
     private func collectResults() -> [MetadataItem] {
-        var results: [MetadataItem] = []
-        results.reserveCapacity(Swift.min(limit, query.resultCount))
-        for index in 0..<query.resultCount {
-            guard let item = query.result(at: index) as? NSMetadataItem,
+        // Lazy, so attributes are read only until `collect` reaches the limit.
+        let entries = (0..<query.resultCount).lazy.compactMap { index -> (path: String, name: String?)? in
+            guard let item = self.query.result(at: index) as? NSMetadataItem,
                   let path = item.value(forAttribute: NSMetadataItemPathKey) as? String
-            else { continue }
-            let name = item.value(forAttribute: NSMetadataItemDisplayNameKey) as? String
-                ?? (path as NSString).lastPathComponent
-            results.append(MetadataItem(url: URL(fileURLWithPath: path), displayName: name))
-            if results.count >= limit { break }
+            else { return nil }
+            return (path: path, name: item.value(forAttribute: NSMetadataItemDisplayNameKey) as? String)
         }
-        return results
+        return MetadataQueryRunner.collect(entries, limit: limit, exclusion: exclusion)
     }
 }
