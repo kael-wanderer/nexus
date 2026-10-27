@@ -45,7 +45,7 @@ public final class AuxiliaryWindowController: NSObject, NSWindowDelegate {
     private func makeWindow() -> NSWindow {
         let hosting = NSHostingView(rootView: makeContent())
         let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
+            contentRect: NSRect(origin: .zero, size: fittingScreen(hosting.fittingSize)),
             // Resizable as well: the panes are sized for the longest one, and somebody on a small
             // screen still has to be able to make it fit.
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -58,6 +58,14 @@ public final class AuxiliaryWindowController: NSObject, NSWindowDelegate {
         window.delegate = self
         window.collectionBehavior = [.fullScreenAuxiliary]
         return window
+    }
+
+    /// The content's ideal size, cut down to what the screen can show below the menu bar with a
+    /// title bar on top — `center()` cannot move a window that is taller than the screen.
+    private func fittingScreen(_ size: NSSize) -> NSSize {
+        guard let visible = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame else { return size }
+        let titleBar: CGFloat = 32
+        return NSSize(width: min(size.width, visible.width), height: min(size.height, visible.height - titleBar))
     }
 
     public func windowWillClose(_ notification: Notification) {
