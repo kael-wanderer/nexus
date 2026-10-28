@@ -84,10 +84,10 @@ Block for `SidebarViewModelTests.swift:69` (an `&&` cannot hold an `await` on it
 - `SidebarPolishTests.swift:272, 408, 415`
 - `BarZonesTests.swift:409, 421`
 - `SearchSelectionTests.swift:16` (fake provider delay) and `:170` (no results)
-- `WaitUntil.swift` (the poll interval itself)
+- `WaitUntil.swift` and `SearchSelectionTests.swift:53` (poll intervals inside wait helpers)
 
 - [ ] Apply the nine replacements.
-- [ ] `rg -c 'Task\.sleep' Tests/NexusUITests/` totals **13**: the 12 kept sleeps listed above plus the one in `WaitUntil.swift` (it was 25 before Task 1). If the total differs, stop and report which file differs.
+- [ ] `rg -c 'Task\.sleep' Tests/NexusUITests/` totals **14**: the 12 kept sleeps plus the two poll intervals listed above (it was 26 before Task 1). If the total differs, stop and report which file differs.
 - [ ] `swift build --build-tests 2>&1 | rg -i 'warning|error'` prints nothing.
 - [ ] Commit: `test: wait for effects instead of guessing a delay`.
 
