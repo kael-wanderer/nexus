@@ -28,9 +28,7 @@ private func makeOnboarding(
 /// `start()` loads candidates on a detached task; wait for it rather than guessing a delay.
 @MainActor
 private func waitForCandidates(_ model: OnboardingViewModel, _ expected: Int) async {
-    for _ in 0..<200 where model.candidates.count < expected {
-        try? await Task.sleep(for: .milliseconds(10))
-    }
+    try? await waitUntil { model.candidates.count >= expected }
 }
 
 @Suite("Onboarding")

@@ -93,16 +93,6 @@ actor FakeWindowService: WindowServing {
     func putBack(_ number: CGWindowID) { putsBack.insert(number) }
 }
 
-/// Polls until `condition` holds, up to two seconds. Replaces a fixed sleep in tests that wait on
-/// work handed to a Task.
-@MainActor
-func until(_ condition: () async -> Bool) async {
-    for _ in 0..<200 {
-        if await condition() { return }
-        try? await Task.sleep(for: .milliseconds(10))
-    }
-}
-
 struct FakePreviewService: WindowPreviewing {
     func preview(for window: WindowIdentity, maxDimension: CGFloat) async -> SendableImage? { nil }
     func invalidate(_ window: WindowIdentity) async {}
@@ -179,7 +169,7 @@ struct WindowFlyoutTests {
         model.activate(model.windows[0])
         // Activation is a detached Task; wait for it rather than guessing at a sleep that fails
         // whenever the machine is busy.
-        await until { await service.activated.count == 1 }
+        try await waitUntil { await service.activated.count == 1 }
         #expect(await service.activated.map(\.number) == [1])
         #expect(model.target == nil)   // activating dismisses the flyout
     }
@@ -299,7 +289,7 @@ struct WindowFlyoutTests {
     }
 
     @Test("New Window asks the service for the target application and hides the flyout")
-    func newWindowHidesFlyout() async {
+    func newWindowHidesFlyout() async throws {
         let service = FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]])
         let model = WindowFlyoutViewModel(
             service: service,
@@ -317,7 +307,7 @@ struct WindowFlyoutTests {
         // outcome (§4 of the flyout restyle spec).
         model.newWindow()
         #expect(model.target == nil)
-        await until { await service.newWindowRequested == [target] }
+        try await waitUntil { await service.newWindowRequested == [target] }
         #expect(await service.newWindowRequested == [target])
     }
 
