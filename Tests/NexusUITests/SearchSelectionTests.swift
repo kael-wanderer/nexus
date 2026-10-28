@@ -73,7 +73,7 @@ struct SearchSelectionTests {
             ),
         ])
         model.query = "a"
-        try await Task.sleep(for: .milliseconds(400))
+        try await waitUntil { model.results.first?.category == .application }
 
         #expect(model.results.first?.category == .application)
         #expect(model.selectedID == model.results.first?.id)
@@ -94,7 +94,7 @@ struct SearchSelectionTests {
 
         // A brand new query resets the pin, so row 0 wins again.
         model.query = "on"
-        try await Task.sleep(for: .milliseconds(200))
+        try await waitUntil { model.selectedID == model.results.first?.id }
         #expect(model.selectedID == model.results.first?.id)
     }
 
@@ -135,12 +135,12 @@ struct SearchSelectionTests {
             ),
         ])
         model.query = "a"
-        try await Task.sleep(for: .milliseconds(30))
+        try await waitUntil { !model.results.isEmpty }
 
         // The palette opens under the pointer, so a row is hovered before anything is typed.
         if let hovered = model.results.first { model.select(hovered) }
 
-        try await Task.sleep(for: .milliseconds(400))
+        try await waitUntil { model.results.first?.category == .application }
         #expect(model.results.first?.category == .application)
         #expect(model.selectedID == model.results.first?.id)
     }
@@ -153,7 +153,7 @@ struct SearchSelectionTests {
         var executed: SearchResult?
         model.onExecute = { result, _ in executed = result }
         model.query = "o"
-        try await Task.sleep(for: .milliseconds(200))
+        try await waitForResults(model, count: 2)
 
         model.click(model.results[1])
         #expect(executed?.id == model.results[1].id)

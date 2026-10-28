@@ -66,7 +66,11 @@ struct SidebarViewModelTests {
 
         model.activateOrLaunch(model.pinnedItems[0])
         model.activateOrLaunch(model.pinnedItems[1])
-        try await Task.sleep(for: .milliseconds(50))
+        try await waitUntil {
+            let activated = await service.activated
+            let launched = await service.launched
+            return activated == ["com.apple.Safari"] && launched == ["com.apple.Terminal"]
+        }
 
         #expect(await service.activated == ["com.apple.Safari"])
         #expect(await service.launched == ["com.apple.Terminal"])
@@ -330,7 +334,7 @@ struct SidebarViewModelTests {
     }
 
     @Test("Resting on a row opens its window flyout after the delay")
-    func hoverOpensFlyout() async {
+    func hoverOpensFlyout() async throws {
         let (model, _, configuration) = makeModel(
             [makeApplication("a", name: "A", running: true)],
             pinned: ["a"]
@@ -344,7 +348,7 @@ struct SidebarViewModelTests {
         model.rowHoverChanged(model.pinnedItems[0], hovering: true)
         #expect(shown.isEmpty)              // not immediately
 
-        try? await Task.sleep(for: .milliseconds(400))
+        try await waitUntil { shown == ["a"] }
         #expect(shown == ["a"])
         #expect(model.flyoutTarget?.bundleIdentifier == "a")
     }

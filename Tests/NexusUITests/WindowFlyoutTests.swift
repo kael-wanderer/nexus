@@ -196,7 +196,7 @@ struct WindowFlyoutTests {
         await service.setWindows([window("com.apple.Safari", 1, "GitHub")], for: "com.apple.Safari")
         bus.publish(.windowsChanged(identity))
 
-        try await Task.sleep(for: .milliseconds(150))
+        try await waitUntil { model.windows.map(\.identity.number) == [1] }
         #expect(model.windows.map(\.identity.number) == [1])
     }
 
@@ -254,7 +254,7 @@ struct WindowFlyoutTests {
         await model.reload()
 
         bus.publish(.applicationTerminated(identity))
-        try await Task.sleep(for: .milliseconds(100))
+        try await waitUntil { model.target == nil }
         #expect(model.target == nil)
     }
 
