@@ -5,9 +5,9 @@ import Foundation
 /// fail by itself: the caller's `#expect` says what was wanted. Never use it to show that
 /// something does *not* happen; that still needs a sleep.
 @MainActor
-func waitUntil(timeout: Duration = .seconds(2), _ condition: () -> Bool) async throws {
+func waitUntil(timeout: Duration = .seconds(2), _ condition: () async -> Bool) async throws {
     let deadline = ContinuousClock.now + timeout
-    while !condition(), ContinuousClock.now < deadline {
+    while await !condition(), ContinuousClock.now < deadline {
         try await Task.sleep(for: .milliseconds(10))
     }
 }

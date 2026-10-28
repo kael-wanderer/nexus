@@ -392,14 +392,14 @@ struct NowPlayingFlyoutTests {
     }
 
     @Test("Resting on the compact player opens it; sweeping past does not")
-    func opensOnHover() async {
+    func opensOnHover() async throws {
         let model = makeModel()
         var opened = 0
         model.showPlayer = { opened += 1 }
 
         model.playerHoverChanged(true)
         #expect(opened == 0)                               // not immediately
-        await until { opened == 1 }
+        try await waitUntil { opened == 1 }
 
         let swept = makeModel()
         var sweptOpened = 0

@@ -208,7 +208,7 @@ struct LaunchFeedbackTests {
 @MainActor
 struct SpringLoadingTests {
     @Test("Resting on a group opens it, and a drop on a member lands at that member's place")
-    func dropsAtPosition() async {
+    func dropsAtPosition() async throws {
         let (model, configuration) = makeModel(
             apps(["a", "b", "c", "d"]),
             entries: [
@@ -225,7 +225,7 @@ struct SpringLoadingTests {
         model.beginDrag("d")
         model.dragMoved(over: groupID, at: .middle)
         #expect(model.groupCandidate == groupID)
-        await until { opened == [groupID] }
+        try await waitUntil { opened == [groupID] }
 
         #expect(model.dropIntoGroup("d", groupID: groupID, before: "b"))
         #expect(configuration.configuration.pinnedEntries[0].group?.applications == ["a", "d", "b", "c"])
@@ -383,7 +383,7 @@ struct DockBadgeTests {
 @MainActor
 struct FolderHoverTests {
     @Test("Resting on a folder opens its stack when the preference is on")
-    func opensOnHover() async {
+    func opensOnHover() async throws {
         let (model, _) = makeModel(entries: [.folder("/tmp")])
         await model.refresh()
         var opened: [String] = []
@@ -392,7 +392,7 @@ struct FolderHoverTests {
 
         model.folderHoverChanged(folder!, hovering: true)
         #expect(opened.isEmpty)                            // not immediately
-        await until { opened == ["/tmp"] }
+        try await waitUntil { opened == ["/tmp"] }
     }
 
     @Test("Sweeping past opens nothing, and neither does the preference being off")

@@ -43,9 +43,7 @@ struct SidebarPopulationTests {
 
         model.start()
         defer { model.stop() }
-        for _ in 0..<200 where model.running.isEmpty {
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        try await waitUntil { !model.running.isEmpty }
         #expect(model.running.count == 25)
         // No panel has framed this model, so nothing has told it how much screen there is: with no
         // ceiling set, every row it knows about is a row it would draw (M14).

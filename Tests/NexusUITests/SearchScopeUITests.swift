@@ -45,13 +45,13 @@ private func makeSearch() -> SearchViewModel {
 @MainActor
 struct SearchScopeUITests {
     @Test("A scope re-runs the query without a keystroke and narrows what comes back")
-    func scopeNarrowsResults() async {
+    func scopeNarrowsResults() async throws {
         let model = makeSearch()
         model.query = "result"
-        await until { model.results.count == 3 }
+        try await waitUntil { model.results.count == 3 }
 
         model.scope = .applications
-        await until { model.results.count == 1 }
+        try await waitUntil { model.results.count == 1 }
         #expect(model.results.first?.category == .application)
         #expect(model.query == "result")
     }
