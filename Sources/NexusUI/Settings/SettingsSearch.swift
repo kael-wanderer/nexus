@@ -84,7 +84,6 @@ public enum SettingsSearch {
         SettingsEntry(String(localized: "Running applications"), "open apps section", .bar),
         SettingsEntry(String(localized: "Minimized windows"), "minimised section", .bar),
         SettingsEntry(String(localized: "Window count badges"), "how many windows dots", .bar),
-        SettingsEntry(String(localized: "Favourites"), "favorites pinned section", .bar),
         SettingsEntry(String(localized: "Hide over full-screen apps"), "fullscreen space", .bar),
         SettingsEntry(String(localized: "Show folder preview on hover"), "folder stack contents", .bar),
         SettingsEntry(String(localized: "Suggest groups by category"), "grouping suggestion", .bar),
@@ -139,7 +138,7 @@ public enum SettingsSearch {
 
     /// Every token has to be somewhere in the entry — title, keywords or the tab's own name — so
     /// "group list" finds one row and not the eleven either word finds alone. Case- and
-    /// accent-insensitive: nobody types "Favourites" with the right u in a hurry.
+    /// accent-insensitive: nobody types "Minimised" with the right s in a hurry.
     public static func matches(_ query: String) -> [SettingsEntry] {
         let tokens = query.split(whereSeparator: \.isWhitespace).map(String.init)
         guard !tokens.isEmpty else { return [] }

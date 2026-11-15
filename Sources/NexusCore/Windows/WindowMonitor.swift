@@ -49,6 +49,12 @@ public final class WindowMonitor {
     private var registrations: [ApplicationIdentity: Registration] = [:]
     private var coalescing: [ApplicationIdentity: Task<Void, Never>] = [:]
     private var geometryCoalescing: [ApplicationIdentity: Task<Void, Never>] = [:]
+    /// Pending second attempts for applications that were not ready to be observed.
+    private var registrationRetries: [ApplicationIdentity: Task<Void, Never>] = [:]
+    /// An application that has only just launched often answers "cannot complete". Three more
+    /// tries, a little further apart each time, and then it is left alone — a bounded retry, not
+    /// a poll.
+    private static let registrationRetryDelays: [Duration] = [.milliseconds(500), .seconds(1), .seconds(2)]
     private var eventTask: Task<Void, Never>?
     private var isRunning = false
     private var observesGeometry = false
@@ -98,12 +104,14 @@ public final class WindowMonitor {
         coalescing.removeAll()
         for task in geometryCoalescing.values { task.cancel() }
         geometryCoalescing.removeAll()
+        for task in registrationRetries.values { task.cancel() }
+        registrationRetries.removeAll()
         for identity in registrations.keys { unregister(identity) }
     }
 
     // MARK: - Registration
 
-    private func register(_ identity: ApplicationIdentity) {
+    private func register(_ identity: ApplicationIdentity, attempt: Int = 0) {
         guard isRunning, registrations[identity] == nil else { return }
         guard let pid = identity.processIdentifier ?? Self.processIdentifier(for: identity) else { return }
         guard pid != ProcessInfo.processInfo.processIdentifier else { return }
@@ -128,16 +136,35 @@ public final class WindowMonitor {
         }
         let refcon = Unmanaged.passUnretained(box).toOpaque()
         let element = AX.application(pid: pid)
+        // "Cannot complete" means the application did not answer, not that it never will. Any
+        // other refusal — unsupported, already registered — is final and not worth retrying.
+        var wasNotReady = false
         for notification in Self.notifications {
-            AXObserverAddNotification(observer, element, notification as CFString, refcon)
+            let status = AXObserverAddNotification(observer, element, notification as CFString, refcon)
+            if status == .cannotComplete { wasNotReady = true }
         }
         if observesGeometry {
             for notification in Self.geometryNotifications {
-                AXObserverAddNotification(observer, element, notification as CFString, refcon)
+                let status = AXObserverAddNotification(observer, element, notification as CFString, refcon)
+                if status == .cannotComplete { wasNotReady = true }
             }
         }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         registrations[identity] = Registration(observer: observer, box: box)
+
+        guard wasNotReady, attempt < Self.registrationRetryDelays.count else { return }
+        Log.windows.debug("\(identity.bundleIdentifier, privacy: .public) was not ready to be observed; retrying")
+        let delay = Self.registrationRetryDelays[attempt]
+        registrationRetries[identity]?.cancel()
+        registrationRetries[identity] = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            self.registrationRetries[identity] = nil
+            // Start again from nothing: a half-registered observer would otherwise be kept, and
+            // the `registrations` guard above would turn the retry away.
+            self.unregister(identity)
+            self.register(identity, attempt: attempt + 1)
+        }
     }
 
     /// Starts or stops listening for window moves and resizes, on the observers that already
@@ -174,6 +201,7 @@ public final class WindowMonitor {
         )
         coalescing.removeValue(forKey: identity)?.cancel()
         geometryCoalescing.removeValue(forKey: identity)?.cancel()
+        registrationRetries.removeValue(forKey: identity)?.cancel()
     }
 
     private func scheduleRefresh(_ identity: ApplicationIdentity) {

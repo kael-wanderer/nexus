@@ -64,6 +64,7 @@ public final class SwitcherPanelController {
         panel = SwitcherPanel(contentView: hosting)
         model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
         model.start()
+        model.didHide()                                     // nothing is on screen yet
     }
 
     public func stop() {
@@ -120,6 +121,7 @@ public final class SwitcherPanelController {
         removeMonitors()
         panel.orderOut(nil)
         isVisible = false
+        model.didHide()
         if restoreFocus, strategy == .activateAndRestore { previousApplication?.activate() }
         previousApplication = nil
     }

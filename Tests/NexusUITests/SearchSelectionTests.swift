@@ -80,6 +80,42 @@ struct SearchSelectionTests {
         #expect(model.selectedResult?.category == .application)
     }
 
+    /// The palette draws category by category; ranking is across categories. When a window
+    /// outscores an application the two orders differ, and the arrows used to follow the one
+    /// nobody can see.
+    @Test("Arrows and ⌘N follow the rows as drawn, not the ranking underneath")
+    func navigationFollowsDrawnOrder() async throws {
+        let model = makeSearch([
+            DelayedProvider(identifier: .application, category: .application, titles: ["App A", "App B"], score: 0.5),
+            DelayedProvider(identifier: .window, category: .window, titles: ["Window"], score: 0.9),
+        ])
+        var executed: [String] = []
+        model.onExecute = { result, _ in executed.append(result.title) }
+        model.query = "a"
+        try await waitForResults(model, count: 3)
+
+        // Ranked: the window first. Drawn: applications first.
+        #expect(model.results.map(\.title) == ["Window", "App A", "App B"])
+        #expect(model.displayedResults.map(\.title) == ["App A", "App B", "Window"])
+        // The best match is still the one Return runs.
+        #expect(model.selectedResult?.title == "Window")
+        #expect(model.displayIndex(of: model.results[0]) == 2)
+
+        // Up from the last drawn row is the row above it, and it stops at the top.
+        model.moveSelection(by: -1)
+        #expect(model.selectedResult?.title == "App B")
+        model.moveSelection(by: -5)
+        #expect(model.selectedResult?.title == "App A")
+        model.moveSelection(by: 2)
+        #expect(model.selectedResult?.title == "Window")
+
+        // ⌘1 is the first row on screen; a position past the end does nothing.
+        model.selectRow(0)
+        #expect(executed == ["App A"])
+        model.selectRow(9)
+        #expect(executed == ["App A"])
+    }
+
     @Test("Row 0 is preselected on every new query")
     func rowZeroPreselected() async throws {
         let model = makeSearch([

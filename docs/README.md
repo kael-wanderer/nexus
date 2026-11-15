@@ -9,7 +9,7 @@
 | [`../FEATURES.md`](../FEATURES.md) | The feature list with its permission for each, as a table. |
 | [`verification.md`](verification.md) | What has been checked against a running, installed Nexus, and what has not — including the Definition of Done walkthrough. A dated log. |
 | [`release-checklist.md`](release-checklist.md) | The manual walkthrough to run on an installed build before a release. The current list of what needs a human. |
-| [`plans/`](plans) | Dated implementation plans handed to an implementer. All four are executed; kept as history. |
+| [`archive/plans/`](archive/plans) | Dated implementation plans that have been executed and merged. History only: nothing in them is pending, and the code is the source of truth. |
 | [`reviews/`](reviews) | Dated reviews of the whole project and what came of them. |
 | [`images/`](images) | Screenshots used by the README. |
 | [`../Nexus_Project_Foundation_MVP.md`](../Nexus_Project_Foundation_MVP.md) | The original brief. "Foundation §n" in the other documents means a section of it. Sections 36–110 are a vision that is deliberately not built. |
@@ -30,5 +30,5 @@ free number and a row in the [`decisions.md`](decisions.md) index — even if it
 design document. The decision log is the place to look up *why*, and code comments cite it by
 number.
 
-Milestone scopes live in `../ROADMAP.md`; a dated plan for an implementer goes in `plans/`. A design document describes the thing as it is meant to
+Milestone scopes live in `../ROADMAP.md`; a dated plan for an implementer goes in `plans/` while it is being worked and moves to `archive/plans/` once merged. A design document describes the thing as it is meant to
 work; it is not a schedule and does not need updating when a milestone slips.

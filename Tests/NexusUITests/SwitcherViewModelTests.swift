@@ -179,6 +179,40 @@ struct SwitcherViewModelTests {
         #expect(group?.applications.sorted() == ["com.apple.Safari", "com.apple.finder"])
     }
 
+    /// The model subscribes at launch. It used to enumerate every window — and capture each one
+    /// — on every window event for the life of the process, with the switcher closed.
+    @Test("A closed switcher ignores window events, and catches up when it is shown")
+    func hiddenSwitcherDoesNoWork() async throws {
+        let service = FakeWindowService()
+        let events = EventBus()
+        let model = SwitcherViewModel(
+            service: service,
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted]),
+            events: events,
+            configuration: ConfigurationController(store: InMemoryConfigurationStore(), events: EventBus(), saveDelay: .zero)
+        )
+        model.start()
+        model.didHide()
+        #expect(model.isOnScreen == false)
+
+        let safari = ApplicationIdentity(bundleIdentifier: "com.apple.Safari")
+        await service.setWindows([window("com.apple.Safari", "Safari", "Google", number: 1)], for: "com.apple.Safari")
+        events.publish(.windowsChanged(safari))
+        try await Task.sleep(for: .milliseconds(150))       // nothing should happen
+        #expect(model.windows.isEmpty)
+
+        model.prepareForDisplay()
+        #expect(model.isOnScreen)
+        try await waitUntil { model.windows.count == 1 }
+
+        // Shown, it follows events again.
+        await service.setWindows([], for: "com.apple.Safari")
+        events.publish(.windowsChanged(safari))
+        try await waitUntil { model.windows.isEmpty }
+        model.stop()
+    }
+
     @Test("Add Stack is unavailable with nothing selected")
     func addStackNeedsSelection() async {
         let model = await self.model([window("com.apple.Safari", "Safari", "Google", number: 1)])

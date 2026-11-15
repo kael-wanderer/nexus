@@ -344,4 +344,49 @@ struct KeyboardShortcutTests {
         #expect(controller.configuration.behavior.autoHideDelay == 5)
         #expect(controller.configuration.behavior.groupCapacity == 9)
     }
+
+    @MainActor
+    @Test("Recording a use is saved but not announced; a real setting change is")
+    func usageIsNotAnnounced() async throws {
+        let events = EventBus()
+        let controller = ConfigurationController(
+            store: InMemoryConfigurationStore(),
+            events: events,
+            saveDelay: .zero
+        )
+        var iterator = events.events().makeAsyncIterator()
+
+        controller.update { $0.recordUse(of: "app:com.apple.Safari") }
+        #expect(controller.configuration.frecency["app:com.apple.Safari"]?.count == 1)
+
+        // The next event on the bus is the setting change, so the usage bump published nothing.
+        controller.update { $0.general.showStartMenu = true }
+        guard case .configurationChanged(let announced) = await iterator.next() else {
+            Issue.record("Expected a configuration change")
+            return
+        }
+        #expect(announced.general.showStartMenu)
+        #expect(announced.frecency["app:com.apple.Safari"]?.count == 1)
+    }
+
+    @Test("Usage is remembered for a bounded number of results, the most recent ones")
+    func usageIsBounded() {
+        var configuration = NexusConfiguration()
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        for index in 0..<(NexusConfiguration.frecencyLimit + 25) {
+            configuration.recordUse(of: "file:\(index)", at: start.addingTimeInterval(Double(index)))
+        }
+
+        #expect(configuration.frecency.count == NexusConfiguration.frecencyLimit)
+        #expect(configuration.frecency["file:0"] == nil)                     // oldest: forgotten
+        #expect(configuration.frecency["file:24"] == nil)
+        #expect(configuration.frecency["file:25"] != nil)
+        #expect(configuration.frecency["file:\(NexusConfiguration.frecencyLimit + 24)"]?.count == 1)
+
+        // Using an old one again makes it recent, so it is not the next to go.
+        configuration.recordUse(of: "file:25", at: start.addingTimeInterval(10_000))
+        configuration.recordUse(of: "file:new", at: start.addingTimeInterval(10_001))
+        #expect(configuration.frecency["file:25"]?.count == 2)
+        #expect(configuration.frecency["file:26"] == nil)
+    }
 }

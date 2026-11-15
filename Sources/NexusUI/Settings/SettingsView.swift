@@ -727,7 +727,6 @@ struct BarPane: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Toggle(String(localized: "Window count badges"), isOn: configuration.binding(\.behavior.showWindowCount))
-                Toggle(String(localized: "Favourites"), isOn: configuration.binding(\.behavior.showFavorites))
             }
             Section {
                 Toggle(

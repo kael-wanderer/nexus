@@ -12,6 +12,11 @@ public final class SwitcherViewModel {
 
     public private(set) var windows: [NexusWindow] = []
     public private(set) var previews: [CGWindowID: NSImage] = [:]
+    /// Whether the panel is up. While it is not, window events are ignored: enumerating every
+    /// window through Accessibility and capturing each one is work nobody is looking at, and
+    /// `prepareForDisplay()` reloads from scratch on the way in anyway. True until a panel says
+    /// otherwise, so a model with no panel behaves as it always did.
+    public private(set) var isOnScreen = true
     public private(set) var accessibility: PermissionStatus = .denied
     public private(set) var previewsOfferDismissed = false
     public private(set) var selection: Set<String> = []
@@ -87,9 +92,11 @@ public final class SwitcherViewModel {
                 case .applicationActivated(let identity):
                     self.noteActivation(identity)
                 case .windowsChanged, .applicationTerminated, .applicationLaunched:
+                    guard self.isOnScreen else { continue }
                     await self.reload()
                 case .permissionChanged(.accessibility, let status):
                     self.accessibility = status
+                    guard self.isOnScreen else { continue }
                     await self.reload()
                 default:
                     continue
@@ -108,7 +115,17 @@ public final class SwitcherViewModel {
     /// Called by the panel just before it goes on screen: the grid shows the cached snapshot at
     /// once and the fresh enumeration replaces it a moment later. An empty grid for 200 ms is
     /// worse than a stale one (spec §3).
+    /// The panel went away. Thumbnails are dropped with it: they are stale by the next showing,
+    /// and one bitmap per window ever seen is not worth keeping for a panel that is closed.
+    public func didHide() {
+        isOnScreen = false
+        previewTask?.cancel()
+        previewTask = nil
+        previews.removeAll()
+    }
+
     public func prepareForDisplay() {
+        isOnScreen = true
         query = ""
         selection = []
         accessibility = permissions.status(of: .accessibility)
@@ -139,6 +156,9 @@ public final class SwitcherViewModel {
         // since its bundle identifier stops showing up the moment its windows do.
         let liveBundleIdentifiers = Set(fetched.map(\.identity.owner.bundleIdentifier))
         applicationURLCache = applicationURLCache.filter { liveBundleIdentifiers.contains($0.key) }
+        // Same pruning for thumbnails: a closed window's bitmap has no card left to draw it.
+        let liveWindows = Set(fetched.map(\.identity.number))
+        previews = previews.filter { liveWindows.contains($0.key) }
         rebuild()
         requestPreviews()
     }

@@ -5,7 +5,26 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Removed
+
+- The "Favourites" switch in Settings › Bar. It never controlled anything.
+
+### Changed
+
+- The window switcher does no work while it is closed, and forgets its thumbnails when it
+  closes.
+- Running a search result no longer makes the bar refresh, rescan badges and re-check window
+  positions.
+- The application index is rebuilt off the main thread.
+- Usage history is kept for the 500 most recently used results instead of growing without
+  limit.
+
 ### Fixed
+
+- In the search palette, the arrow keys and ⌘1–9 follow the rows as they are drawn. They used
+  to follow the ranking underneath, which differs whenever a window outscores an application.
+- A window opened in an application that has only just launched is noticed: registering for its
+  window events is retried when the application was not ready.
 
 - Running setup again no longer deletes groups, folders and pinned applications that are not
   running: the sidebar step only pins or unpins the applications it listed.

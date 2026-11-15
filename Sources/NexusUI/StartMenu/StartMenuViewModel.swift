@@ -152,7 +152,7 @@ public final class StartMenuViewModel {
 
     public func launch(_ application: NexusApplication) {
         let identity = application.identity
-        configuration.update { $0.frecency["app:\(identity.bundleIdentifier)", default: FrecencyEntry()].bump() }
+        configuration.update { $0.recordUse(of: "app:\(identity.bundleIdentifier)") }
         Task { [launcher] in
             if application.isRunning {
                 try? await launcher.activate(identity)

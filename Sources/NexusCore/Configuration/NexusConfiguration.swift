@@ -294,6 +294,8 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     /// The windows that have been minimized, in the tail before Trash (M22).
     public var showMinimizedWindows = true
     public var showWindowCount = true
+    /// Stored by earlier builds, read by nothing: there is no Favourites feature. Kept so an
+    /// existing configuration decodes and re-encodes unchanged.
     public var showFavorites = true
     /// Keep other applications' windows off the bar (M12). Off by default: it moves windows
     /// belonging to other applications, which is not something to do to somebody unasked.
@@ -484,6 +486,35 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
     /// with these applications" says so with `setPinnedApplications`.
     public var pinnedApplications: [String] {
         pinnedEntries.flatMap(\.applications)
+    }
+
+    /// How many results usage is remembered for. Every executed result is recorded — files by
+    /// path, windows by an id that is reused — so without a ceiling the stored configuration
+    /// grows for as long as Nexus is used. The least recently used are forgotten first.
+    public static let frecencyLimit = 500
+
+    /// Records that a result was used: once more, and just now.
+    public mutating func recordUse(of id: String, at date: Date = Date()) {
+        var entry = frecency[id] ?? FrecencyEntry()
+        entry.count += 1
+        entry.lastUsed = date
+        frecency[id] = entry
+        guard frecency.count > Self.frecencyLimit else { return }
+        let keep = frecency
+            .sorted { lhs, rhs in
+                lhs.value.lastUsed == rhs.value.lastUsed ? lhs.key < rhs.key : lhs.value.lastUsed > rhs.value.lastUsed
+            }
+            .prefix(Self.frecencyLimit)
+        frecency = Dictionary(uniqueKeysWithValues: keep.map { ($0.key, $0.value) })
+    }
+
+    /// True when the only difference from `other` is what has been used and when. Nothing on
+    /// screen depends on that, so it is saved without being announced.
+    public func differsOnlyInUsage(from other: NexusConfiguration) -> Bool {
+        guard frecency != other.frecency else { return false }
+        var copy = self
+        copy.frecency = other.frecency
+        return copy == other
     }
 
     public mutating func setPinnedApplications(_ identifiers: [String]) {
