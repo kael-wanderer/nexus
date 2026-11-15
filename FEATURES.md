@@ -97,7 +97,7 @@ scope).
 | Advanced window thumbnails | M7 *(if budget allows)* | **Screen Recording** | Live-ish refresh on hover only; never a capture loop |
 | Multiple sidebar configurations | — | None | **Deferred.** Configuration versioning keeps the door open (§43 profiles) |
 | Per-monitor configuration | — | None | **Not built.** The unused per-display structure was deleted rather than left half-built (see `ROADMAP.md`, "What is not built, and why") |
-| Two copies of one application | — | None | **Known limit.** Applications are told apart by bundle identifier, so two running copies of the same application (`open -n`) show as one row with their windows combined, and window events are followed for the first copy only |
+| Two copies of one application | — | None | **Known limit.** Applications are told apart by bundle identifier, so two running copies of the same application (`open -n`) show as one row, and window events are followed for one copy only, so the other copy's windows can be missing or out of date |
 
 ---
 
