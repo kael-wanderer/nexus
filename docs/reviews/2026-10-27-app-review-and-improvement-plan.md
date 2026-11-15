@@ -1,6 +1,11 @@
 # Nexus app review and improvement plan
 
-Date: 2026-10-27 · Reviewed commit: 45b5c1b · Status: proposal, not an implementation commitment.
+Date: 2026-10-27 · Reviewed commit: 45b5c1b · Status: closed.
+
+**Outcome (2026-11-15):** R1 fixed in 5bb21d1, R2 (a flaky test, not an app bug) in 3c14707 and
+b3de1c9, R3 in 730bac1, R4 in 01050d0, R5 in 2363c4c, R6 in 196028a, R8 in 9b32108. R7 is
+deferred. Test counts and line references below are as of 45b5c1b. A later whole-workspace
+review is in [`2026-11-15-workspace-review.html`](2026-11-15-workspace-review.html).
 
 ## Recommendation
 

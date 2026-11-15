@@ -1,6 +1,7 @@
 # Nexus — Roadmap
 
-Seven milestones, per Foundation §29 (+ onboarding added to Milestone 6 by §111.6).
+Twenty-seven milestones: the seven of the MVP, per Foundation §29 (+ onboarding added to
+Milestone 6 by §111.6), and twenty after it.
 Each milestone ends with a shippable, stable app: build clean (zero warnings), tests pass,
 commit, review. No milestone starts before the previous one is accepted.
 
@@ -258,7 +259,7 @@ Spec: `docs/design/window-previews.md`.
 
 **Scope**
 - A browsable grid of every installed application, from the existing `ApplicationIndex`, with a
-  filter field, frecency-first ordering and system actions (Sleep / Restart / Log Out / Lock).
+  filter field, frecency-first ordering and system actions (Sleep / Restart / Shut Down / Log Out).
 - A launcher button at the leading end of the bar and a configurable corner for the panel.
 - `general.showStartMenu`, default off, plus an optional global shortcut.
 

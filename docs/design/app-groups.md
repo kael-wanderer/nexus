@@ -105,6 +105,9 @@ no groups behaves exactly as it does today, which is the same thing an "off" swi
 
 The schema, the interaction and the naming as specified. Four things went differently:
 
+- *Both of the next two bullets describe the first version and were later replaced: grouping
+  is now the middle of a row (D103), and the popover's title is edited in place (D104). See
+  Interaction above for how it works today.*
 - **Grouping needs a dwell, not just a drop.** Rows already move aside as a drag passes over them
   (D59), so "dropped on a row" and "dropped between rows" are the same gesture. Resting on a row
   for 600 ms is what switches meaning: the rows stop sliding, the target grows a ring, the dragged

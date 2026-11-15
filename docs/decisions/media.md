@@ -52,6 +52,8 @@ players that ship a scripting dictionary (Music, Spotify, VLC) and is simply abs
 Absent, not faked: a row without a scrubber is honest, a scrubber that does not move is a bug that
 looks like a feature.
 
+> **Later:** "the open popover" below is now the compact player's hover panel — see the note on D85.
+
 That makes position the one thing in Nexus that is polled, since no notification carries it. The
 poll is bounded by visibility rather than by frequency: once a second, and only while the player is
 actually on screen — the expanded row or the open popover. It stops when the popover closes.
@@ -93,6 +95,8 @@ It had one because for a while it *was* the player: two tiles in the bar could n
 so the controls lived a hover away. The wide row (D82) put artwork, title, timeline and buttons on
 the row itself, which made the popover a second copy of the same four things — and a hover between
 you and the buttons you were looking at.
+
+> **Later:** amended. The compact player has a hover panel again (`NowPlayingFlyoutView`, see `design/media-player-row.md`); the wide player still has none.
 
 So it is gone, along with a panel, a 400 ms hover-out grace period, a re-layout on every track
 change, a click monitor to dismiss it, and an anchor sentinel in `PanelController` for a row that is

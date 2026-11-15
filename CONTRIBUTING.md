@@ -43,10 +43,16 @@ These are load-bearing, not style preferences:
 5. **Degrade, never fail.** A missing permission, a vanished window, a disconnected display and
    an unresponsive application are all normal states with a designed appearance. No alerts for
    things the user did not just do.
-6. **Nexus changes no system settings.** Not the Dock, not Spotlight's shortcut. It explains and
-   deep-links; the user decides.
-7. **No shell, no AppleScript, no `osascript`.** Those need Automation permission and belong to
-   an automation engine that is out of scope.
+6. **Nexus changes no system setting on its own.** Not Spotlight's shortcut, not anything else:
+   it explains and deep-links; the user decides. The one exception is Dock Replacement Mode,
+   which the user switches on: it writes four `com.apple.dock` keys, keeps what was there, and
+   puts it back on quit or when switched off (`DockControlService`, D51–D54).
+7. **No shell, no `osascript`, and AppleScript only where there is no other API.** Three places
+   use `NSAppleScript`, each behind the Automation prompt macOS shows on first use: emptying the
+   Trash (`TrashService`), Sleep / Restart / Shut Down / Log Out (`SystemActions`) and a
+   scriptable player's position and transport (`MediaPositionService`). Scripts are fixed
+   strings; nothing a user types is ever put into one. Anything more belongs to an automation
+   engine that is out of scope.
 8. **Accessibility labels are written with the view**, not retrofitted. Every interactive element
    needs a label, a value where it has state, and a hint.
 9. **Localised strings.** User-facing text goes through `String(localized:)` from the start.

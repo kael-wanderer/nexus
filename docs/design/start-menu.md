@@ -59,8 +59,8 @@ on launch, and when it resigns key.
 `general.showStartMenu` (default **off** — this is an addition, not a replacement, and the bar
 should not grow a button nobody asked for) plus `appearance.startMenuCorner`.
 
-*Not built:* a dedicated global shortcut. `HotKeyService` holds one binding, and a second one is
-its own small piece of work — the launcher row and the menu-bar item are the ways in for now.
+*Not built:* a dedicated global shortcut. `HotKeyService` has a slot each for search, the bar
+and the window switcher; one for the start menu is its own small piece of work — the launcher row and the menu-bar item are the ways in for now.
 
 ## What shipped
 

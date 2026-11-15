@@ -5,7 +5,7 @@ option that preserves extensibility, record it, continue.
 
 Format: **decision — reason — alternative rejected.**
 
-One entry per call, numbered in the order they were made and never renumbered. Ninety-odd of them in
+One entry per call, numbered in the order they were made and never renumbered. More than a hundred of them in
 one file stopped being a log and started being a haystack, so the entries live in six files by area.
 The numbers stay global — which is why each file has gaps — and this page is the index.
 

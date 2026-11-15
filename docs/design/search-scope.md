@@ -81,7 +81,7 @@ and a filter that says one thing and shows another is worse than a longer name.
 
 ## Rules it inherits
 
-- Ranking, frecency and the 50 ms budget are unchanged (`design/mvp.md` §5): a scope narrows the
+- Ranking, frecency and the 50 ms budget are unchanged (`design/mvp.md` §4.4 and §10): a scope narrows the
   candidate set before ranking, and narrowing cannot make it slower.
 - The palette still dismisses on Escape, on an outside click, and on losing the keyboard.
 

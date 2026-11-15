@@ -66,7 +66,8 @@ turns the animation off and keeps the reordering.
 The drag callbacks come from the same `NSView` that already owns mouse-down (D56):
 `draggingUpdated` drives `dragMoved`, `draggingSession(_:endedAt:operation:)` drives `endDrag`.
 Only already-pinned rows get a preview — dragging a *running* application into the pinned section
-still commits on drop, because there is no slot to preview it in.
+still commits on drop, because there is no slot to preview it in. *(Changed later: running
+applications get the preview too — D59 (extended), D63.)*
 
 ## 3. The window list is in the right-click menu
 

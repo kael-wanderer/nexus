@@ -1,6 +1,6 @@
 # Milestone 8 — Dock Replacement Mode
 
-Spec for review. Nothing here is implemented yet.
+Shipped in Milestone 8 (`DockControlService`, `DockReplacementController`, the Dock tab in Settings; D51–D54, D78). Written as the spec it was reviewed as.
 
 Two features that only make sense together: a sidebar that can sit on **any** screen edge, and a
 mode that pushes Apple's Dock out of the way so Nexus can take its place.

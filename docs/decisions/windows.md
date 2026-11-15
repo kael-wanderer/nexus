@@ -23,6 +23,8 @@ a running application's context menu. A hover-dwell trigger would pop a panel op
 pointer crossed the sidebar on its way somewhere else. `ROADMAP.md` says "hover or click";
 this ships the click half and leaves hover unbuilt.
 
+> **Later:** superseded by D64 — hover opens the flyout after a delay.
+
 ## D22. `AXObserver` callbacks publish one coalesced `.windowsChanged(app)` per application
 instead of per-window created/closed/retitled/focused events.
 AX elements are not `Sendable`
@@ -43,12 +45,16 @@ Sheets, popovers, palettes and toolbars are AX windows too; listing them would m
 noise. Windows without an `_AXUIElementGetWindow` id still list and activate under a synthetic
 identifier — only their preview is lost (design/mvp.md §3.1).
 
+> **Later:** amended by D62 (a window with no subrole is not a window) and D100 (a minimized window stops calling itself standard).
+
 ## D36. The sidebar gets VoiceOver navigation, not arrow-key navigation.
 `ROADMAP.md` Milestone 7 asks for "full keyboard navigation of the sidebar", but the sidebar
 panel can never become key (D3) — that is the guarantee the whole product rests on. VoiceOver
 drives it through the accessibility element tree, which needs no key status, and every row
 carries a label, a value ("running, 3 windows") and a hint. Keyboard-driven work goes through
 the search palette, which is the keyboard surface, exactly as `design/mvp.md` §2.1 anticipated.
+
+> **Later:** superseded by D99 — the bar has a keyboard mode since Milestone 23.
 
 ## D37. Accessibility revocation is detected on the next AX call, not by polling.
 `WindowService` re-checks `AXIsProcessTrusted()` on every entry point and publishes
@@ -194,7 +200,7 @@ worth alongside it.
 `design/mvp.md` §3.5 says a missing permission degrades in silence, and every feature but this one
 keeps to that. A missing thumbnail in a flyout is a garnish; a wall of identical application icons
 is the switcher failing at the only job it has. The offer is the existing `PermissionRequestView`,
-one row above the grid, dismissible and never shown again once dismissed or granted — the grid
+one row above the grid, dismissible — gone for good once granted, and until the next launch once dismissed (the dismissal is not stored) — the grid
 below it stays fully usable, with icons, whether or not the offer is showing.
 
 ## D116. Escape clears the filter before it closes the panel.
