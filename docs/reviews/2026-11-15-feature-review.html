@@ -135,6 +135,56 @@ options nobody changes after the first day. Five additions, five improvements, e
   <li><strong>0.3.x, "less":</strong> the Remove table, in two or three commits, each with its settings rows and tests.</li>
   <li><strong>0.4.0:</strong> Add 3 and 5, Improve 2 and 3.</li>
 </ol>
+<h2>Who builds what</h2>
+<p>Rule: Opus takes work that is well bounded and where a wrong result shows up in tests. Fable takes work where the
+design has several valid paths, where concurrency or untrusted input is involved, or where a mistake only shows in the
+running app. Fable writes the plan and does the final review for every item either way.</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Item</th><th>Who</th><th>Why</th></tr>
+  <tr><td>Improve 1 · Dock replacement</td><td>Fable</td><td>Diagnosis and a decision before any code. Crash safety of a hidden Dock is the risky part.</td></tr>
+  <tr><td>Improve 3 · Media timeline off the main thread</td><td>Fable</td><td>Concurrency: script on a background queue, timeout, cancellation, results back to the main actor under Swift 6 checking.</td></tr>
+  <tr><td>Add 1 · Drop a file onto an application</td><td>Fable</td><td>Touches the drag code, where reorder, group, pin and spring-load share one drop path. High regression risk; extracting it (R7) was deferred for that reason.</td></tr>
+  <tr><td>Add 3 · Calculator</td><td>Fable</td><td>A parser on typed input, plus ranking so the answer does not push applications down. Fable writes at least the parser rules and the negative tests.</td></tr>
+  <tr><td>Improve 2 · Update check</td><td>Fable</td><td>Network input, version comparison, HTTPS only, what to trust from a feed. Notarisation stays blocked on a Developer ID.</td></tr>
+  <tr><td>Remove · Edit mode</td><td>Fable</td><td>Woven into drag and click handling.</td></tr>
+  <tr><td>Remove · Search scopes, six to four</td><td>Fable</td><td>Changes stored values, so it needs a migration.</td></tr>
+  <tr><td>Add 2 · Hide, Hide Others, ⌥-click</td><td>Opus</td><td>One interface, menu items, tests.</td></tr>
+  <tr><td>Add 4 · Newest first in a folder stack</td><td>Opus</td><td>A sort option, one stored field, a settings row.</td></tr>
+  <tr><td>Add 5 · Export and import settings</td><td>Opus</td><td>The format is already versioned. Fable lists the validation rules first.</td></tr>
+  <tr><td>Improve 4 · Switcher default ⌥Tab</td><td>Opus, or Codex Luna / Terra</td><td>One constant, tests, documents.</td></tr>
+  <tr><td>Improve 5 · Second copy's window events</td><td>Opus</td><td>Bounded change in <code>WindowMonitor</code>. Fable reviews it.</td></tr>
+  <tr><td>Remove · the other nine (category suggestions, row ceilings, Move Up / Down / to End, group colours and emoji, group capacity, panel size, opacity / corner radius / icon spacing, Spotlight status, search box in the bar)</td><td>Opus, or Codex Luna / Terra</td><td>Mechanical: delete the setting, its row in Settings, its settings-search entry and its tests; keep the stored key decodable.</td></tr>
+</table>
+</div>
+<p class="why">Split: 7 for Fable, 14 for Opus in three batches (small additions; Improve 4 and 5; removals).</p>
+
+<h2>State when this was written</h2>
+<ul>
+  <li><strong>Nothing here is decided or started.</strong> The owner has read the summary and will come back to it. No plan has been written for any item.</li>
+  <li><strong>Repository:</strong> <code>main</code>, pushed to origin except for this file's commits. 535 tests pass (315 UI, 220 core), zero warnings. Version 0.2.0 (2). A fresh build is in <code>build/Nexus.app</code>, not installed.</li>
+  <li><strong>Still owed before any of this:</strong> the owner runs <code>docs/release-checklist.md</code> (29 rows) on an installed build. Rows that fail or are blocked go to Fable for a fix plan. Then tag 0.2.1.</li>
+  <li><strong>Earlier the same day:</strong> the workspace review and its fixes, in <code>docs/reviews/2026-11-15-workspace-review.html</code>.</li>
+</ul>
+
+<h2>Open questions for the owner</h2>
+<ol>
+  <li>Why is Dock replacement off on your Mac? The answer decides Improve 1 and may reorder the additions.</li>
+  <li>Which removals do you accept? Several are features you asked for. Tick or strike each row of the Remove table.</li>
+  <li>Is the search palette part of your daily use? Usage history on your Mac held one entry. If not, Add 3 moves down.</li>
+  <li>Do you plan to pay for a Developer ID? Without it, Improve 2 delivers update checks but not notarisation.</li>
+  <li>Opus, or Codex Luna / Terra, for the mechanical items?</li>
+</ol>
+
+<h2>How to pick this up</h2>
+<ol>
+  <li>Answer the open questions above.</li>
+  <li>Fable writes plans for the 0.3.0 set first: Add 1 (Fable builds), Add 2, Add 4 and Improve 4 (Opus builds). Plans go in <code>docs/plans/</code>; anything with new screens or menus gets an HTML mockup.</li>
+  <li>One branch per batch, merged with <code>--no-ff</code>, <code>make lint</code> and <code>swift test</code> clean, three test runs under full processor load, then push when the owner says so.</li>
+  <li>Each shipped item gets a row in <code>docs/release-checklist.md</code> and a line in <code>CHANGELOG.md</code>.</li>
+</ol>
+
 <p class="why">Removals are the owner's decision: several are features asked for earlier. Nothing in this review has been changed in the code.</p>
 </main>
 </body>
