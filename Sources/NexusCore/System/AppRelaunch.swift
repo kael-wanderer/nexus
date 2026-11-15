@@ -22,8 +22,11 @@ public enum AppRelaunch {
 
         Log.app.notice("Relaunching to pick up a permission change")
         NSWorkspace.shared.openApplication(at: bundleURL, configuration: configuration) { _, error in
+            // Quit only once the replacement exists. Terminating after a failed launch would
+            // leave the user with no Nexus at all, which is worse than a stale permission.
             if let error {
-                Log.app.error("Relaunch failed: \(String(describing: error), privacy: .public)")
+                Log.app.error("Relaunch failed; staying up: \(String(describing: error), privacy: .public)")
+                return
             }
             Task { @MainActor in NSApp.terminate(nil) }
         }

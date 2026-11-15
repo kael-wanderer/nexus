@@ -28,8 +28,6 @@ public actor WindowService: WindowServing {
     /// per application so `activate` does not have to re-enumerate, and thrown away whenever
     /// anything about that application changes.
     private var elements: [ApplicationIdentity: [CGWindowID: AXUIElement]] = [:]
-    /// Applications that timed out. Skipped this pass, retried on their next AX event.
-    private var unresponsive: Set<ApplicationIdentity> = []
     /// Last good enumeration, so search can read window titles without an AX round trip.
     private var snapshot: [ApplicationIdentity: [NexusWindow]] = [:]
     /// Revocation is only observable when a call is made — macOS publishes no TCC notification
@@ -53,7 +51,6 @@ public actor WindowService: WindowServing {
             if !trusted {
                 elements.removeAll()
                 snapshot.removeAll()
-                unresponsive.removeAll()
                 Log.windows.notice("Accessibility was revoked while running; window features degraded")
             }
             events?.publish(.permissionChanged(.accessibility, trusted ? .granted : .denied))
@@ -70,7 +67,6 @@ public actor WindowService: WindowServing {
     public func forget(_ application: ApplicationIdentity) {
         elements[application] = nil
         snapshot[application] = nil
-        unresponsive.remove(application)
     }
 
     public func windows(for application: ApplicationIdentity) throws -> [NexusWindow] {
@@ -87,7 +83,6 @@ public actor WindowService: WindowServing {
         do {
             windowElements = try AX.windows(of: applicationElement)
         } catch NexusError.timedOut {
-            unresponsive.insert(application)
             Log.windows.debug("\(application.bundleIdentifier, privacy: .public) did not answer in time; skipping")
             return snapshot[application] ?? []
         } catch NexusError.permissionDenied {
@@ -98,7 +93,6 @@ public actor WindowService: WindowServing {
             return []
         }
 
-        unresponsive.remove(application)
         let name = Self.localizedName(for: pid) ?? application.bundleIdentifier
 
         var cache: [CGWindowID: AXUIElement] = [:]
@@ -163,7 +157,7 @@ public actor WindowService: WindowServing {
     }
 
     /// Raise before activating, or the application comes forward showing its previous window
-    /// (design/mvp.md §3.2).
+    /// (docs/design/mvp.md §3.2).
     public func activate(_ window: WindowIdentity) throws {
         guard checkTrust() else { throw NexusError.permissionDenied(.accessibility) }
         guard let element = elements[window.owner]?[window.number] else {
@@ -213,7 +207,6 @@ public actor WindowService: WindowServing {
         do {
             item = try AX.menuItem(of: applicationElement, commandChar: "n")
         } catch NexusError.timedOut {
-            unresponsive.insert(application)
             Log.windows.debug("\(application.bundleIdentifier, privacy: .public) did not answer in time; skipping")
             return
         } catch NexusError.permissionDenied {
@@ -223,7 +216,6 @@ public actor WindowService: WindowServing {
             forget(application)
             return
         }
-        unresponsive.remove(application)
         guard let item else {
             Log.windows.notice(
                 "No \u{2318}N menu item for \(application.bundleIdentifier, privacy: .public); nothing to press"

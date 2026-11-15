@@ -18,6 +18,8 @@ Spotlight already indexes every application bundle anywhere on disk and pushes l
 no `FSEvents` watcher, no refresh timer. Directory scan is the fallback when Spotlight is
 disabled.
 
+> **Later:** superseded by D30 — the live query became a one-shot query rebuilt when an application launches.
+
 ## D26. The search palette starts on the non-activating key path and self-measures.
 Review Note 1. `SearchPanelController` opens with `makeKeyAndOrderFront` and no `NSApp.activate()`;
 200 ms later it logs `strategy / isKeyWindow / NSApp.isActive / frontmost` and switches to

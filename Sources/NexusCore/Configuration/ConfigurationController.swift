@@ -28,9 +28,14 @@ public final class ConfigurationController {
         var next = configuration
         mutate(&next)
         next.appearance.clamp()
+        next.behavior.clamp()
         guard next != configuration else { return }
+        // Running a search result bumps its usage count. That is worth saving and nothing else:
+        // announcing it made every subscriber redo its work — a bar refresh, a badge scan through
+        // Accessibility, a reframe, a reserved-space sweep — once per search.
+        let usageOnly = next.differsOnlyInUsage(from: configuration)
         configuration = next
-        events.publish(.configurationChanged(next))
+        if !usageOnly { events.publish(.configurationChanged(next)) }
         scheduleSave()
     }
 

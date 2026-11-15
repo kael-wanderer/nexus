@@ -1,6 +1,7 @@
 import AppKit
 
-/// The sidebar and the window flyout. Never key, never main — the other application's
+/// The sidebar and every popover beside it — window flyout, group, folder, player, volume,
+/// calendar. Never key, never main — the other application's
 /// insertion point is never disturbed (D3).
 public final class NonActivatingPanel: NSPanel {
     /// The one exception to "never key" (D3), and it is the palette's bargain: the user asked for

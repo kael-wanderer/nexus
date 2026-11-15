@@ -103,8 +103,8 @@ offers three: the menu-bar display, the display with the pointer, every display.
   whichever bar the pointer is on, so clicking an application on the second monitor does not open
   its windows on the first.
 
-Not done: a per-display edge or width. `DisplayOverride` exists in the configuration and stays
-unused — revealing one bar reveals them all, and they share one edge, because a second bar is for
+Not done: a per-display edge or width. The unused `DisplayOverride` structure has since been
+deleted from the configuration — revealing one bar reveals them all, and they share one edge, because a second bar is for
 reaching the same dock without crossing monitors.
 
 ## D106. Badge counts are read off the Dock, because there is nowhere else to read them.

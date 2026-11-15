@@ -4,8 +4,8 @@ import SwiftUI
 /// The volume control at the end of the bar: one slot, the speaker glyph for the current state,
 /// opening a slider (M27).
 ///
-/// Left click opens the slider, right click mutes — the same split the Trash row makes between
-/// "show me" and "act now", and it keeps mute one gesture away rather than behind the popover.
+/// Left click opens the slider, right click opens a one-item menu, Mute or Unmute — the same
+/// split the Trash row makes between "show me" and "act now", and it keeps mute out of the popover.
 struct SidebarVolumeRow: View {
     @Bindable var model: SidebarViewModel
 

@@ -58,6 +58,13 @@ public actor WindowPreviewService: WindowPreviewing {
     private struct Entry {
         let image: SendableImage
         let capturedAt: Date
+        /// The size it was captured for. A thumbnail made for the flyout is too small for the
+        /// switcher's larger card, so an entry only answers requests it is big enough for.
+        let maxDimension: CGFloat
+
+        func serves(_ requested: CGFloat) -> Bool {
+            maxDimension >= requested && Date().timeIntervalSince(capturedAt) < WindowPreviewService.timeToLive
+        }
     }
 
     private static let timeToLive: TimeInterval = 5
@@ -89,7 +96,7 @@ public actor WindowPreviewService: WindowPreviewing {
     public func preview(for window: WindowIdentity, maxDimension: CGFloat) async -> SendableImage? {
         guard CGPreflightScreenCaptureAccess() else { return nil }
 
-        if let entry = cache[window.number], Date().timeIntervalSince(entry.capturedAt) < Self.timeToLive {
+        if let entry = cache[window.number], entry.serves(maxDimension) {
             return entry.image
         }
         guard !inFlight.contains(window.number) else { return cache[window.number]?.image }
@@ -110,7 +117,7 @@ public actor WindowPreviewService: WindowPreviewing {
                 return nil
             }
             guard let image = await Self.capture(target, maxDimension: maxDimension) else { return nil }
-            store(image, for: window.number)
+            store(image, for: window.number, maxDimension: maxDimension)
             return image
         } catch {
             // A denial or a window that vanished mid-capture is a normal state change (§3.5),
@@ -138,15 +145,13 @@ public actor WindowPreviewService: WindowPreviewing {
         // Cancel rather than let it run to completion alongside this one — cancellation is
         // cooperative, so an older batch already mid-fetch still pays for that one fetch, but it
         // is checked again right after and will not go on to run its (far more expensive)
-        // captures. Finishing its stream here, rather than waiting for it to notice cancellation,
-        // means its consumer's `for await` ends immediately instead of hanging until the old
-        // fetch drains.
+        // captures. Its stream finishes when its task does, which is once that fetch returns.
         activeBatch?.task.cancel()
         let batchID = UUID()
 
         var pending: [WindowIdentity] = []
         for window in windows {
-            if let entry = cache[window.number], Date().timeIntervalSince(entry.capturedAt) < Self.timeToLive {
+            if let entry = cache[window.number], entry.serves(maxDimension) {
                 continuation.yield((window, entry.image))
             } else {
                 pending.append(window)
@@ -178,7 +183,7 @@ public actor WindowPreviewService: WindowPreviewing {
             await PreviewBatch.run(targets, maxInFlight: Self.maximumInFlight) { target in
                 guard !Task.isCancelled else { return }
                 guard let image = await Self.capture(target.window, maxDimension: maxDimension) else { return }
-                await self.store(image, for: target.identity.number)
+                await self.store(image, for: target.identity.number, maxDimension: maxDimension)
                 continuation.yield((target.identity, image))
             }
             await self.clearActiveBatch(batchID)
@@ -223,11 +228,11 @@ public actor WindowPreviewService: WindowPreviewing {
         }
     }
 
-    func store(_ image: SendableImage, for identifier: CGWindowID) {
+    func store(_ image: SendableImage, for identifier: CGWindowID, maxDimension: CGFloat) {
         if cache.count >= Self.maximumEntries {
             let oldest = cache.min { $0.value.capturedAt < $1.value.capturedAt }?.key
             if let oldest { cache[oldest] = nil }
         }
-        cache[identifier] = Entry(image: image, capturedAt: Date())
+        cache[identifier] = Entry(image: image, capturedAt: Date(), maxDimension: maxDimension)
     }
 }

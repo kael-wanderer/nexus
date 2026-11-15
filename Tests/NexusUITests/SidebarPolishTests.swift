@@ -370,13 +370,6 @@ struct DockBadgeTests {
         model.setBadges([:])
         #expect(model.badge(for: "a") == nil)
     }
-
-    @Test("Without Accessibility there are no badges, and that is the whole failure mode")
-    func degradesWithoutPermission() {
-        // The service is the only caller of the Accessibility API here; unpermitted or not, it
-        // answers with a dictionary. Nothing else in the bar depends on it.
-        #expect(DockBadgeService.badges().isEmpty || !DockBadgeService.badges().isEmpty)
-    }
 }
 
 @Suite("Folder previews on hover")
@@ -388,9 +381,9 @@ struct FolderHoverTests {
         await model.refresh()
         var opened: [String] = []
         model.showFolder = { opened.append($0.path) }
-        let folder = try? #require(model.pinned.first?.folder)
+        let folder = try #require(model.pinned.first?.folder)
 
-        model.folderHoverChanged(folder!, hovering: true)
+        model.folderHoverChanged(folder, hovering: true)
         #expect(opened.isEmpty)                            // not immediately
         try await waitUntil { opened == ["/tmp"] }
     }

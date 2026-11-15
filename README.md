@@ -6,6 +6,9 @@ A native macOS vertical dock and a unified search palette in one agent applicati
 in the menu bar, never takes focus away from what you are typing in, and changes no system
 setting unless you ask it to replace the Dock — and then puts the Dock back exactly as it was.
 
+Search opens with **⌥Space**, the keyboard reaches the bar with **⌃⌥Space**, and the window
+switcher opens with **⌃⌥W**. All three can be changed in Settings › Shortcuts.
+
 > Status: Milestones 1–27 shipped — the MVP and twenty milestones past it. Local builds only —
 > see [Installation](#installation).
 
@@ -62,6 +65,7 @@ feature behind a permission it does not need.
 | *(none)* | Sidebar, pinning, launching, quitting, window **counts**, application search, file search, actions | — |
 | **Accessibility** | Window lists, window titles, raising a window, window search | Everything above still works |
 | **Screen Recording** *(optional)* | Window thumbnails | Title-only window lists |
+| **Automation** *(asked by macOS on first use, per application)* | Empty Trash (Finder); Sleep, Restart, Shut Down, Log Out (System Events); the timeline and transport of Music, Spotify and VLC | That one action does nothing; everything else still works |
 
 ## Installation
 
@@ -90,7 +94,7 @@ Uninstalling is the usual drag to the Trash; macOS drops the login item with it.
 ### Taking it to another Mac
 
 ```sh
-make dmg     # build/Nexus-<version>.dmg — a release build, signed, with the Applications shortcut
+make dmg     # build/Nexus-<version>-<arch>.dmg — a release build, signed, with the Applications shortcut
 make zip     # build/Nexus-<version>.zip — the same build, when a disk image is too much ceremony
 ```
 
@@ -104,8 +108,8 @@ signature. An ad-hoc signature changes on **every rebuild**, so every permission
 reset the next time you build — and because TCC's record no longer matches the running binary,
 `AXIsProcessTrusted()` keeps returning false however many times you flip the switch.
 
-`make` picks an identity automatically: an "Apple Development" certificate if you have one, else
-**any** valid codesigning identity in your keychain, else ad-hoc with a warning. Any stable
+`make` picks an identity automatically: a certificate named "Bugler Local Dev" if there is one,
+then an "Apple Development" certificate, else **any** valid codesigning identity in your keychain, else ad-hoc with a warning. Any stable
 certificate works — TCC cares that the signature does not change, not who issued it.
 
 ```sh

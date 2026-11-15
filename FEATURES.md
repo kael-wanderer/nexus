@@ -1,9 +1,10 @@
 # Nexus — MVP Features
 
-Every feature from Foundation §28, mapped to its milestone and required permission.
+Every shipped feature, mapped to its milestone and required permission. Rows 1–25 follow
+Foundation §28; the rest came after the MVP.
 Permission column: **None** means the feature works with everything denied.
 
-Legend — M1…M23 = milestone (see `ROADMAP.md`). Rows past 25 are features the MVP did not
+Legend — M1…M27 = milestone (see `ROADMAP.md`). Rows past 25 are features the MVP did not
 have; the Foundation numbering stops there.
 
 ---
@@ -31,11 +32,11 @@ have; the Foundation numbering stops there.
 | 17 | Window search | M5 | **Accessibility** | Provider yields nothing when denied; rest of search unaffected |
 | 18 | Basic file search | M5 | None | `NSMetadataQuery` over the user scope |
 | 19 | Basic actions | M5 | None | See the Actions table below |
-| 20 | Settings | M6 | None | General / Appearance / Behavior / Search / Permissions |
+| 20 | Settings | M6 | None | General / Appearance / Behavior / Search / Permissions at M6; nine tabs since M24–M26 (General, Dock, Bar, Appearance, Behavior, Shortcuts, Search, Permissions, About) |
 | 21 | Persistence | M1 | None | Versioned `Codable` in `UserDefaults` |
 | 22 | Multi-monitor awareness | M2 (basic) → M7 (full) → M20 (bars) | None | Placement at M2; reconnect stability at M7; a bar per display, or one that follows the pointer, at M20 (D91) |
 | 23 | Dark/light mode | M2 | None | System materials, no hard-coded colors |
-| 24 | Keyboard navigation | M5 (palette) → M7 (sidebar) | None | Palette is keyboard-first from day one |
+| 24 | Keyboard navigation | M5 (palette) → M23 (sidebar) | None | Palette is keyboard-first from day one; the bar got its keyboard mode in M23 (row 31) |
 | 25 | Accessibility basics | every milestone | None | Labels written with the view, not retrofitted; audited at M7 |
 | 26 | Install and launch at login | M6 (toggle) → M18 (install) | None | `make install` puts the signed bundle in `/Applications`; `SMAppService.mainApp` registers it there, and the toggle warns when Nexus is running from anywhere else (D86) |
 | 27 | Search scope | M19 | None | Everything / Applications / Files & Folders / Files / Folders / Settings & Actions, on `⌃1`…`⌃6`, `⇥` or the chip menu; files versus folders is a Spotlight predicate on the existing query (D87). Settings & Actions holds the built-in actions and every pane of System Settings, read from the extension directory since Spotlight does not index them (D98) |
@@ -65,8 +66,10 @@ have; the Foundation numbering stops there.
 | Volume | M27 | None | One slot at the end of the bar, the speaker glyph for the current state, opening a slider; right-click mutes. CoreAudio's virtual main volume on the default output device, re-read on every access so headphones do not strand it, with property listeners for the keyboard keys and the menu bar's own slider. On by default (D123) |
 | Trash | M9 | None | Always-present row before Search, drawn with the macOS Trash icons and showing full vs empty (counted with `stat`, no Full Disk Access — D58). Click opens it; the context menu opens or empties it, asking first |
 
-No shell execution, no AppleScript, no `osascript` in the MVP. Those need Automation
-permission and belong to the automation engine (§46, out of scope).
+No shell execution and no `osascript`. `NSAppleScript` is used in exactly three places, each
+behind macOS's Automation prompt on first use: Empty Trash, the Start menu's system actions and
+a scriptable player's timeline. Anything more belongs to the automation engine (§46, out of
+scope).
 
 ---
 
@@ -92,9 +95,8 @@ permission and belong to the automation engine (§46, out of scope).
 | Feature | Milestone | Permission | Decision |
 |---|---|---|---|
 | Advanced window thumbnails | M7 *(if budget allows)* | **Screen Recording** | Live-ish refresh on hover only; never a capture loop |
-| Folder stacks | — | None | **Deferred past MVP.** Not in §33's Definition of Done |
 | Multiple sidebar configurations | — | None | **Deferred.** Configuration versioning keeps the door open (§43 profiles) |
-| Per-monitor configuration | M7 *(structure only)* | None | Configuration stores a display-keyed dictionary with one entry; UI ships post-MVP |
+| Per-monitor configuration | — | None | **Not built.** The unused per-display structure was deleted rather than left half-built (see `ROADMAP.md`, "What is not built, and why") |
 
 ---
 
@@ -157,6 +159,7 @@ The architecture must not *block* these (§20). It must not *contain* them.
 | **None (M1–M3)** | — | — | Full launcher, pinning, running apps, window counts, settings |
 | **Accessibility** | M4 | Window lists, window titles, window activation, window search | Yes — everything above still works |
 | **Screen Recording** | M4 *(optional)* | Window thumbnails only | Yes — title-only window lists |
+| **Automation** | M9 (Empty Trash), M11, M16 — asked by macOS on first use, per application | That one action: Empty Trash, a Start menu system action, or a player's timeline | Yes — everything else still works |
 
 Nexus never requests a permission at launch, never re-prompts after a denial, and never
 blocks a feature behind a permission it does not actually need (§25, §64).

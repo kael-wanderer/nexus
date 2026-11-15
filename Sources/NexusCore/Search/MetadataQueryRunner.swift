@@ -78,12 +78,24 @@ public enum MetadataSearch: Sendable {
     /// into the format string.
     case displayNamePrefix(String, kind: FileKind = .any)
 
+    /// `LIKE` reads `*` and `?` as wildcards and `\` as its escape. What the user typed is text,
+    /// so all three are escaped: a typed `?` must find a file with a question mark in its name,
+    /// not every file one character longer.
+    static func escapedForLike(_ text: String) -> String {
+        var escaped = ""
+        for character in text {
+            if character == "*" || character == "?" || character == "\\" { escaped.append("\\") }
+            escaped.append(character)
+        }
+        return escaped
+    }
+
     var predicate: NSPredicate {
         switch self {
         case .applicationBundles:
             return NSPredicate(format: "kMDItemContentType == %@", "com.apple.application-bundle")
         case .displayNamePrefix(let text, let kind):
-            let name = NSPredicate(format: "kMDItemDisplayName LIKE[cd] %@", "\(text)*")
+            let name = NSPredicate(format: "kMDItemDisplayName LIKE[cd] %@", "\(Self.escapedForLike(text))*")
             guard let kindPredicate = kind.predicate else { return name }
             return NSCompoundPredicate(andPredicateWithSubpredicates: [name, kindPredicate])
         }
@@ -92,7 +104,7 @@ public enum MetadataSearch: Sendable {
 
 /// One-shot Spotlight query. `NSMetadataQuery` needs a run loop, so it lives on the main actor;
 /// callers get back `Sendable` value types. The query is stopped on the first gather — no live
-/// monitoring, no background churn (design/mvp.md §4.2).
+/// monitoring, no background churn (docs/design/mvp.md §4.2).
 @MainActor
 public final class MetadataQueryRunner {
     public static let shared = MetadataQueryRunner()

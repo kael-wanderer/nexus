@@ -201,4 +201,34 @@ struct DockReplacementTests {
         #expect(DockControlService.dockOrientation(besides: .top) == "left")
         #expect(DockControlService.dockOrientation(besides: .bottom) == "left")
     }
+
+    /// A hand-edited or partly written configuration: Nexus's values are on the Dock and what it
+    /// captured is gone. Clearing `applied` without restoring left the Dock hidden for good.
+    @Test("A hidden Dock with no captured settings goes back to system defaults")
+    func restoreWithoutSnapshot() {
+        let (controller, configuration, dock) = makeController {
+            $0.dock.replacementEnabled = true
+            $0.dock.applied = true
+            $0.dock.snapshot = nil
+        }
+        dock.hidden = true
+
+        controller.restoreNow()
+
+        #expect(dock.restored.count == 1)
+        #expect(dock.restored.first?.autohide == nil)
+        #expect(dock.restored.first?.autohideDelay == nil)
+        #expect(dock.restored.first?.autohideTimeModifier == nil)
+        #expect(dock.restored.first?.orientation == nil)
+        #expect(!configuration.configuration.dock.applied)
+    }
+
+    @Test("With nothing applied and no snapshot there is nothing to restore")
+    func restoreWithNothingApplied() {
+        let (controller, _, dock) = makeController()
+
+        controller.restoreNow()
+
+        #expect(dock.restored.isEmpty)
+    }
 }

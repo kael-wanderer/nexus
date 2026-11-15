@@ -66,6 +66,19 @@ public final class SearchViewModel {
             .map { (category: $0.key, results: $0.value) }
     }
 
+    /// The results in the order the palette draws them: category by category, ranked inside
+    /// each. `results` is ranked across categories, which is a different order whenever a window
+    /// or a file outscores an application — so everything the user steers by position (the
+    /// arrows, ⌘1–9 and their labels) goes through this, and a step down is always the row below.
+    public var displayedResults: [SearchResult] {
+        groupedResults.flatMap(\.results)
+    }
+
+    /// 0-based position of a result among the drawn rows, for the ⌘N label.
+    public func displayIndex(of result: SearchResult) -> Int? {
+        displayedResults.firstIndex { $0.id == result.id }
+    }
+
     // MARK: - Lifecycle
 
     public func prepareForDisplay() {
@@ -116,7 +129,7 @@ public final class SearchViewModel {
 
     private func apply(_ snapshot: SearchSnapshot) {
         results = snapshot.results
-        // design/mvp.md §4.1: a later snapshot must not move the selection *once the user has
+        // docs/design/mvp.md §4.1: a later snapshot must not move the selection *once the user has
         // moved it*. Until then row 0 stays preselected on every snapshot — otherwise the first
         // provider to answer strands the selection on its row 0, and the merge that follows
         // leaves it pointing at whatever now sits three rows down.
@@ -155,11 +168,12 @@ public final class SearchViewModel {
     // MARK: - Keyboard
 
     public func moveSelection(by delta: Int) {
-        guard !results.isEmpty else { return }
+        let drawn = displayedResults
+        guard !drawn.isEmpty else { return }
         selectionIsPinned = true
-        let currentIndex = results.firstIndex { $0.id == selectedID } ?? 0
-        let next = (currentIndex + delta).clamped(to: 0...(results.count - 1))
-        selectedID = results[next].id
+        let currentIndex = drawn.firstIndex { $0.id == selectedID } ?? 0
+        let next = (currentIndex + delta).clamped(to: 0...(drawn.count - 1))
+        selectedID = drawn[next].id
     }
 
     /// Hover highlight. Deliberately does **not** pin: the palette opens under the pointer, so
@@ -176,15 +190,16 @@ public final class SearchViewModel {
     }
 
     public func selectRow(_ index: Int) {
-        guard results.indices.contains(index) else { return }
+        let drawn = displayedResults
+        guard drawn.indices.contains(index) else { return }
         selectionIsPinned = true
-        selectedID = results[index].id
+        selectedID = drawn[index].id
         execute(secondary: false)
     }
 
     public func execute(secondary: Bool) {
         guard let result = selectedResult else { return }
-        configuration.update { $0.frecency[result.id, default: FrecencyEntry()].bump() }
+        configuration.update { $0.recordUse(of: result.id) }
         onExecute?(result, secondary)
     }
 
@@ -213,12 +228,5 @@ public final class SearchViewModel {
 
     public func close() {
         onClose?()
-    }
-}
-
-extension FrecencyEntry {
-    mutating func bump(at date: Date = Date()) {
-        count += 1
-        lastUsed = date
     }
 }

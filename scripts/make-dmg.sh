@@ -49,6 +49,24 @@ codesign --verify --strict "$APP_DIR"
 DMG_PATH="$ROOT/build/$APP_NAME-$VERSION-$ARCH.dmg"
 STAGE="$(mktemp -d)"
 
+# Everything this run mounts or creates outside build/ is undone on the way out, whichever
+# step failed: a styling error used to leave the working image attached and the stage behind.
+RW_DMG=""
+DEV_NODE=""
+MOUNT=""
+cleanup() {
+    if [[ -n "$MOUNT" ]]; then
+        hdiutil detach "$MOUNT" -quiet 2> /dev/null || true
+        rmdir "$MOUNT" 2> /dev/null || true
+    fi
+    if [[ -n "$DEV_NODE" ]]; then
+        hdiutil detach "$DEV_NODE" -force > /dev/null 2>&1 || true
+    fi
+    if [[ -n "$RW_DMG" ]]; then rm -f "$RW_DMG"; fi
+    rm -rf "$STAGE"
+}
+trap cleanup EXIT
+
 cp -R "$APP_DIR" "$STAGE/$APP_NAME.app"
 ln -s /Applications "$STAGE/Applications"
 
@@ -69,8 +87,9 @@ detach_retry() {
 
 # DMG_FANCY=1 (the default) arranges the Finder window the user sees on open:
 # the two icon positions, no toolbar, and a background picture if there is one to
-# use. It needs Finder scripting, so CI sets DMG_FANCY=0 and gets the plain
-# image — the same contents, laid out by Finder's defaults.
+# use. It needs Finder scripting, so a run without a Finder session (over SSH,
+# say) sets DMG_FANCY=0 and gets the plain image — the same contents, laid out
+# by Finder's defaults.
 if [[ "${DMG_FANCY:-1}" == "1" ]]; then
     if [[ -f "$BACKGROUND_PNG" ]]; then
         mkdir "$STAGE/.background"
@@ -134,31 +153,27 @@ EOF
     # a missing .DS_Store fails the run rather than shipping.
     if [[ ! -f "$MOUNT_DIR/.DS_Store" ]]; then
         echo "Finder never wrote $MOUNT_DIR/.DS_Store — the styled layout would be missing." >&2
-        detach_retry "$DEV_NODE" || true
-        rm -f "$RW_DMG"
         exit 1
     fi
     diskutil rename "$MOUNT_DIR" "$APP_NAME" > /dev/null
     detach_retry "$DEV_NODE"
+    DEV_NODE=""
     hdiutil convert "$RW_DMG" -format UDZO -ov -quiet -o "$DMG_PATH" > /dev/null
     rm -f "$RW_DMG"
 else
     hdiutil create \
-        -volname "$APP_NAME $VERSION" \
+        -volname "$APP_NAME" \
         -srcfolder "$STAGE" \
         -ov -format UDZO \
         -quiet \
         "$DMG_PATH"
 fi
 
-rm -rf "$STAGE"
-
 # Verify what actually came out, rather than what was asked for: the image
 # mounts, the app inside it is the architecture this run claims, and its
 # signature survived the copy.
 MOUNT="$(mktemp -d)"
 hdiutil attach "$DMG_PATH" -mountpoint "$MOUNT" -nobrowse -quiet -readonly
-trap 'hdiutil detach "$MOUNT" -quiet 2> /dev/null || true; rmdir "$MOUNT" 2> /dev/null || true' EXIT
 
 MOUNTED_APP="$MOUNT/$APP_NAME.app"
 MOUNTED_ARCH="$(lipo -archs "$MOUNTED_APP/Contents/MacOS/$EXECUTABLE")"

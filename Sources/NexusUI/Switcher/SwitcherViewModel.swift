@@ -3,8 +3,8 @@ import CoreGraphics
 import NexusCore
 import SwiftUI
 
-/// Data, filter, sort, grouping, selection and keyboard focus for the window switcher (M25). The
-/// panel and grid views are later tasks; this is the object they read from and act through.
+/// Data, filter, sort, grouping, selection and keyboard focus for the window switcher (M25):
+/// the object `SwitcherPanelController` and `SwitcherView` read from and act through.
 @MainActor
 @Observable
 public final class SwitcherViewModel {
@@ -12,6 +12,11 @@ public final class SwitcherViewModel {
 
     public private(set) var windows: [NexusWindow] = []
     public private(set) var previews: [CGWindowID: NSImage] = [:]
+    /// Whether the panel is up. While it is not, window events are ignored: enumerating every
+    /// window through Accessibility and capturing each one is work nobody is looking at, and
+    /// `prepareForDisplay()` reloads from scratch on the way in anyway. True until a panel says
+    /// otherwise, so a model with no panel behaves as it always did.
+    public private(set) var isOnScreen = true
     public private(set) var accessibility: PermissionStatus = .denied
     public private(set) var previewsOfferDismissed = false
     public private(set) var selection: Set<String> = []
@@ -23,14 +28,14 @@ public final class SwitcherViewModel {
     public var isReversed: Bool { didSet { persist(); rebuild() } }
     public private(set) var sections: [SwitcherSection] = []
     /// How many cards are across, published by the view so arrow-key focus moves by a real row
-    /// (Task 6, and `moveFocus`'s `columns` parameter).
+    /// (`moveFocus`'s `columns` parameter).
     public var columns = 1
     /// `bundleIdentifier` → resolved application URL. See `applicationURL(forBundleIdentifier:)`.
     @ObservationIgnored private var applicationURLCache: [String: URL] = [:]
 
     @ObservationIgnored private let service: any WindowServing
     @ObservationIgnored private let previewService: any WindowPreviewing
-    // Not `private`: Task 5's gate view reads this through the view model rather than being handed
+    // Not `private`: the permission gate view reads this through the view model rather than being handed
     // a second reference to the permission service, and an `internal` (default) property is the
     // one access level an extension added in another file of this module can still see.
     @ObservationIgnored let permissions: any PermissionChecking
@@ -87,9 +92,11 @@ public final class SwitcherViewModel {
                 case .applicationActivated(let identity):
                     self.noteActivation(identity)
                 case .windowsChanged, .applicationTerminated, .applicationLaunched:
+                    guard self.isOnScreen else { continue }
                     await self.reload()
                 case .permissionChanged(.accessibility, let status):
                     self.accessibility = status
+                    guard self.isOnScreen else { continue }
                     await self.reload()
                 default:
                     continue
@@ -108,7 +115,17 @@ public final class SwitcherViewModel {
     /// Called by the panel just before it goes on screen: the grid shows the cached snapshot at
     /// once and the fresh enumeration replaces it a moment later. An empty grid for 200 ms is
     /// worse than a stale one (spec §3).
+    /// The panel went away. Thumbnails are dropped with it: they are stale by the next showing,
+    /// and one bitmap per window ever seen is not worth keeping for a panel that is closed.
+    public func didHide() {
+        isOnScreen = false
+        previewTask?.cancel()
+        previewTask = nil
+        previews.removeAll()
+    }
+
     public func prepareForDisplay() {
+        isOnScreen = true
         query = ""
         selection = []
         accessibility = permissions.status(of: .accessibility)
@@ -139,6 +156,9 @@ public final class SwitcherViewModel {
         // since its bundle identifier stops showing up the moment its windows do.
         let liveBundleIdentifiers = Set(fetched.map(\.identity.owner.bundleIdentifier))
         applicationURLCache = applicationURLCache.filter { liveBundleIdentifiers.contains($0.key) }
+        // Same pruning for thumbnails: a closed window's bitmap has no card left to draw it.
+        let liveWindows = Set(fetched.map(\.identity.number))
+        previews = previews.filter { liveWindows.contains($0.key) }
         rebuild()
         requestPreviews()
     }
@@ -313,7 +333,12 @@ public final class SwitcherViewModel {
 
     public func addStack() {
         guard let group = stackFromSelection() else { return }
-        configuration.update { $0.pinnedEntries.append(.group(group)) }
+        // Through the same repair every bar edit goes through: an application that is already
+        // pinned keeps its first slot instead of appearing twice, and capacity is enforced.
+        configuration.update {
+            $0.pinnedEntries = ($0.pinnedEntries + [.group(group)])
+                .repaired(capacity: $0.behavior.groupCapacity)
+        }
         selection = []
     }
 

@@ -516,7 +516,7 @@ struct SidebarItemView: View {
 }
 
 /// A non-application row (search). Custom-drawn, no `Button` chrome, because AppKit controls
-/// render inactive in a window that can never become key (design/mvp.md §2.1).
+/// render inactive in a window that can never become key (docs/design/mvp.md §2.1).
 struct SidebarGlyphRow: View {
     let systemImage: String
     /// Drawn instead of `systemImage` when present — the Trash row uses the macOS Trash icons.

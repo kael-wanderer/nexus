@@ -9,17 +9,6 @@ public enum SidebarPosition: String, Codable, Sendable, CaseIterable {
     /// Vertical edges stack rows top-to-bottom; horizontal edges lay them out left-to-right.
     /// Every piece of layout maths branches on this and nothing else.
     public var isVertical: Bool { self == .left || self == .right }
-
-    /// The edge the macOS Dock is parked on while Dock Replacement Mode is active. Sharing an
-    /// edge would put the Dock's hot corner underneath Nexus's own edge trigger.
-    public var opposite: SidebarPosition {
-        switch self {
-        case .left: .right
-        case .right: .left
-        case .top: .bottom
-        case .bottom: .top
-        }
-    }
 }
 
 /// How much of the bar the media player takes (M17).
@@ -305,6 +294,8 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     /// The windows that have been minimized, in the tail before Trash (M22).
     public var showMinimizedWindows = true
     public var showWindowCount = true
+    /// Stored by earlier builds, read by nothing: there is no Favourites feature. Kept so an
+    /// existing configuration decodes and re-encodes unchanged.
     public var showFavorites = true
     /// Keep other applications' windows off the bar (M12). Off by default: it moves windows
     /// belonging to other applications, which is not something to do to somebody unasked.
@@ -386,7 +377,7 @@ public enum SearchBarStyle: String, Codable, Sendable, CaseIterable {
     /// Three slots, drawn as a search box. Clicking it opens the palette beside the box.
     ///
     /// It is a box, not a field: this panel can never become key, so a real `NSTextField` here
-    /// could not be typed into (`design/mvp.md` §2.1). Every keystroke belongs to the palette.
+    /// could not be typed into (`docs/design/mvp.md` §2.1). Every keystroke belongs to the palette.
     case field
     /// No slot at all. The palette still opens on its shortcut; the bar just does not offer it.
     case disabled
@@ -495,6 +486,35 @@ public struct NexusConfiguration: Codable, Sendable, Equatable {
     /// with these applications" says so with `setPinnedApplications`.
     public var pinnedApplications: [String] {
         pinnedEntries.flatMap(\.applications)
+    }
+
+    /// How many results usage is remembered for. Every executed result is recorded — files by
+    /// path, windows by an id that is reused — so without a ceiling the stored configuration
+    /// grows for as long as Nexus is used. The least recently used are forgotten first.
+    public static let frecencyLimit = 500
+
+    /// Records that a result was used: once more, and just now.
+    public mutating func recordUse(of id: String, at date: Date = Date()) {
+        var entry = frecency[id] ?? FrecencyEntry()
+        entry.count += 1
+        entry.lastUsed = date
+        frecency[id] = entry
+        guard frecency.count > Self.frecencyLimit else { return }
+        let keep = frecency
+            .sorted { lhs, rhs in
+                lhs.value.lastUsed == rhs.value.lastUsed ? lhs.key < rhs.key : lhs.value.lastUsed > rhs.value.lastUsed
+            }
+            .prefix(Self.frecencyLimit)
+        frecency = Dictionary(uniqueKeysWithValues: keep.map { ($0.key, $0.value) })
+    }
+
+    /// True when the only difference from `other` is what has been used and when. Nothing on
+    /// screen depends on that, so it is saved without being announced.
+    public func differsOnlyInUsage(from other: NexusConfiguration) -> Bool {
+        guard frecency != other.frecency else { return false }
+        var copy = self
+        copy.frecency = other.frecency
+        return copy == other
     }
 
     public mutating func setPinnedApplications(_ identifiers: [String]) {

@@ -5,6 +5,57 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Removed
+
+- The "Favourites" switch in Settings › Bar. It never controlled anything.
+
+### Changed
+
+- The window switcher does no work while it is closed, and forgets its thumbnails when it
+  closes.
+- Running a search result no longer makes the bar refresh, rescan badges and re-check window
+  positions.
+- The application index is rebuilt off the main thread.
+- Usage history is kept for the 500 most recently used results instead of growing without
+  limit.
+
+### Fixed
+
+- In the search palette, the arrow keys and ⌘1–9 follow the rows as they are drawn. They used
+  to follow the ranking underneath, which differs whenever a window outscores an application.
+- A window opened in an application that has only just launched is noticed: registering for its
+  window events is retried when the application was not ready.
+
+- Running setup again no longer deletes groups, folders and pinned applications that are not
+  running: the sidebar step only pins or unpins the applications it listed.
+- Resetting the "Focus the bar" or "Open the switcher" shortcut with ⌫ puts back that shortcut's
+  own default instead of ⌥Space, which collided with search.
+- The search palette opens beside the Search row again when the volume or clock rows are shown,
+  and minimized windows no longer shift the anchor of the rows after them.
+- Search matches the inner words and initials of a camelCase name ("studio" and "vsc" find
+  "VisualStudioCode").
+- A failed relaunch after a permission change leaves Nexus running instead of quitting it.
+- A Dock hidden by Dock Replacement Mode is put back on system defaults when the captured
+  settings are missing, rather than left hidden.
+- A shortcut the system refuses no longer removes the shortcut that was already registered.
+- Turning off the search shortcut no longer turns off the bar and window-switcher shortcuts.
+- The volume row shows what the device reports after a change, so a device with no mute control
+  is not shown as muted.
+- A window thumbnail captured for the flyout is no longer reused, blurred, for the larger
+  switcher card.
+- `*` and `?` typed into file search are treated as text, not wildcards.
+- Adding a stack from the window switcher no longer pins an application twice.
+- Settings and onboarding windows stay where they were moved when asked for again.
+- VoiceOver reads the search field's current scope.
+- An untitled window is listed as "Untitled window" in search.
+- Out-of-range behaviour settings are clamped when set, not at the next launch.
+- File search no longer returns the contents of `~/Library` (iCloud Drive and cloud storage
+  folders excepted).
+- A configuration written by a newer Nexus is never overwritten by an older one.
+- The Settings window opens fully on screen on a short display.
+- Settings search sends "Position" to the Dock tab.
+- A window list that finishes loading after Accessibility was revoked is dropped.
+
 ## [0.2.0] — 2026-09-02
 
 Milestones 8–27 of [`ROADMAP.md`](ROADMAP.md): everything after the MVP.

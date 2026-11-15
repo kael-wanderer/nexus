@@ -41,6 +41,8 @@ struct NativeSearchField: NSViewRepresentable {
         context.coordinator.parent = self
         if field.stringValue != text { field.stringValue = text }
         field.placeholderString = placeholder
+        // The placeholder names the scope, so VoiceOver's label has to follow it.
+        field.setAccessibilityLabel(placeholder)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }

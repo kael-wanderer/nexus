@@ -26,7 +26,7 @@ that overlap the bar and move them off it.
 - **Standard windows only.** `kAXStandardWindowSubrole`, as everywhere else (D62). No sheets, no
   panels, no desktop.
 - **Never fight an application.** Some windows put themselves back. If one returns to the bar's
-  rect twice inside two seconds, it is remembered as unmovable and skipped until its application
+  rect four times inside two seconds (D70), it is remembered as unmovable and skipped until its application
   quits. An application that refuses `AXPosition` (not settable) is skipped on the first attempt.
 - **No polling.** `AXObserver` per running application: window created, moved, resized, plus
   application activated. One sweep of the frontmost application's windows on enable and on a
@@ -86,5 +86,5 @@ width; a full-screen window is untouched; a window on the second display is unto
 - The geometry function: push for each of the four edges, shrink when the window is too large to
   move, `nil` when the window does not overlap, `nil` for a full-display frame.
 - With `reserveSpace = false`, or with `autoHide = true`, no observers are registered at all.
-- A window that returns twice is skipped the third time (the anti-fight rule), driven through a
+- A window that returns four times inside two seconds is skipped after that (the anti-fight rule, D70), driven through a
   fake AX layer rather than a real application.

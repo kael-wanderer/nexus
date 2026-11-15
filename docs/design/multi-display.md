@@ -61,7 +61,7 @@ overlaps it, which pushes windows onto the other monitor (D91).
 
 ## Not built
 
-- A per-display edge, width or set of pinned applications. `DisplayOverride` is in the configuration
-  and unused.
+- A per-display edge, width or set of pinned applications. The unused `DisplayOverride`
+  structure was deleted rather than left half-built.
 - Anything that reacts to a display arriving other than a reframe: no per-display saved window
   layouts, no moving other applications' windows back when a monitor returns.

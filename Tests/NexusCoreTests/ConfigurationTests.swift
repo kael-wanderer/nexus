@@ -3,12 +3,6 @@ import Testing
 
 @testable import NexusCore
 
-private func makeDefaults(_ name: String = UUID().uuidString) -> UserDefaults {
-    let defaults = UserDefaults(suiteName: name)!
-    defaults.removePersistentDomain(forName: name)
-    return defaults
-}
-
 @Suite("Configuration")
 struct ConfigurationTests {
     @Test("Defaults match the documented schema")
@@ -273,11 +267,10 @@ private struct AddNicknameMigration: ConfigurationMigration {
 
 @Suite("Configuration migration")
 struct ConfigurationMigrationTests {
-    @Test("A registered migration runs and bumps the version")
-    func migrationRuns() throws {
-        // Pretend the current version is one ahead by writing a version-1 payload and
-        // registering a 1 -> 2 step. With currentVersion == 1 there is nothing to migrate,
-        // so exercise the step directly plus the no-op path through the store.
+    @Test("A migration step rewrites the payload it is handed")
+    func migrationStepRewritesPayload() throws {
+        // The step on its own. The real chain through the store — a stored older version
+        // loading as the current one — is covered by `migratesFromVersionFour`.
         var json: [String: Any] = ["version": 1, "general": ["showInMenuBar": true]]
         try AddNicknameMigration().migrate(&json)
         let general = json["general"] as! [String: Any]
@@ -330,5 +323,70 @@ struct KeyboardShortcutTests {
     @Test("No modifier is rejected")
     func noModifier() {
         #expect(KeyboardShortcut(keyCode: 49, modifiers: 0).isValid == false)
+    }
+
+    /// Only appearance was clamped on the way in. An out-of-range behaviour value was stored as
+    /// written and then silently changed by the next launch's decode.
+    @MainActor
+    @Test("An out-of-range behaviour value is clamped when it is set, not at the next launch")
+    func behaviorIsClampedOnUpdate() {
+        let controller = ConfigurationController(
+            store: InMemoryConfigurationStore(),
+            events: EventBus(),
+            saveDelay: .zero
+        )
+
+        controller.update {
+            $0.behavior.autoHideDelay = 99
+            $0.behavior.groupCapacity = 7
+        }
+
+        #expect(controller.configuration.behavior.autoHideDelay == 5)
+        #expect(controller.configuration.behavior.groupCapacity == 9)
+    }
+
+    @MainActor
+    @Test("Recording a use is saved but not announced; a real setting change is")
+    func usageIsNotAnnounced() async throws {
+        let events = EventBus()
+        let controller = ConfigurationController(
+            store: InMemoryConfigurationStore(),
+            events: events,
+            saveDelay: .zero
+        )
+        var iterator = events.events().makeAsyncIterator()
+
+        controller.update { $0.recordUse(of: "app:com.apple.Safari") }
+        #expect(controller.configuration.frecency["app:com.apple.Safari"]?.count == 1)
+
+        // The next event on the bus is the setting change, so the usage bump published nothing.
+        controller.update { $0.general.showStartMenu = true }
+        guard case .configurationChanged(let announced) = await iterator.next() else {
+            Issue.record("Expected a configuration change")
+            return
+        }
+        #expect(announced.general.showStartMenu)
+        #expect(announced.frecency["app:com.apple.Safari"]?.count == 1)
+    }
+
+    @Test("Usage is remembered for a bounded number of results, the most recent ones")
+    func usageIsBounded() {
+        var configuration = NexusConfiguration()
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        for index in 0..<(NexusConfiguration.frecencyLimit + 25) {
+            configuration.recordUse(of: "file:\(index)", at: start.addingTimeInterval(Double(index)))
+        }
+
+        #expect(configuration.frecency.count == NexusConfiguration.frecencyLimit)
+        #expect(configuration.frecency["file:0"] == nil)                     // oldest: forgotten
+        #expect(configuration.frecency["file:24"] == nil)
+        #expect(configuration.frecency["file:25"] != nil)
+        #expect(configuration.frecency["file:\(NexusConfiguration.frecencyLimit + 24)"]?.count == 1)
+
+        // Using an old one again makes it recent, so it is not the next to go.
+        configuration.recordUse(of: "file:25", at: start.addingTimeInterval(10_000))
+        configuration.recordUse(of: "file:new", at: start.addingTimeInterval(10_001))
+        #expect(configuration.frecency["file:25"]?.count == 2)
+        #expect(configuration.frecency["file:26"] == nil)
     }
 }

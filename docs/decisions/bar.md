@@ -126,6 +126,8 @@ gesture, and only timing separates them. So a drag that rests on a row for 600 m
 merges the two. Dragging straight past a row reorders exactly as before. This is what iOS does,
 and the dwell is what makes it discoverable without a modifier key nobody would find.
 
+> **Later:** superseded by D103 — grouping is the middle of a row, not a 600 ms rest on it.
+
 The name comes from `LSApplicationCategoryType`, which applications already declare and
 LaunchServices already hands over with the icon: the category most members share, mapped to a word,
 falling back to "Group". Renaming lives in the row's context menu behind an alert rather than in
@@ -146,6 +148,8 @@ Everything used to live in one `ScrollView` clamped to the screen, so past about
 Trash and Search scrolled off the end and had to be hunted for. They are not rows like the others:
 the launcher is a fixed head, Trash and Search (and later now-playing) are a fixed tail, and the
 applications are a scrolling middle between them.
+
+> **Later:** the limits of 10 and 5 below were replaced by D74: both default to 0, "as many as fit".
 
 The middle gets a row budget per section — `appearance.pinnedLimit` (10) and
 `appearance.runningLimit` (5) — resolved after the head and tail have taken their space, never

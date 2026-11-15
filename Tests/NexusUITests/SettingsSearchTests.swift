@@ -20,7 +20,7 @@ struct SettingsSearchTests {
         // The keywords carry what the label does not say: "list" is nowhere in the title.
         #expect(SettingsSearch.matches("group list").map(\.title) == ["Opened group shows"])
         // …and neither is the American spelling of the row that is spelled the other way.
-        #expect(SettingsSearch.matches("favorites").map(\.tab) == [.bar])
+        #expect(SettingsSearch.matches("minimised").map(\.title) == ["Minimized windows"])
     }
 
     /// The edge picker lives with the rest of the Dock placement controls, not in Appearance.

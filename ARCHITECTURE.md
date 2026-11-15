@@ -15,7 +15,8 @@ milestone-gated workflow needs. A `.pbxproj` is a merge-hostile binary-ish blob 
 humans nor tooling edit well. §111.4 leaves the project format open.
 
 Cost, accepted: no SwiftUI previews, no XCUITest (needs an Xcode target). §67 wants XCUITest
-only for critical flows — add an Xcode wrapper project at Milestone 7 if those tests earn it.
+only for critical flows; no Xcode wrapper project was added, and the manual walkthrough in
+`docs/release-checklist.md` covers what a UI test would.
 
 ```
 Package.swift
@@ -29,10 +30,12 @@ Package.swift
 `NexusApp` is the only place that constructs concrete services — everything else takes
 protocols by injection. The library targets never `import NexusApp`.
 
-**Bundle identity:** `com.congbui.nexus`, fixed forever. Signed with the free Apple ID
-"Apple Development" certificate (Personal Team). Never ad-hoc: macOS TCC keys Accessibility
-and Screen Recording grants to the code signature, and an ad-hoc signature changes every
-build, resetting every grant (§111.3).
+**Bundle identity:** `com.congbui.nexus`, fixed forever. Signed with any *stable* identity:
+the Makefile looks for a certificate named "Bugler Local Dev", then an "Apple Development"
+one, then any valid codesigning identity. Ad-hoc is the last resort and is announced: macOS
+TCC keys Accessibility and Screen Recording grants to the code signature, and an ad-hoc
+signature changes every build, resetting every grant (§111.3). `make install` refuses an
+ad-hoc build.
 
 **Deployment target:** macOS 14.0. Swift 6 language mode, strict concurrency on.
 
@@ -44,28 +47,38 @@ build, resetting every grant (§111.3).
 NexusApp/
   AppDelegate            NSApplicationDelegate, .accessory activation policy
   Composition            builds services, injects them, owns lifetime
-  StatusItem             menu-bar item (quit, settings, toggle sidebar)
+  StatusItemController   menu-bar item (quit, settings, toggle sidebar)
 
 NexusCore/
-  Models/                Application, Window, Display, SearchResult, NexusAction, events
-  Configuration/         NexusConfiguration v1, ConfigurationStore, migrations
+  Models/                Application, Window, SearchResult, Permission, NexusError, identities
+  Configuration/         NexusConfiguration (version 5), ConfigurationStore and its migrations,
+                         ConfigurationController, DockEntry (applications, groups, folders)
   Events/                EventBus, NexusEvent
   Logging/               Log.swift — os.Logger per §66 category
   Applications/          ApplicationService (actor), ApplicationMonitor
   Windows/               WindowService (actor), WindowMonitor (AXObserver), WindowPreviewService
-  Search/                SearchEngine (actor), SearchProvider, {Application,Window,File,Action}Provider,
-                         Ranking, Frecency
+  Search/                SearchEngine (actor), SearchProvider, Providers (application, window,
+                         file, action, settings pane), ApplicationIndex, MetadataQueryRunner,
+                         ActionRunner, Ranking and Frecency, StringMatching, SearchScope
+  Media/                 NowPlayingService, MediaPositionService (scriptable players)
   System/                DisplayService, HotKeyService, PermissionService, LoginItemService,
-                         DockBadgeService (reads the Dock's own AX tree — D106)
-  Utilities/             AXValue bridging, image cache, debounce, string matching
+                         DockBadgeService (reads the Dock's own AX tree — D106),
+                         DockControlService and DockReplacementController, TrashService,
+                         SystemActions, FolderStackService, VolumeService, AppRelaunch
+  Utilities/             AXValue bridging, icon cache, screen geometry
 
 NexusUI/
-  Panels/                SidebarPanel, SearchPanel, PanelController
+  Panels/                PanelController, NonActivatingPanel (SidebarPanel.swift),
+                         SearchPanelController, StartMenuPanelController, SwitcherPanelController
   Sidebar/               SidebarView, SidebarViewModel, item views, window flyout,
                          RowDecorations (drop caret, badges, jiggle, poof)
   Search/                SearchPaletteView, SearchViewModel, result rows
-  Settings/              SettingsWindow, per-pane views, ShortcutRecorder
-  Onboarding/            OnboardingWindow, step views
+  Settings/              SettingsView and its panes, SettingsSearch, ShortcutRecorder,
+                         AuxiliaryWindowController (the Settings and onboarding windows)
+  Onboarding/            OnboardingView and its view model
+  StartMenu/             StartMenuView, StartMenuViewModel, StartMenuLayout
+  Switcher/              SwitcherView, SwitcherViewModel
+  Support/               ContextMenuCatcher, HostingViews
   Permissions/           PermissionRequestView (explain-and-grant, reused by onboarding)
   Design/                colors, metrics, motion (Reduce Motion aware)
 ```
@@ -134,7 +147,7 @@ where a test actually needs it.
 - **Models are `Sendable` value types.** `NexusApplication`, `NexusWindow`, `SearchResult`
   are structs; `CGImage` crosses boundaries only inside `@unchecked Sendable` wrappers created
   at one audited spot in `WindowPreviewService`.
-- **Swift 6 language mode, strict concurrency.** Warnings are errors in CI.
+- **Swift 6 language mode, strict concurrency.** `make lint` fails on any warning; there is no CI.
 - `@MainActor` exceptions: `HotKeyService` (Carbon event handlers dispatch to the main
   runloop), `PanelController` (all `NSWindow` work), `StatusItem`.
 
@@ -153,6 +166,7 @@ enum NexusEvent: Sendable {
     case applicationActivated(ApplicationIdentity)
     case applicationsChanged
     case windowsChanged(ApplicationIdentity)   // coalesced; consumers re-read (D22)
+    case windowGeometrySettled(ApplicationIdentity)
     case displaysChanged
     case configurationChanged(NexusConfiguration)
     case permissionChanged(Permission, PermissionStatus)
@@ -232,8 +246,8 @@ struct SearchResult: Identifiable, Sendable {
 ```
 
 `NexusActionDescriptor` is an enum (`launchApplication`, `activateWindow`, `openFile`,
-`openURL`, `quitApplication`, `runBuiltInAction`) resolved by an `ActionRunner` in the app
-layer. Making results carry data rather than closures keeps them `Sendable`, comparable, and
+`openURL`, `quitApplication`, `runBuiltInAction`) resolved by `ActionRunner`, which lives in
+`NexusCore` and is constructed by the app layer. Making results carry data rather than closures keeps them `Sendable`, comparable, and
 unit-testable without executing anything, and gives §81's action model somewhere to grow.
 
 ---
@@ -244,13 +258,13 @@ One versioned `Codable` struct, JSON-encoded into `UserDefaults` under `configur
 
 ```swift
 struct NexusConfiguration: Codable, Sendable, Equatable {
-    static let currentVersion = 1
+    static let currentVersion = 5
     var version: Int = currentVersion
     var general: GeneralConfiguration
     var appearance: AppearanceConfiguration
     var behavior: BehaviorConfiguration
     var search: SearchConfiguration
-    var pinnedApplications: [String]      // bundle identifiers, ordered
+    var pinnedEntries: [DockEntry]        // applications, groups and folders, ordered
     var onboarding: OnboardingState
 }
 ```
@@ -312,7 +326,7 @@ enum PermissionStatus: Sendable { case granted, denied, notDetermined }
 `.systemDenied(OSStatus)`, `.timedOut`.
 
 - AX returning `kAXErrorInvalidUIElement` ⇒ `.targetDisappeared` ⇒ drop the item and emit
-  `.windowClosed`. That is a normal state transition, not a failure.
+  `.windowsChanged`. That is a normal state transition, not a failure.
 - Every AX element gets `AXUIElementSetMessagingTimeout(element, 0.25)`. An unresponsive app
   is skipped and retried on its next event.
 - No `try!`, no force unwraps outside tests. No `fatalError` outside programmer-error
@@ -334,8 +348,9 @@ Swift Testing (`import Testing`). Unit tests are the gate for every milestone:
 - **Frecency** — decay and ordering.
 - **Services** — via injected fakes; no test touches the real AX API or launches applications.
 
-Integration and UI tests are deliberately deferred (§67: "do not attempt to create a massive
-test suite before the architecture stabilizes").
+View-model tests live in `NexusUITests` and one suite, `SearchIntegrationTests`, runs the
+real application index. There is still no XCUITest: what needs a real window server is walked
+by hand from `docs/release-checklist.md`.
 
 ---
 

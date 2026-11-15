@@ -2,8 +2,8 @@ import AppKit
 import NexusCore
 import SwiftUI
 
-/// The only code in Nexus that touches `NSWindow`. Panels are created once and reused, so the
-/// hotkey path never pays a window-creation cost (design/mvp.md §2.3).
+/// Owns the bar and every popover beside it. Panels are created once and reused, so the
+/// hotkey path never pays a window-creation cost (docs/design/mvp.md §2.3).
 @MainActor
 public final class PanelController {
     private let model: SidebarViewModel
@@ -812,16 +812,13 @@ public final class PanelController {
 
     // MARK: - Geometry
 
-    /// Target screen for the sidebar, honouring the stored display preference (D11).
-    private var targetScreen: NSScreen? { targetScreens.first }
-
     /// Every screen that should carry a bar: one, or all of them under `.everyDisplay` (D91).
     private var targetScreens: [NSScreen] {
         DisplayService.screens(for: configuration.configuration.appearance.display)
     }
 
     /// Creates and destroys panels so there is exactly one bar per target screen. Panels are reused
-    /// across reframes — the hotkey path must never pay for window creation (`design/mvp.md` §2.3)
+    /// across reframes — the hotkey path must never pay for window creation (`docs/design/mvp.md` §2.3)
     /// — so this only runs when a display arrives or leaves.
     private func syncPanels(to screens: [NSScreen]) {
         while bars.count > screens.count {
@@ -911,7 +908,7 @@ public final class PanelController {
         return fullScreenDisplays.contains(displayID)
     }
 
-    /// Which bars are on screen at all. Three reasons one might not be: the menu-bar item hid it,
+    /// Which bars are on screen at all. Two reasons one might not be: the menu-bar item hid it,
     /// or its display is showing a full-screen space (D111). Only the ones that need to change are
     /// touched — ordering a visible panel front again raises it over the popovers beside it.
     private func applyBarVisibility() {

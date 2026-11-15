@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Nexus workspace review — 2026-11-15</title>
+<style>
+:root {
+  --bg: #faf8f4; --panel: #ffffff; --ink: #1d1b18; --muted: #6b655c; --line: #e2dcd1;
+  --accent: #8a5a1c; --high: #a3271f; --med: #8a5a1c; --low: #5d6470; --ok: #2d6a3e;
+  --code: #f1ede5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17150f; --panel: #201d16; --ink: #ece7dc; --muted: #a39b8c; --line: #38332a;
+    --accent: #d9a55c; --high: #f0857c; --med: #d9a55c; --low: #9aa3b0; --ok: #7fc793;
+    --code: #2a261d;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 19px; margin: 40px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); }
+h2 small { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 8px; }
+p.lede, p.note { color: var(--muted); margin: 4px 0 12px; max-width: 76ch; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; }
+.stat span { color: var(--muted); font-size: 12.5px; }
+.controls { position: sticky; top: 0; background: var(--bg); padding: 10px 0; z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); }
+.controls input[type=search] { flex: 1 1 220px; min-width: 0; padding: 7px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; }
+.controls label { font-size: 13px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }
+ul.findings { list-style: none; margin: 8px 0 0; padding: 0; }
+ul.findings li { background: var(--panel); border: 1px solid var(--line); border-left-width: 4px;
+  border-radius: 6px; padding: 8px 12px; margin: 6px 0; overflow-wrap: anywhere; }
+li.high { border-left-color: var(--high); }
+li.med { border-left-color: var(--med); }
+li.low { border-left-color: var(--low); }
+.loc { font: 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code);
+  padding: 1px 5px; border-radius: 4px; }
+.tag { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px; color: var(--muted); }
+.tag.v { color: var(--ok); }
+.tag.high { color: var(--high); }
+.text { display: block; margin-top: 3px; }
+ol.order { padding-left: 20px; max-width: 76ch; }
+#empty { color: var(--muted); display: none; margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Nexus workspace review</h1>
+<p class="lede">2026-11-15 · main at 4ff4e41 · version 0.2.0 (build 2). Read-only review of sources, tests, scripts, docs, site-content and the agent-instruction files that load in this workspace. No repo file was changed by the review.</p>
+
+<div class="summary">
+  <div class="stat"><b>Clean</b><span>swift build, zero errors</span></div>
+  <div class="stat"><b>522 pass</b><span>309 UI + 213 core tests</span></div>
+  <div class="stat"><b id="total">0</b><span>findings listed here</span></div>
+  <div class="stat"><b id="verified">0</b><span>re-read in source by the reviewer</span></div>
+</div>
+
+<p class="note"><strong>How to read this.</strong> "Verified" means the reviewer re-read the cited code or re-ran the cited command after a review agent reported it. Everything else was reported by one of five read-only agents and was not independently re-checked. No bug was reproduced by running the app; all are from reading code.</p>
+<p class="note"><strong>skills/ and AGENTS.md.</strong> Neither exists in this repo, and there is no project CLAUDE.md. The only agent-instruction files that apply are global: ~/.claude/CLAUDE.md, ~/.codex/AGENTS.md and ~/.claude/skills/. Findings about them are under "Token-wasting".</p>
+
+<h2>Fix status <small>branch fix/workspace-review, same day</small></h2>
+<p class="note">The findings below are listed as they were found. This is what has since been changed on the branch; 531 tests pass (313 UI + 218 core), zero warnings, three passes under full CPU load.</p>
+<ul>
+  <li><strong>Tests:</strong> the Safari-quit test now uses an injected terminate seam; test defaults are in memory, so no preference file is written; the always-true badge test and the fake-only close test are removed; the crash-on-failure unwrap and the unbounded loop are fixed; three misnamed tests renamed.</li>
+  <li><strong>App bugs fixed:</strong> onboarding pin wipe, shortcut-recorder reset, search/volume/clock section indexes, relaunch-then-quit, camelCase matching, Dock restore without a snapshot, hotkey registration order, search toggle killing other hotkeys, volume read-back, preview cache size, wildcard escaping, switcher stack duplicates, window re-centring, search field VoiceOver label, untitled window title, behaviour clamping, DMG script cleanup.</li>
+  <li><strong>Docs and comments corrected:</strong> AppleScript and permission claims (CONTRIBUTING, README, FEATURES, Info.plist), ARCHITECTURE module map and version, changelog Unreleased, superseded decisions marked, design-doc errors, stale code comments and doc paths.</li>
+  <li><strong>Removed:</strong> eight pieces of dead code. <strong>Efficiency:</strong> reserved-space sweep skipped when the bar has not moved; icon lookup no longer opens the bundle on a cache hit.</li>
+  <li><strong>Second pass:</strong> palette arrows and ⌘N follow drawn order; application index built off the main thread; switcher idle while closed and thumbnails pruned; usage history capped at 500 and no longer announced as a configuration change; window-observer registration retried; Favourites toggle removed; executed plans moved to <span class="loc">docs/archive/plans/</span>; the 165 Nexus test preference files deleted.</li>
+  <li><strong>Still open:</strong> start-menu focus restore, long-press edit mode and switcher scroll-to-focus (added to the release checklist to confirm in the running app first); AppleScript polling on the main thread (needs a different mechanism); player refusal for the session (a recorded design choice); per-pid application identity; remaining test duplication and machine-state tests; the stale handoff file; leftover preference files from other projects.</li>
+</ul>
+
+<h2>Recommended fix order</h2>
+<ol class="order">
+  <li>Tests that harm the machine: the Safari-quit test and the preference-file leak run on every <span class="loc">swift test</span>.</li>
+  <li>Data-loss and wrong-default bugs: onboarding pin wipe, shortcut recorder reset, relaunch that quits without a replacement, Dock restore that gives up.</li>
+  <li>Search correctness: camelCase matching, palette selection order, search-row anchor.</li>
+  <li>Doc claims that are false about permissions and AppleScript (CONTRIBUTING, README, FEATURES, Info.plist usage string), then the empty Unreleased changelog.</li>
+  <li>Main-thread work: application index rebuild, AppleScript polling, configuration-change fan-out.</li>
+  <li>Archive executed plans and the Foundation doc; replace the stale handoff.</li>
+</ol>
+
+<div class="controls">
+  <input type="search" id="q" placeholder="Filter by file, symbol or word" aria-label="Filter findings">
+  <label><input type="checkbox" id="onlyHigh"> High only</label>
+  <label><input type="checkbox" id="onlyVerified"> Verified only</label>
+</div>
+
+<div id="sections"></div>
+<p id="empty">No finding matches the filter.</p>
+
+<h2>Not covered</h2>
+<ul>
+  <li>docs/plans/2026-08-24-window-switcher.md and docs/plans/2026-10-27-review-baseline-fixes.md were judged from header, task list and git history, not read line by line.</li>
+  <li>Nexus_Project_Foundation_MVP.md sections 20–27 and 36–110 were checked by heading only.</li>
+  <li>Two suspicions were left unconfirmed: StatusItemController.swift:69 moving items between menus, and SidebarView.swift:370 cancelling the launch bounce.</li>
+  <li>No GUI walkthrough was run; docs/release-checklist.md is still blank.</li>
+</ul>
+</main>
+
+<script>
+"use strict";
+// [section, severity, verified, location, text]
+var SECTIONS = {
+  T: ["Tests that harm the machine or prove nothing", "Run on every swift test."],
+  B: ["App bugs", "From reading code; none reproduced by running the app."],
+  A: ["Technically inaccurate", "Docs and comments that state something the code does not do."],
+  C: ["Inconsistent", "The same fact or logic stated two ways."],
+  E: ["Inefficient", "Repeated or main-thread work on hot paths."],
+  K: ["Token-wasting", "Content loaded into agent sessions that no longer earns its size."],
+  O: ["Obsolete or redundant", "Dead code, stale files, superseded documents."]
+};
+var F = [
+// ---- Tests
+["T","high",1,"Tests/NexusUITests/WindowFlyoutTests.swift:272","quitHidesFlyout calls the real WindowFlyoutViewModel.quit() with bundle id com.apple.Safari, which runs NSRunningApplication.terminate(). If Safari is open, the test run quits it. The test comment says no real Safari is affected; that is false."],
+["T","high",1,"Tests/NexusCoreTests/ConfigurationTests.swift:6, DockEntryTests.swift:6, FolderStackTests.swift:154","UUID-named UserDefaults suites are never deleted; makeDefaults only clears the domain at the start. ~/Library/Preferences holds 165 nexus.folder.test.* plists and 72,063 UUID-named plists. An agent counted 2,729 that contain pinnedApplications; the rest may come from other projects."],
+["T","high",1,"Tests/NexusUITests/SidebarPolishTests.swift:374","Assertion is isEmpty || !isEmpty, always true. It also calls the real DockBadgeService.badges(), which walks the real Dock accessibility tree when trusted."],
+["T","high",0,"Tests/NexusUITests/SidebarPolishTests.swift:391","try? #require(...) swallows the failure, then folder! force-unwraps and crashes the whole test process."],
+["T","high",0,"Tests/NexusUITests/KeyboardNavigationTests.swift:157","while focusedRowID != 'a#7' { moveFocus } never ends if focus clamps early, so a regression hangs the suite instead of failing."],
+["T","high",0,"Tests/NexusCoreTests/SearchIntegrationTests.swift:82","latencyBudget asserts wall-clock under 50 ms on a search over the real Spotlight application index. Fails with CPU saturated. buildIndex (line 16) is a hand-rolled 6 s poll over the real machine's index."],
+["T","med",0,"Tests/NexusCoreTests/ConfigurationTests.swift:276","migrationRuns calls the test's own AddNicknameMigration directly; nothing is registered and no version is bumped. Comment says currentVersion == 1; it is 5."],
+["T","med",0,"Tests/NexusCoreTests/SearchEngineTests.swift:101","cancellation never iterates the first stream, then asserts the second stream's token, true by construction. Nothing checks the superseded work was cancelled. Costs 400 ms."],
+["T","med",0,"Tests/NexusUITests/WindowFlyoutTests.swift:314","closeIsRequestedNotAssumed calls the fake's close itself and asserts the fake's own array. No view model involved."],
+["T","med",0,"Tests/NexusCoreTests/NowPlayingTests.swift:532","helperInsideBundle re-implements the .app-walking loop in the test and asserts on its own result; never calls AudioOutputMonitor."],
+["T","med",0,"Tests/NexusUITests/DisplayAndRecoveryTests.swift:243","previewCacheBound has no #expect and hammers the real WindowPreviewService (screen capture) 100 times."],
+["T","med",0,"Tests/NexusCoreTests/PermissionServiceTests.swift:56-102","forget queries the real Finder through AX; when untrusted the call throws, is swallowed, and allSatisfy passes on an empty array. unknownWindow returns silently when untrusted. deniedPath branches on the machine's AX state."],
+["T","med",0,"Tests/NexusUITests/KeyboardNavigationTests.swift:163","nothingToFocus is named 'A bar with nothing on it cannot be entered' but asserts the opposite: focus lands on Trash."],
+["T","med",0,"Tests/NexusUITests/KeyboardNavigationTests.swift:194","shortcutDefault ends by setting focusBarShortcut = nil and asserting it is nil."],
+["T","med",0,"Tests/NexusCoreTests/SystemServiceTests.swift:30","liveRead reads the real com.apple.symbolichotkeys domain and asserts the result is one of the enum's three cases; cannot fail."],
+["T","med",0,"Tests/NexusUITests/SearchScopeUITests.swift:104","emptyQueryUnderAScope asserts results.isEmpty immediately, before async results could land. No wait."],
+["T","med",0,"Tests/NexusCoreTests/NowPlayingTests.swift:333","gatedOnVisibility asserts position == nil synchronously, so an early async read is not caught; the post-hide assertion is trivially true."],
+["T","med",0,"Tests/NexusUITests/OnboardingTests.swift:194, :126","noOpWrite is named 'publishes nothing' but never checks the bus. commandSpaceChoice asserts a value it just wrote."],
+["T","med",0,"Tests/NexusUITests/SidebarPolishTests.swift:312","offByDefault differs from the 'on' test in two ways (mail not present, and preference off), so it returns nil whatever the preference says."],
+["T","med",0,"Tests/NexusUITests/DisplayAndRecoveryTests.swift:54, :92","stableAcrossReads and roundTrip silently return when there is no NSScreen.main, while alwaysResolves asserts a screen exists. All read real NSScreen state."],
+["T","med",0,"Tests/NexusCoreTests/ApplicationServiceTests.swift:52-84","windowNumbers asserts equality between two separate live CGWindowList snapshots; a window opening in between fails it. pushedState returns silently if Finder is absent. counts passes on an empty dictionary."],
+["T","med",0,"Tests/NexusCoreTests/SettingsPaneTests.swift:133","Comment says 'Skipped where there is no such directory' but try #require fails instead. Hard-codes macOS pane names and count > 10 from the real /System/Library/ExtensionKit."],
+["T","med",0,"Tests/NexusUITests/SearchSelectionTests.swift:63, :101, :125; Tests/NexusCoreTests/SearchEngineTests.swift:66","Rely on fixed provider delays (80 ms, 120 ms, 500 ms) to order snapshots. Under load the late snapshot can arrive early; line 116 results.count == 2 then fails, and the others pass without exercising the scenario."],
+["T","low",0,"Tests/NexusUITests/DisplayAndRecoveryTests.swift:168, :195","Negative waits of 50 ms and 100 ms: too short to prove nothing happened; can only false-pass."],
+["T","low",0,"SidebarViewModelTests.swift:371,411,425; SidebarPolishTests.swift:272,408,415; BarZonesTests.swift:409,421; SearchSelectionTests.swift:170; ConfigurationTests.swift:183; NowPlayingTests.swift:373","Remaining fixed sleeps. All are justified 'nothing should happen' checks with 100-200 ms margins. The plan's count of 14 Task.sleep in UI tests is correct; its line numbers for SidebarViewModelTests (367/407/421) have drifted."],
+["T","low",0,"Tests/NexusCoreTests/EventBusTests.swift:16, PermissionServiceTests.swift:48; Tests/NexusUITests/OnboardingTests.swift:186","Plain for-await / iterator.next() with no timeout: a missing event hangs the suite rather than failing."],
+["T","low",0,"Tests/NexusUITests/SwitcherViewModelTests.swift:303, :370","Comment in focusNextGrouped contradicts the assertion. Line 370 uses real NSWorkspace.urlForApplication and Terminal's icon, and its comment argues against a seam, conflicting with the no-real-NSWorkspace rule."],
+["T","low",0,"Tests/NexusUITests/SidebarViewModelTests.swift:476; SidebarPopulationTests.swift:75","finderDrop only checks a nonexistent file is rejected, no positive case. running.count == 24 || == 25 is too loose."],
+["T","low",0,"BarZonesTests.swift:238; SidebarPolishTests.swift:189; SidebarGroupTests.swift:317","Stale comments and titles: 'Six parts' lists four; 'the same model' builds a different one; 'lists no window count' asserts nothing about counts."],
+["T","low",0,"Tests (whole)","No tests reference ActionRunner, SystemActions, AppRelaunch, ApplicationMonitor, WindowMonitor, HotKeyService registration, the DockControlService write path, CoreAudioVolumeDevice, AppleScriptMediaControl execution, MetadataQueryRunner sessions, WindowPreviewService capture, any panel controller, ShortcutRecorder, AppDelegate, StatusItemController or Composition."],
+// ---- Bugs
+["B","high",1,"Sources/NexusUI/Onboarding/OnboardingView.swift:88","applyPinning builds its list from candidates (running apps only) and calls setPinnedApplications, which replaces all pinnedEntries. 'Run Setup Again' then Continue past the sidebar step deletes every group, every folder and every pinned app that is not running."],
+["B","high",1,"Sources/NexusUI/Settings/ShortcutRecorder.swift:71","Delete always applies .optionSpace. The same recorder serves 'Focus the bar' and 'Open the switcher', so resetting either sets it to the search shortcut."],
+["B","high",1,"Sources/NexusUI/Sidebar/SidebarViewModel.swift:539, :357","searchSectionIndex is 'last section', but sectionRowCounts appends volume and clock after search. With default showClock/showVolume the bar-anchored palette aligns to the wrong row. sectionRowCounts and sectionsBeforeVolume (:435) also omit the minimized section that SidebarView draws; fixedSectionRows (:507) includes it."],
+["B","high",1,"Sources/NexusCore/System/AppRelaunch.swift:24","NSApp.terminate runs even when openApplication returned an error, so a failed relaunch quits Nexus with no replacement."],
+["B","high",1,"Sources/NexusCore/Search/StringMatching.swift:34","match() case-folds the haystack before calling words(in:), so the camelCase split never fires in real matching. 'VisualStudio' cannot match 'vs' or 'studio'. Tests call words(in:) on raw strings and hide it."],
+["B","high",1,"Sources/NexusCore/System/DockReplacementController.swift:84","restore() skips dock.restore when the snapshot is nil but still sets applied = false. The Dock stays hidden and the next launch no longer tries to recover."],
+["B","high",1,"Sources/NexusCore/System/HotKeyService.swift:43, :89","register unregisters the slot first, so a refused new shortcut leaves the slot with no hotkey. InstallEventHandler's status is never checked."],
+["B","high",0,"Sources/NexusUI/Search/SearchViewModel.swift:157 with SearchPaletteView.swift:104","The palette draws groupedResults (by category) while selection, arrows, Cmd-1..9 and the labels index the flat score-ordered results. A high-scoring window can be preselected while a lower-ranked app is drawn first. Mechanism partly confirmed; how often it shows is unknown."],
+["B","med",0,"Sources/NexusCore/Media/MediaPositionService.swift:132","Any script failure calls refuse(), which blocks that player for the process lifetime. A transient failure removes the timeline until restart. tell application id also launches a player that has just quit."],
+["B","med",0,"Sources/NexusCore/System/VolumeService.swift:71, :58","setMuted sets isMuted even when the device has no mute property, so the UI shows muted while audio plays. setLevel sets level even when the CoreAudio write failed."],
+["B","med",0,"Sources/NexusCore/Windows/WindowPreviewService.swift:92","Cache keyed by window number only, ignoring maxDimension. The flyout's 320 px thumbnail is served for the switcher's 480 px request for up to 5 s."],
+["B","med",0,"Sources/NexusCore/Windows/WindowMonitor.swift:131","AXObserverAddNotification return codes are discarded with no retry. A just-launched app that answers cannotComplete never gets observers, and the stored registration blocks a later attempt."],
+["B","med",0,"Sources/NexusCore/Models/Identities.swift:14","ApplicationIdentity equality ignores pid, yet observer and snapshot dictionaries are keyed by it. Two instances of one bundle id collide; terminating one tears down the other's observer."],
+["B","med",0,"Sources/NexusCore/Configuration/ConfigurationStore.swift:65","defaults.data(forKey:) returns nil for a non-Data value, which is treated as no stored data and overwritten without quarantine, against D10."],
+["B","med",0,"Sources/NexusCore/Search/MetadataQueryRunner.swift:86","Typed * and ? are not escaped in the LIKE pattern, so user input acts as wildcards."],
+["B","med",0,"Sources/NexusUI/Switcher/SwitcherViewModel.swift:314","addStack() appends the group straight to pinnedEntries, bypassing repaired(capacity:). Already-pinned apps appear twice and an over-capacity group is possible."],
+["B","med",0,"Sources/NexusUI/Panels/StartMenuPanelController.swift:33","The didResignKey observer re-enters hide(restoreFocus: false) during orderOut and clears previousApplication, so Escape does not hand focus back. Inferred from call order, not run."],
+["B","med",0,"Sources/NexusUI/Support/ContextMenuCatcher.swift:181, :293","A long press enters edit mode after 600 ms; mouseUp does not record that it fired, so onClick runs and ends edit mode. Not run."],
+["B","med",0,"Sources/NexusUI/Switcher/SwitcherView.swift:128","No ScrollViewReader or scrollTo, so keyboard focus can move to a card scrolled out of view."],
+["B","med",0,"Sources/NexusUI/Settings/AuxiliaryWindowController.swift:30","show() calls window.center() every time, snapping a window the user moved back to centre."],
+["B","med",0,"Sources/NexusApp/Composition.swift:386 with SettingsView.swift:526, :553","Turning off 'Enable the global shortcut' calls unregisterAll(), killing the bar-focus and switcher hotkeys too. Those two recorders accept a system-refused combo silently."],
+["B","med",0,"Sources/NexusUI/Search/NativeSearchField.swift:35","Accessibility label is set once in makeNSView; a scope change updates the placeholder but not the label."],
+["B","med",1,"scripts/make-dmg.sh","Under set -e, an osascript or hdiutil failure exits with the read-write image still attached and the stage folder and temp image left behind. The cleanup trap is installed only near the end."],
+["B","low",0,"Sources/NexusCore/Search/Providers.swift:65","Untitled windows show 'App — ' in search instead of NexusWindow.displayTitle ('Untitled window')."],
+["B","low",0,"Sources/NexusApp/Composition.swift:309","validate() registers the candidate for .search even when globalShortcutEnabled is off; re-recording the same combo leaves the hotkey live while disabled."],
+["B","low",0,"Sources/NexusUI/StartMenu/StartMenuView.swift:212; Settings/ShortcutRecorder.swift:29","StartMenuRow lacks the isButton trait its sibling rows have. All three shortcut recorders announce 'Global shortcut'."],
+// ---- Inaccurate
+["A","high",0,"CONTRIBUTING.md:48; FEATURES.md:68; Sources/NexusCore/Models/SearchResult.swift:52","'No shell, no AppleScript, no osascript.' NSAppleScript is used in TrashService.swift:54, SystemActions.swift:48 and MediaPositionService.swift:171/194. D15 was never amended. ActionRunner.lockScreen also dlopens a private framework."],
+["A","high",1,"Resources/Info.plist (NSAppleEventsUsageDescription)","The usage string mentions only Finder emptying the Trash. The app also sends Apple Events to Music, iTunes, Spotify, VLC and System Events (sleep, restart, shut down)."],
+["A","high",0,"README.md:60; FEATURES.md:166","Permission tables list Accessibility and Screen Recording only. Empty Trash, Start menu system actions and the media timeline need Automation."],
+["A","high",0,"CONTRIBUTING.md:46","'Nexus changes no system settings. Not the Dock.' Dock Replacement writes autohide, autohide-delay, autohide-time-modifier and orientation in com.apple.dock (DockControlService.swift:32, :66)."],
+["A","high",0,"ARCHITECTURE.md:247","currentVersion = 1 and a v1 load sequence. Real value is 5; pinnedApplications in the sketch was replaced by DockEntry."],
+["A","high",0,"ARCHITECTURE.md:44-71","Module map is the M1 layout. SettingsWindow, OnboardingWindow and StatusItem do not exist (AuxiliaryWindowController, SettingsView, OnboardingView, StatusItemController do). Omits NexusCore/Media, NexusUI/StartMenu, Switcher and Support. Providers live in one Providers.swift."],
+["A","high",0,"ARCHITECTURE.md:236","'ActionRunner in the app layer.' It lives in NexusCore (Search/ActionRunner.swift). Same wording in SearchResult.swift:84."],
+["A","high",0,"ARCHITECTURE.md:155, :315","NexusEvent listing lacks windowGeometrySettled; section 10 names .windowClosed, which does not exist."],
+["A","high",0,"ARCHITECTURE.md:137; scripts/make-dmg.sh (DMG_FANCY comment)","'Warnings are errors in CI' and 'CI sets DMG_FANCY=0'. There is no CI: no .github, Actions disabled. The gate is local make lint."],
+["A","high",0,"ARCHITECTURE.md:337, :17","'Integration and UI tests are deliberately deferred' and an Xcode wrapper at Milestone 7. There are 522 tests and no wrapper."],
+["A","high",0,"ARCHITECTURE.md:32; Nexus_Project_Foundation_MVP.md section 111.3","'Signed with the Apple Development certificate. Never ad-hoc.' The Makefile prefers 'Bugler Local Dev', then Apple Development, then any identity, then ad-hoc."],
+["A","med",0,"README.md:93","make dmg output is given as build/Nexus-<version>.dmg; the real name is build/Nexus-<version>-<arch>.dmg."],
+["A","med",0,"README.md:107","Signing order omits the first choice, a certificate named 'Bugler Local Dev'."],
+["A","med",0,"README.md (whole)","The main search shortcut, Option+Space, is stated nowhere. Only Ctrl-Opt-Space and Ctrl-Opt-W are named."],
+["A","med",0,"README.md:199 vs CHANGELOG.md:321","Benchmarks cite 454 applications indexed; the changelog says 454 was bundles and 132 are launchable. Likely a pre-fix figure."],
+["A","med",0,"ROADMAP.md:3","'Seven milestones.' The file documents 27."],
+["A","med",0,"docs/README.md:7","Describes ROADMAP.md as 'what is built and what is next'. ROADMAP has no next section."],
+["A","high",0,"docs/design/dock-replacement.md:3","'Spec for review. Nothing here is implemented yet.' Dock Replacement is fully shipped."],
+["A","high",0,"docs/design/multi-display.md:64; docs/decisions/system.md:106","'DisplayOverride is in the configuration and unused.' It was deleted; no match in Sources. docs/design/mvp.md:381 says so correctly."],
+["A","med",0,"docs/design/reserved-space.md:29, :89","Anti-fight rule given as skipped the third time. Code has maximumAttempts = 4; D70 is correct."],
+["A","med",0,"docs/design/README.md:18","keyboard-navigation described as Ctrl-F3. Default is Ctrl-Opt-Space; Ctrl-F3 was rejected in D101."],
+["A","med",0,"docs/design/mvp.md:33, :67, :301, :480, :580","Snippet shows class SidebarPanel with canBecomeKey false (it is NonActivatingPanel with acceptsKeyboardFocus). 'No keyboard, by design' with no pointer to M23. Application provider described as a live query (D30 replaced it). 'Five steps' of onboarding (six). Risk table calls the shipped reorder a fallback."],
+["A","med",0,"docs/design/start-menu.md:62","'HotKeyService holds one binding.' It has three slots."],
+["A","low",0,"docs/design/search-scope.md:84","Points to mvp.md section 5 for ranking; section 5 is Hotkey. Ranking is 4.4."],
+["A","low",0,"docs/design/media-player-row.md:152","Dangling fragment '(D92, ...) / is playing.' left by an edit."],
+["A","low",0,"docs/decisions.md:7","'Ninety-odd of them.' There are 123."],
+["A","low",0,"FEATURES.md:3","Preamble says every feature from Foundation section 28; the file is now the shipped-feature list."],
+["A","med",0,"Sources/NexusCore/Search/Ranking.swift:84","'No category is ever entirely squeezed out.' Per-category caps sum to 27, global cap is 20 and applies after sorting; files drop first."],
+["A","med",0,"Sources/NexusCore/Media/NowPlayingService.swift:176; Models/Permission.swift:18; System/PermissionService.swift:50","'Nothing here polls' and 'the single sanctioned poll (D13)'. startPolling runs a 1 Hz loop (:466). D13 still says exactly one poll."],
+["A","med",0,"Sources/NexusCore/System/FolderStackService.swift:36","'The header says the real count.' list returns prefix(limit) and the view prints items.count, at most 60."],
+["A","low",0,"Sources/NexusCore/Windows/WindowPreviewService.swift:138","Comment says the old batch's stream finishes immediately on supersede; it finishes only after the in-flight fetch returns."],
+["A","low",0,"Sources/NexusCore/Applications/ApplicationMonitor.swift:47; Windows/WindowCounts.swift:24","'Until Accessibility observers arrive at Milestone 4.' WindowMonitor already exists."],
+["A","low",0,"Sources/NexusUI/Sidebar/VolumeView.swift:7; Settings/SettingsView.swift:720","'Right-clicking it mutes.' Right-click opens a menu with one Mute item."],
+["A","low",0,"Sources/NexusUI/Sidebar/GroupRename.swift:4","Says the popover can never become key and the alert is shared; since D104 the popover has its own title field."],
+["A","low",0,"SidebarViewModel.swift:352; PanelController.swift:6, :915; StartMenuLayout.swift:29; SidebarPanel.swift:3; ContextMenuCatcher.swift:71","Stale comments: 'six parts' (now up to nine); 'the only code that touches NSWindow'; 'Three reasons' listing two; 'used as the default' with no caller; NonActivatingPanel described as sidebar and flyout only; 'can never become key'."],
+["A","low",0,"Sources/NexusUI/Switcher/SwitcherViewModel.swift:6, :26, :33","'The panel and grid views are later tasks' and Task 5/6 references. Both views exist."],
+["A","low",0,"Sources/NexusUI, Sources/NexusApp (about 20 comments); Composition.swift:246; ClockView.swift:8","Comments cite design/mvp.md and design/window-switcher.md; the files are under docs/design/. Two cite Foundation section 65 for the no-polling rule; that section is Error Handling."],
+["A","low",1,"scripts/build-app.sh (icon comment)","Says there is no source to build the icon from; Resources/nexus-icon-1024.svg sits beside it."],
+["A","med",1,"memory: nexus-project-state","Said the v0.2.0 GitHub release was still owed. gh release list shows it published 2026-09-02. Memory corrected during this review."],
+// ---- Inconsistent
+["C","high",1,"CHANGELOG.md:6","[Unreleased] is empty, but five user-visible fixes landed after v0.2.0: 01050d0 (exclude ~/Library from file search), 196028a (settings window on short screens), 3c14707 (window load after revocation), 730bac1 (settings search sends Position to Dock tab), 5bb21d1 (never overwrite a newer configuration)."],
+["C","med",0,"ROADMAP.md:643; docs/verification.md:155, :184, :297; docs/reviews/2026-10-27-...md","Test counts 516, 477, 490, 516 and '209 core'. Current: 522 (309 UI + 213 core)."],
+["C","med",0,"FEATURES.md:95 vs :43","Folder stacks 'Deferred past MVP' contradicts row 29 'Folder stacks, M21'."],
+["C","med",0,"FEATURES.md:97","Per-monitor configuration described as stored with UI pending; the feature was deleted (ROADMAP.md:649)."],
+["C","med",0,"FEATURES.md:38 vs CHANGELOG.md:405","Sidebar keyboard navigation claimed at M7; the 0.1.0 changelog says it was not in that release. It shipped in M23."],
+["C","low",0,"FEATURES.md:6, :34","Legend says M1-M23; milestones run to M27. Settings row lists five tabs; there are nine."],
+["C","med",0,"FEATURES.md:56, CHANGELOG.md:174 vs ROADMAP.md:261","Start menu actions: 'Sleep / Restart / Shut Down / Log Out' vs 'Sleep / Restart / Log Out / Lock'. Code has no Lock in that menu."],
+["C","low",0,"ARCHITECTURE.md:20 vs README.md:213","Two different module trees; neither lists all ten NexusCore folders."],
+["C","med",0,"docs/decisions/media.md:99 (D85), :57 (D80); docs/design/media-player-row.md:35","'Nothing opens when the pointer crosses the player.' The popover came back for the compact player (NowPlayingFlyoutView). D85 and D80 were never amended."],
+["C","med",0,"docs/decisions: D8, D16, D21, D25, D36, D71, D73","Superseded by D30, config v5, D64, D62/D100, D99, D103, D74 respectively, but not marked in their own text. Only D44, D52 and D58 carry a supersedes marker."],
+["C","med",0,"docs/decisions/windows.md D114 vs docs/design/window-switcher.md section 5","D114 says the Screen Recording offer is never shown again once dismissed. Design doc and code say dismissal lasts only until relaunch."],
+["C","med",0,"docs/design/app-groups.md:109","'What shipped' bullets say grouping needs a 600 ms dwell and rename is an alert. The same doc's Interaction section, D103 and D104 say the opposite."],
+["C","low",0,"docs/design/dock-parity.md:68","'Only already-pinned rows get a preview.' D59 (extended) and D63 give running apps the preview too."],
+["C","med",0,"docs/plans/2026-08-24-window-switcher.md; docs/plans/2026-10-28-test-waits.md","Both merged (8e5ca7b; e6a651f, 37e44d6) but all checkboxes are unchecked: 58 and 20."],
+["C","med",0,"docs/reviews/2026-10-27-app-review-and-improvement-plan.md:3","Status still 'proposal'; no finding annotated. R1, R2, R3, R4, R5, R6 and R8 are fixed (5bb21d1, 3c14707, 730bac1, 01050d0, 2363c4c, 196028a, 9b32108); R7 deferred. Line anchors predate the fixes."],
+["C","med",0,"docs/design/2026-10-27-r4-r5-r7-spec.md","R4 and R5 are implemented but the spec reads as open, with no status line; R4 line anchors are stale."],
+["C","low",0,"docs/README.md:3; docs/design/README.md","Indexes omit docs/plans, docs/reviews, docs/images, release-checklist.md, the R4/R5/R7 spec, its mockup and the Foundation doc. docs/README.md:28 says milestone plans live in ROADMAP.md."],
+["C","low",0,"docs/design/*","Only the R4 spec has an HTML mockup. The workspace rule requires one for every UI spec; window-switcher.md is the newest and most UI-heavy without one. Older specs predate the rule."],
+["C","med",0,"Sources/NexusCore/Configuration/ConfigurationController.swift:30; ConfigurationStore.swift:134","update() and save() clamp appearance only. behavior.clamp() runs only at decode, so an out-of-range value is stored and silently changes on next launch."],
+["C","low",0,"Sources/NexusCore/Applications/ApplicationService.swift:96 vs Search/ApplicationIndex.swift:152","Two naming rules for one app; the service also strips '.app' from the middle of a name. Sidebar and search can show different names."],
+["C","low",0,"Sources/NexusCore/Search/Ranking.swift:24 vs NexusUI/Search/SearchViewModel.swift:220","Frecency.record is used only by tests; the app bumps counts with a second implementation, FrecencyEntry.bump()."],
+["C","low",0,"WindowMonitor.swift:201; WindowService.swift:265; ReservedSpaceController.swift:212","regularApplications() exists in three places, processIdentifier(for:) in two."],
+["C","low",0,"Sources/NexusUI/Panels/PanelController.swift:387-584","layoutFolder, layoutGroup, layoutPlayer, layout(panel:) and layoutFlyout repeat one measure-clamp-frame block. Also duplicated: firstTextField, ActivationStrategy, the 76/10 tile rule, unpinGroup and unpinFolder (identical bodies)."],
+["C","low",0,"SidebarView.swift:559; GroupPopoverView.swift:303; FolderStackView.swift:175; NowPlayingView.swift:440; SettingsView.swift:648","Magic numbers duplicating tokens: iconSize + 8 for SidebarLayout.rowHeight; corner radius 10 for Design.itemCornerRadius."],
+["C","low",0,"Sources/NexusUI/Sidebar/VolumeView.swift:54; FolderStackView.swift:147","SwiftUI Slider and Button inside never-key panels, against the project's own rule that such controls render inactive there."],
+["C","low",0,"Tests: SearchSelectionTests:46; WaitUntil.swift:9; OnboardingTests:30; NowPlayingTests:249, :379; SearchIntegrationTests:16","Six wait helpers or loops. The plan merged only the UI until into waitUntil."],
+["C","low",0,"Tests: SearchEngineTests:6; SearchScopeTests:118; SearchScopeUITests:9; SearchSelectionTests:8; VolumeServiceTests:10; ClockAndVolumeTests:14","Four near-identical SearchProvider fakes (two identical apart from name) and two identical FakeDevice classes."],
+["C","low",0,"Tests/NexusUITests (15 helpers)","makeModel / makeSidebar repeated with the same setup in 15 places; window(...) defined four times. foldersDoNotGroup exists in two files."],
+["C","low",0,"Tests (layout)","DockReplacementTests (a core controller) sits in the UI target; SearchSelectionTests.swift holds PinnedReorderTests; BarZonesTests.swift holds NowPlaying suites; VolumeServiceTests has no @Suite or test names."],
+["C","low",1,"scripts/make-dmg.sh","Volume is named 'Nexus' in the styled path and 'Nexus <version>' in the plain path."],
+["C","low",1,"~/.claude/CLAUDE.md vs ~/.codex/AGENTS.md","Hand-maintained near-copies. AGENTS.md lacks the BugMind map format and generator notes; neither lists the Codex Terra tier that memory records."],
+// ---- Inefficient
+["E","high",0,"Sources/NexusCore/Search/ApplicationIndex.swift:70","rebuild() runs on the main actor: Bundle(url:) plus an Info.plist read for up to 4,000 bundles, and again on every applicationLaunched event."],
+["E","high",0,"Sources/NexusCore/Media/MediaPositionService.swift:169 with NowPlayingService.swift:466","A synchronous NSAppleScript round trip on the main actor every second while the player is visible. A hung player blocks the UI for the AppleScript timeout."],
+["E","high",0,"Sources/NexusCore/Configuration/ConfigurationController.swift:27 with SearchViewModel.swift:187, StartMenuViewModel.swift:155","Every search or launch bumps frecency through update(), which publishes configurationChanged. Subscribers then run a bar refresh, badge AX scan, reframe, reserved-space sweep and more. Nothing filters on which field changed."],
+["E","med",0,"Sources/NexusCore/Configuration/NexusConfiguration.swift:487","frecency is never pruned: every executed result id, including file paths and recycled window ids, is stored, compared on every update and copied into each SearchContext."],
+["E","high",0,"Sources/NexusUI/Switcher/SwitcherViewModel.swift:14, :89, :424","previews is never pruned: each window ever seen keeps a 480 px image for the session. The event task runs from launch and enumerates all windows (and captures them when Screen Recording is granted) while the switcher is hidden."],
+["E","med",0,"Sources/NexusCore/Windows/WindowService.swift:109","Title, minimized, position and size (four AX calls, up to 0.25 s each) are read before the subrole filter drops the window. allWindows() walks every app serially."],
+["E","med",0,"Sources/NexusUI/Sidebar/ReservedSpaceController.swift:104 with PanelController.swift:880","barFrameChanged() restarts a sweep of every app's windows through AX on every reframe, including each hover enter and exit, even when the frame is unchanged."],
+["E","med",0,"Sources/NexusCore/Applications/ApplicationService.swift:28","application(for:) rebuilds the running-app list on every call; SidebarViewModel.swift:557 calls it once per pinned id."],
+["E","med",0,"Sources/NexusCore/Utilities/IconCache.swift:18","Bundle(url:) and a bundle-id check run on every icon lookup, including cache hits. The cost comment says backing scale but no scale is used."],
+["E","med",0,"Sources/NexusCore/Search/MetadataQueryRunner.swift:109","The continuation ignores task cancellation; a superseded query keeps running for up to 3 s and gathers all matches before the limit applies."],
+["E","med",0,"Sources/NexusCore/Windows/WindowPreviewService.swift:131","No onTermination on the batch stream; closing the switcher leaves the task capturing the remaining windows."],
+["E","med",0,"Sources/NexusCore/Applications/ApplicationMonitor.swift:19","CGWindowListCopyWindowInfo on the main thread on every launch, terminate, activation and pointer-enter; mostly unused when Accessibility is granted."],
+["E","med",0,"Sources/NexusCore/System/PermissionService.swift:53 with WindowService.swift:59","Each statusStream subscriber runs its own 1 Hz task and publishes permissionChanged; WindowService publishes the same event, so consumers see duplicates."],
+["E","med",0,"Sources/NexusUI/Sidebar/WindowFlyoutViewModel.swift:58","Every windowsChanged for the target, title changes included, clears and re-captures all thumbnails. Comments at :14 and :184 say previews are lazy."],
+["E","med",0,"Sources/NexusUI/Sidebar/SidebarGroupView.swift:63","GroupIcon.image (lockFocus and four icon draws) is evaluated in body for every group row on every render."],
+["E","med",0,"Sources/NexusUI/Sidebar/SidebarViewModel.swift:1374 with NowPlayingView.swift:76, :236, :353","NSWorkspace.urlForApplication, runningApplications and FileManager.displayName run inside view bodies, up to three times per flyout render, on every position tick."],
+["E","low",0,"Sources/NexusApp/Composition.swift:463 with SidebarViewModel.swift:317","Changing showStartMenu calls configurationChanged() twice, each with a refresh and badge AX scan."],
+["E","low",0,"Sources/NexusUI/Search/SearchViewModel.swift:77; StartMenu/StartMenuViewModel.swift:67","reset() assigns query and scope, whose didSet handlers rerun the search one to three times on every hide; the start menu also resizes a hidden panel."],
+["E","low",0,"Sources/NexusUI/Sidebar/SidebarViewModel.swift:1554, :572","Two AX badge scans per hover."],
+["E","low",1,"Makefile (lint)","Touches every source file to force a full rebuild, and detects warnings by grepping for ': warning:'."],
+["E","low",1,"Makefile (stop)","Fixed sleep 0.3 after pkill instead of waiting for the process to exit."],
+// ---- Token-wasting
+["K","high",1,".remember/remember.md","Handoff from 2026-08-22: 153 tests, an Opus-agent workflow no longer used, and paths docs/DESIGN_MVP.md and docs/DECISIONS.md that do not exist. Re-delivered 28 times. Replace with /remember or delete."],
+["K","high",0,"docs/plans/2026-08-24-window-switcher.md (84 KB)","Fully executed plan for M25, embedding code that now lives in Sources. Largest file in docs/. Archive or delete."],
+["K","med",0,"docs/plans/2026-10-27-review-baseline-fixes.md (28.5 KB); 2026-10-27-r4-r5-r7.md (17.2 KB); 2026-10-28-test-waits.md (7.3 KB); docs/reviews/2026-10-27-...md (15.9 KB)","All executed. About 153 KB of plans and review in total. The R4/R5/R7 plan still tells the reader to create a branch that was merged."],
+["K","high",0,"Nexus_Project_Foundation_MVP.md (66 KB)","Nothing links to it. Sections 36-110 (about 43 KB, roughly 11k tokens) describe a vision CONTRIBUTING.md:74 says is deliberately not built. Heading markup is broken from section 6 on. Early sections give Command+Space as the default; section 111.1 and the code say Option+Space. Section 111.5 asks for a split that already happened."],
+["K","med",0,"README.md feature table; FEATURES.md; ROADMAP.md M8-M27; CHANGELOG.md 0.2.0","The same ~25 features described at four levels of detail. Most of the drift under 'Inconsistent' comes from this."],
+["K","med",0,"ROADMAP.md:12-186 and M8-M23 (33.8 KB)","Acceptance criteria for shipped milestones. A status table would carry the same information in 6-8 KB."],
+["K","med",0,"CHANGELOG.md:8-349","The 0.2.0 section has nine repeated Added/Fixed/Changed/Removed sub-headings and reads as a development log, including items added and removed within the release. No link references for [0.2.0] or [0.1.0]."],
+["K","med",0,"ARCHITECTURE.md (15.1 KB)","Sections 3, 5, 6 and 7 copy Swift from Sources, and the copy has drifted. Pointers to files would save about 6 KB."],
+["K","med",0,"docs/verification.md (24.5 KB)","A dated lab notebook; about 60% is per-session narrative folded into decisions D88-D102. The still-unverified list and the 0.2.0 pass are about 5 KB. Historic values (config version 4, eight tabs, Ctrl-F3, 0.1.0 DMG name) read as current."],
+["K","low",0,"FEATURES.md (15.6 KB)","The M24-M26 tables repeat ROADMAP and CHANGELOG text. A single table is about 5 KB."],
+["K","low",0,"docs/design/mvp.md (29 KB); media-player-row.md (12.5 KB); window-previews.md; dock-replacement.md","Layered spec-then-shipped-then-restyle documents; no single statement of the current design."],
+["K","low",0,"README.md:196; CONTRIBUTING.md:3 vs README.md:158","Single-machine performance table that goes stale (cold start has ranged 459-994 ms). Build command list and the log-builtin warning are duplicated across both files."],
+["K","med",1,"Session start (global plugins)","The skill list injected each session is mostly irrelevant to a Swift app: n8n, Expo, HyperFrames, Sonner, Figma, slideshow, video. Overlapping skills exist for TDD, debugging, code review and prototyping across superpowers, mattpocock and built-ins. The superpowers 'must invoke a skill before any response' block loads on every start."],
+["K","low",1,"~/.claude/skills/synced/","Holds only empty bucket marker files, no SKILL.md."],
+["K","low",1,"~/.claude/settings.json","The Orca hook command (several KB, with an embedded encoded PowerShell fallback) is repeated verbatim for each hook event."],
+// ---- Obsolete
+["O","med",0,"Sources/NexusUI/Settings/SettingsView.swift:731; SettingsSearch.swift:87","The 'Favourites' toggle (behavior.showFavorites) and its search entry control nothing; no source reads the value."],
+["O","med",0,"Sources/NexusCore/Configuration/NexusConfiguration.swift:326, :152, :468","reduceMotionOverride has no UI and no reader. general.launchAtLogin is written but never read (LoginItemService.state is the source). onboarding.completedVersion is written and never read."],
+["O","med",0,"Sources/NexusCore/Windows/WindowService.swift:31","unresponsive is write-only. The comment says such apps are skipped this pass; nothing reads the set."],
+["O","med",0,"Sources/NexusCore/Search/SearchProvider.swift:7","requiredPermission is never consulted by SearchEngine; only tests read it."],
+["O","low",0,"Sources/NexusCore/System/SpotlightShortcut.swift","Whole enum has no production caller; only tests use it."],
+["O","low",0,"Sources/NexusCore/Configuration/NexusConfiguration.swift:15","SidebarPosition.opposite has no caller anywhere, and its comment contradicts DockControlService.dockOrientation."],
+["O","low",0,"WindowCounts.swift:25; ApplicationIndex.swift:41; LoginItemService.swift:26; WindowPreviewService.swift:7, :81","windowNumbers(for:) is test-only. isUsingDirectoryFallback, LoginItemService.isEnabled and WindowPreviewing.invalidate(_:) have no callers; invalidateAll() is test-only."],
+["O","low",0,"PanelController.swift:816; SettingsView.swift:263; DesignMetrics.swift:13; WindowFlyoutViewModel.swift:13; NowPlayingView.swift:160","Unused: targetScreen, DockPane.rowLimitLabel, Design.sidebarInset. isLoading is written and never read. A ternary with two identical branches."],
+["O","low",0,"SidebarViewModel.swift:376, :895; SidebarLayout.swift:45, :173; StartMenuLayout.swift:31; SwitcherPanelController.swift:129","Production code called only by tests: tailRowCount, toggleKeyboardNavigation, height(sectionRowCounts:), size(sectionRowCounts:), defaultCorner(for:), frame(for:)."],
+["O","low",0,"docs/verification.md:153-290","Pending 'Not yet run' checklists for M25-M27 are superseded by docs/release-checklist.md rows 10-28."],
+["O","low",0,"ROADMAP.md:549","'Settings, re-cut. Eight panes' superseded by nine panes at :621."],
+["O","low",1,".claude/RESUME.md; .git/refs/claude/checkpoint-7df1d4c7, checkpoint-8e456067","Resume checkpoint from 2026-08-23 and two stale checkpoint refs."],
+["O","low",1,"build/Nexus-0.1.0-arm64.dmg","Old release artifact (git-ignored, 3.4 MB)."],
+["O","low",1,".superpowers/sdd/","Empty apart from a .gitignore."],
+["O","low",1,"scripts/make-dmg.sh (BACKGROUND_PNG)","Refers to scripts/dmg-background.png, which does not exist; the branch that uses it never runs."],
+["O","low",0,"site-content/build.py","No defect: output is byte-identical to the committed page and JSON, and agrees with the app. It always rewrites both files, with no dry-run flag; the accent colour is hard-coded twice. 20 MB of screenshots are tracked in git."]
+];
+
+var host = document.getElementById("sections");
+var lists = {};
+Object.keys(SECTIONS).forEach(function (key) {
+  var h = document.createElement("h2");
+  h.textContent = SECTIONS[key][0];
+  var count = document.createElement("small");
+  h.appendChild(count);
+  var p = document.createElement("p");
+  p.className = "note";
+  p.textContent = SECTIONS[key][1];
+  var ul = document.createElement("ul");
+  ul.className = "findings";
+  host.appendChild(h); host.appendChild(p); host.appendChild(ul);
+  lists[key] = { ul: ul, count: count, head: h, note: p };
+});
+
+var LABEL = { high: "High", med: "Medium", low: "Low" };
+var rows = F.map(function (f) {
+  var li = document.createElement("li");
+  li.className = f[1];
+  var loc = document.createElement("span");
+  loc.className = "loc";
+  loc.textContent = f[3];
+  var sev = document.createElement("span");
+  sev.className = "tag " + f[1];
+  sev.textContent = LABEL[f[1]];
+  li.appendChild(loc); li.appendChild(sev);
+  if (f[2]) {
+    var v = document.createElement("span");
+    v.className = "tag v";
+    v.textContent = "Verified";
+    li.appendChild(v);
+  }
+  var t = document.createElement("span");
+  t.className = "text";
+  t.textContent = f[4];
+  li.appendChild(t);
+  lists[f[0]].ul.appendChild(li);
+  return { el: li, key: f[0], sev: f[1], verified: !!f[2], hay: (f[3] + " " + f[4]).toLowerCase() };
+});
+
+document.getElementById("total").textContent = String(F.length);
+document.getElementById("verified").textContent = String(F.filter(function (f) { return f[2]; }).length);
+
+var q = document.getElementById("q");
+var onlyHigh = document.getElementById("onlyHigh");
+var onlyVerified = document.getElementById("onlyVerified");
+function apply() {
+  var needle = q.value.trim().toLowerCase().slice(0, 200);
+  var shown = {};
+  var any = 0;
+  rows.forEach(function (r) {
+    var ok = (!needle || r.hay.indexOf(needle) !== -1) &&
+      (!onlyHigh.checked || r.sev === "high") &&
+      (!onlyVerified.checked || r.verified);
+    r.el.hidden = !ok;
+    if (ok) { shown[r.key] = (shown[r.key] || 0) + 1; any += 1; }
+  });
+  Object.keys(lists).forEach(function (key) {
+    var n = shown[key] || 0;
+    lists[key].count.textContent = n + (n === 1 ? " finding" : " findings");
+    lists[key].head.hidden = n === 0;
+    lists[key].note.hidden = n === 0;
+  });
+  document.getElementById("empty").style.display = any ? "none" : "block";
+}
+q.addEventListener("input", apply);
+onlyHigh.addEventListener("change", apply);
+onlyVerified.addEventListener("change", apply);
+apply();
+</script>
+</body>
+</html>

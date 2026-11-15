@@ -141,4 +141,45 @@ struct ClockAndVolumeTests {
         model.activateFocusedRow()
         #expect(opened == ["calendar", "volume"])
     }
+
+    /// Search is followed by volume and clock, so "the last section" was the clock: the palette
+    /// opened beside the wrong row on a default configuration.
+    @Test("The Search row is the section after Trash, not the last one")
+    func searchSectionIsNotLast() throws {
+        let (model, _) = makeModel()
+        model.openSearch = {}
+        let counts = model.sectionRowCounts.filter { $0 > 0 }
+        let search = try #require(model.searchSectionIndex)
+
+        #expect(search == counts.count - 3)                 // …, Search, volume, clock
+        #expect(model.volumeSectionIndex == counts.count - 2)
+        #expect(model.clockSectionIndex == counts.count - 1)
+        #expect(counts[search] == model.searchRowCount)
+    }
+
+    /// The minimized section is drawn before Trash. Leaving it out of the counts put every anchor
+    /// after it one section too early.
+    @Test("Minimized windows shift Search, volume and clock by one section")
+    func minimizedShiftsTheTail() throws {
+        let (model, _) = makeModel()
+        model.openSearch = {}
+        model.activateWindow = { _ in }
+        let before = try #require(model.searchSectionIndex)
+        let volumeBefore = try #require(model.volumeSectionIndex)
+        let clockBefore = try #require(model.clockSectionIndex)
+
+        model.setAllWindows([
+            NexusWindow(
+                identity: WindowIdentity(owner: ApplicationIdentity(bundleIdentifier: "a"), number: 7),
+                title: "Draft",
+                isMinimized: true,
+                applicationName: "A"
+            )
+        ])
+
+        #expect(model.showsMinimizedRows)
+        #expect(model.searchSectionIndex == before + 1)
+        #expect(model.volumeSectionIndex == volumeBefore + 1)
+        #expect(model.clockSectionIndex == clockBefore + 1)
+    }
 }

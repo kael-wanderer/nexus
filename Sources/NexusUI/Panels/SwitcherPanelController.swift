@@ -2,7 +2,7 @@ import AppKit
 import NexusCore
 import SwiftUI
 
-/// Like the palette, the switcher must take the keyboard and give it back (design/window-switcher.md
+/// Like the palette, the switcher must take the keyboard and give it back (docs/design/window-switcher.md
 /// §2).
 public final class SwitcherPanel: NSPanel {
     public override var canBecomeKey: Bool { true }
@@ -64,6 +64,7 @@ public final class SwitcherPanelController {
         panel = SwitcherPanel(contentView: hosting)
         model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
         model.start()
+        model.didHide()                                     // nothing is on screen yet
     }
 
     public func stop() {
@@ -120,6 +121,7 @@ public final class SwitcherPanelController {
         removeMonitors()
         panel.orderOut(nil)
         isVisible = false
+        model.didHide()
         if restoreFocus, strategy == .activateAndRestore { previousApplication?.activate() }
         previousApplication = nil
     }
@@ -132,7 +134,7 @@ public final class SwitcherPanelController {
 
     /// The filter field holds first responder the whole time, so the arrows, `Tab`, `Return`,
     /// `Escape` and `⌘W` are taken before it sees them — the same local monitor the palette uses
-    /// for its digit chords (design/window-switcher.md §8).
+    /// for its digit chords (docs/design/window-switcher.md §8).
     private func installMonitors(_ panel: SwitcherPanel) {
         removeMonitors()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in

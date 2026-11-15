@@ -68,8 +68,8 @@ final class ClosureMenuItem: NSMenuItem {
 ///
 /// 1. A click into a non-key window is swallowed unless the **view that is hit** returns
 ///    `acceptsFirstMouse == true`. Overriding it on the `NSHostingView` is not enough, because
-///    the hit view is one of SwiftUI's internal subviews. The sidebar and the flyout can never
-///    become key, so *every* click is a first-mouse click — meaning SwiftUI's `.onTapGesture`
+///    the hit view is one of SwiftUI's internal subviews. The sidebar and the flyout are not key
+///    (keyboard mode aside), so *every* click is a first-mouse click — meaning SwiftUI's `.onTapGesture`
 ///    never fires there at all, not merely on the first click.
 /// 2. SwiftUI's `.contextMenu` can activate the hosting application, which would break the
 ///    sidebar's no-focus-theft guarantee. `NSMenu.popUp` runs its own event loop and does not.

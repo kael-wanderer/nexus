@@ -383,13 +383,15 @@ final class Composition {
             case .windowSwitcher: switcherPanel.toggle()
             }
         }
-        guard configuration.configuration.general.globalShortcutEnabled else {
-            hotKeys.unregisterAll()
-            return
-        }
-        let shortcut = configuration.configuration.search.shortcut
-        if case .failure(let error) = hotKeys.register(shortcut, for: .search) {
-            Log.system.error("Could not register the global shortcut: \(String(describing: error), privacy: .public)")
+        // The switch is the search shortcut's own. The bar and the switcher each have theirs, so
+        // turning search off must not take them down with it.
+        if configuration.configuration.general.globalShortcutEnabled {
+            let shortcut = configuration.configuration.search.shortcut
+            if case .failure(let error) = hotKeys.register(shortcut, for: .search) {
+                Log.system.error("Could not register the global shortcut: \(String(describing: error), privacy: .public)")
+            }
+        } else {
+            hotKeys.unregister(.search)
         }
         // The bar's own shortcut (M23). Optional, and a machine where something else already owns
         // it simply does not get it — the bar is still a pointer target either way.

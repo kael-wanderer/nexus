@@ -477,7 +477,7 @@ applies live; nothing requires a restart.
 
 ## 7. Onboarding (§111.6, ships with Milestone 6)
 
-Five steps in a standard titled window (not a panel — this one *should* be a normal focused
+Six steps (the Dock step came with Milestone 8) in a standard titled window (not a panel — this one *should* be a normal focused
 window). Every step is skippable; skipping applies safe defaults.
 
 1. **Welcome** — what Nexus is, one screen, one Continue button.

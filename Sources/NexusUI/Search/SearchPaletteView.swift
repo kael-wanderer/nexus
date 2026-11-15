@@ -133,8 +133,7 @@ public struct SearchPaletteView: View {
     }
 
     private func positionLabel(for result: SearchResult) -> String? {
-        guard let index = model.results.firstIndex(where: { $0.id == result.id }), index < 9
-        else { return nil }
+        guard let index = model.displayIndex(of: result), index < 9 else { return nil }
         return "⌘\(index + 1)"
     }
 }

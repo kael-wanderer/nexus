@@ -47,8 +47,8 @@ cp "$BIN_PATH/$EXECUTABLE" "$MACOS_DIR/$EXECUTABLE"
 cp "$ROOT/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
 printf 'APPL????' > "$CONTENTS_DIR/PkgInfo"
 
-# The icon is committed rather than generated: `Resources/AppIcon.icns` is the
-# one source of the mark, and there is no PNG to build it from. A bundle without
+# The icon is committed rather than generated: `Resources/AppIcon.icns` is what
+# ships, and nothing here rebuilds it from `Resources/nexus-icon-1024.svg`. A bundle without
 # it looks broken in the Finder, so a missing icon is a build failure.
 if [[ ! -f "$ROOT/Resources/AppIcon.icns" ]]; then
     echo "Missing $ROOT/Resources/AppIcon.icns — the bundle would have no icon." >&2

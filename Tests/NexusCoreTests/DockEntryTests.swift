@@ -3,12 +3,6 @@ import Testing
 
 @testable import NexusCore
 
-private func makeDefaults(_ name: String = UUID().uuidString) -> UserDefaults {
-    let defaults = UserDefaults(suiteName: name)!
-    defaults.removePersistentDomain(forName: name)
-    return defaults
-}
-
 @Suite("Dock entries")
 struct DockEntryTests {
     @Test("A dock of applications and groups round-trips through JSON")

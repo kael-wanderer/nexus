@@ -47,6 +47,8 @@ and is unit-tested with a concrete migration implementation. Inventing a breakin
 to exercise the framework would have been worse code. Rejected: bumping to v2 with a synthetic
 rename.
 
+> **Later:** no longer true. The configuration is at version 5, with migrations from each earlier version; the first came with application groups (D71, D72).
+
 ## D20. `#expect` comparisons keep both sides in `CGFloat`.
 Swift Testing's macro rewrites its expression into subexpression captures, which defeats Swift's
 implicit `CGFloat`/`Double` conversion: `56.0 == 56.0` fails with identical bit patterns. Test

@@ -32,13 +32,11 @@ public final class ApplicationIndex {
     private var buildTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var hasBuilt = false
-    private var usedFallback = false
 
     public init(events: EventBus) {
         self.events = events
     }
 
-    public var isUsingDirectoryFallback: Bool { usedFallback }
     /// Called on the main actor when a build finishes. The start menu opens before the first
     /// build can complete, so it needs telling rather than polling.
     public var onIndexed: (() -> Void)?
@@ -78,21 +76,25 @@ public final class ApplicationIndex {
             )
             guard !Task.isCancelled else { return }
 
-            var urls = spotlight.map(\.url)
-            if urls.isEmpty {
-                self.usedFallback = true
-                urls = Self.scanStandardDirectories()
-                Log.search.notice("Spotlight returned no applications; scanned \(urls.count, privacy: .public) from standard directories")
-            } else {
-                self.usedFallback = false
-            }
-            self.snapshot.write(Self.applications(from: urls))
+            // Off the main actor: reading up to four thousand bundles' Info.plists is disk work,
+            // and this runs again every time an application launches. The bar must not stall for it.
+            let found = spotlight.map(\.url)
+            let applications = await Task.detached(priority: .utility) {
+                var urls = found
+                if urls.isEmpty {
+                    urls = Self.scanStandardDirectories()
+                    Log.search.notice("Spotlight returned no applications; scanned \(urls.count, privacy: .public) from standard directories")
+                }
+                return Self.applications(from: urls)
+            }.value
+            guard !Task.isCancelled else { return }
+            self.snapshot.write(applications)
             Log.search.notice("Application index: \(self.snapshot.read().count, privacy: .public) applications")
             self.onIndexed?()
         }
     }
 
-    static let standardDirectories: [URL] = [
+    nonisolated static let standardDirectories: [URL] = [
         URL(fileURLWithPath: "/Applications"),
         URL(fileURLWithPath: "/Applications/Utilities"),
         URL(fileURLWithPath: "/System/Applications"),
@@ -100,7 +102,7 @@ public final class ApplicationIndex {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications"),
     ]
 
-    static func scanStandardDirectories() -> [URL] {
+    nonisolated static func scanStandardDirectories() -> [URL] {
         var found: [URL] = []
         for directory in standardDirectories {
             let contents = (try? FileManager.default.contentsOfDirectory(
@@ -116,7 +118,7 @@ public final class ApplicationIndex {
     /// Spotlight returns every application bundle on the disk, most of which nobody launches:
     /// agents that declare `LSUIElement` or `LSBackgroundOnly`, helpers nested inside another
     /// bundle, input methods, and the `CoreServices` scaffolding behind "About This Mac" (D68).
-    static func isLaunchable(_ url: URL, _ bundle: Bundle) -> Bool {
+    nonisolated static func isLaunchable(_ url: URL, _ bundle: Bundle) -> Bool {
         if bundle.object(forInfoDictionaryKey: "LSUIElement") as? Bool == true { return false }
         if bundle.object(forInfoDictionaryKey: "LSBackgroundOnly") as? Bool == true { return false }
         // "1"/"YES" appear as strings in older bundles.
@@ -138,7 +140,7 @@ public final class ApplicationIndex {
         return !excludedPrefixes.contains { path.hasPrefix($0) }
     }
 
-    static func applications(from urls: [URL]) -> [NexusApplication] {
+    nonisolated static func applications(from urls: [URL]) -> [NexusApplication] {
         var seen = Set<String>()
         var applications: [NexusApplication] = []
         for url in urls {

@@ -46,7 +46,8 @@ public final class ApplicationMonitor {
 
     /// Recomputes window counts and republishes. Called on every application event and whenever
     /// the user's pointer enters the sidebar — macOS publishes no notification for a window
-    /// opening in another app until Accessibility observers arrive at Milestone 4.
+    /// opening in another app. `WindowMonitor`'s Accessibility observers do, but only once
+    /// Accessibility is granted; this is what keeps the counts right without it.
     public func refresh() {
         let counts = WindowCounts.byProcess()
         Task { [service, events] in

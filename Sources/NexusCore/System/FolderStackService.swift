@@ -33,8 +33,8 @@ public enum FolderListing: Sendable, Equatable {
 /// Lists a pinned folder. Read when the stack opens, never watched: a folder that changes while its
 /// popover is open is rarer than an `FSEvents` stream per pinned folder is expensive.
 public enum FolderStackService {
-    /// A stack is a glance, not a file manager. The header says the real count, so a capped listing
-    /// is visible rather than silent.
+    /// A stack is a glance, not a file manager. The listing stops here, and the header counts
+    /// what is listed — a folder with more shows this many, with no sign that there are others.
     public static let limit = 60
 
     public static func list(_ url: URL, limit: Int = limit) -> FolderListing {

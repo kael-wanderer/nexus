@@ -349,23 +349,36 @@ public final class SidebarViewModel {
 
     // MARK: - Rows
 
-    /// The utility section — Trash, then Search — is always present: the Trash row does not
-    /// depend on anything being injected, so this section never has fewer than one row.
-    /// One entry per drawn section, in order — the six parts of the bar: launcher, pinned, running,
-    /// now playing, Trash, Search. Empty sections are dropped by `SidebarLayout`, which is what puts
-    /// a separator between exactly the parts that are there (D77).
+    /// One entry per drawn section, in the order `SidebarView` draws them: launcher, pinned,
+    /// running, now playing, minimized windows, Trash, Search, volume, clock. Trash is always
+    /// there, so the list is never empty. Empty sections are dropped by `SidebarLayout`, which is
+    /// what puts a separator between exactly the parts that are there (D77).
     public var sectionRowCounts: [Int] {
+        var counts = sectionRowCountsThroughTrash
+        if showsSearchRow { counts.append(searchRowCount) }
+        if showsVolumeRow { counts.append(1) }
+        if showsClockRow { counts.append(clockRowCount) }
+        return counts
+    }
+
+    /// Everything up to and including Trash. The Search, volume and clock indexes are all counted
+    /// from here, so a section added before Trash cannot shift one of them and not the others.
+    private var sectionRowCountsThroughTrash: [Int] {
         let zones = zones
         var counts: [Int] = []
         if showsStartMenuRow { counts.append(1) }
         counts.append(zones.pinnedRows)
         if behavior.showRunningApplications { counts.append(zones.runningRows) }
         if showsNowPlayingRow { counts.append(nowPlayingRowCount) }
+        if showsMinimizedRows { counts.append(minimizedRowCount) }
         counts.append(1)                                    // Trash
-        if showsSearchRow { counts.append(searchRowCount) }
-        if showsVolumeRow { counts.append(1) }
-        if showsClockRow { counts.append(clockRowCount) }
         return counts
+    }
+
+    /// Drawn sections before the Search row — the empty ones do not count, because
+    /// `SidebarLayout` drops them.
+    private var drawnSectionsThroughTrash: Int {
+        sectionRowCountsThroughTrash.filter { $0 > 0 }.count
     }
 
     public var showsStartMenuRow: Bool { general.showStartMenu && openStartMenu != nil }
@@ -433,15 +446,7 @@ public final class SidebarViewModel {
     }
 
     private var sectionsBeforeVolume: Int {
-        let zones = zones
-        var before: [Int] = []
-        if showsStartMenuRow { before.append(1) }
-        before.append(zones.pinnedRows)
-        if behavior.showRunningApplications { before.append(zones.runningRows) }
-        if showsNowPlayingRow { before.append(nowPlayingRowCount) }
-        before.append(1)                                    // Trash
-        if showsSearchRow { before.append(searchRowCount) }
-        return before.filter { $0 > 0 }.count
+        drawnSectionsThroughTrash + (showsSearchRow ? 1 : 0)
     }
 
     /// A box only where a box fits. A vertical bar is 64 points across, and three rows of *height*
@@ -534,11 +539,10 @@ public final class SidebarViewModel {
     /// Section indices for the flyout anchor. `SidebarLayout` skips empty sections, so these are
     /// counted the same way.
     public var pinnedSectionIndex: Int { showsStartMenuRow ? 1 : 0 }
-    /// The Search row is the last section when there is one at all — it is appended last and it is
-    /// never empty, so it cannot be dropped by the empty-section filter.
+    /// The Search row comes straight after Trash. Volume and clock follow it, so it is not the
+    /// last section.
     public var searchSectionIndex: Int? {
-        guard showsSearchRow else { return nil }
-        return sectionRowCounts.filter { $0 > 0 }.count - 1
+        showsSearchRow ? drawnSectionsThroughTrash : nil
     }
     public var runningSectionIndex: Int { pinnedSectionIndex + (pinned.isEmpty ? 0 : 1) }
 

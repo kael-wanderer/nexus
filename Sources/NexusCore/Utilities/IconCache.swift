@@ -8,6 +8,9 @@ public final class IconCache {
     public static let shared = IconCache()
 
     private let cache = NSCache<NSString, NSImage>()
+    /// Whether a path is Calendar. Asked on every lookup, hits included, and answering it means
+    /// opening the bundle — so it is answered once per path.
+    private var isCalendarByPath: [String: Bool] = [:]
 
     public init(countLimit: Int = 256, totalCostLimit: Int = 16 * 1_024 * 1_024) {
         cache.countLimit = countLimit
@@ -15,7 +18,13 @@ public final class IconCache {
     }
 
     public func icon(for url: URL, size: CGFloat) -> NSImage {
-        let isCalendar = Bundle(url: url)?.bundleIdentifier == "com.apple.iCal"
+        let isCalendar: Bool
+        if let known = isCalendarByPath[url.path] {
+            isCalendar = known
+        } else {
+            isCalendar = Bundle(url: url)?.bundleIdentifier == "com.apple.iCal"
+            isCalendarByPath[url.path] = isCalendar
+        }
         let dayKey = isCalendar ? "#\(Self.localDayKey())" : ""
         let key = "\(url.path)#\(Int(size.rounded()))\(dayKey)" as NSString
         if let cached = cache.object(forKey: key) { return cached }
@@ -28,8 +37,8 @@ public final class IconCache {
             icon = NSWorkspace.shared.icon(forFile: url.path)
             icon.size = NSSize(width: size, height: size)
         }
-        // Four bytes per pixel at the icon's backing scale; enough for the cost limit to mean
-        // something without measuring the real bitmap.
+        // Four bytes per point-sized pixel; enough for the cost limit to mean something without
+        // measuring the real bitmap.
         let cost = Int(size * size * 4)
         cache.setObject(icon, forKey: key, cost: cost)
         return icon
@@ -37,6 +46,7 @@ public final class IconCache {
 
     public func removeAll() {
         cache.removeAllObjects()
+        isCalendarByPath.removeAll()
     }
 
     private static func localDayKey(now: Date = Date(), calendar: Calendar = .current) -> String {

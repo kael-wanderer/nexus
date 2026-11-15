@@ -174,7 +174,9 @@ public enum NowPlayingSource: Sendable {
 /// Tracks what is playing and offers the transport controls.
 ///
 /// Push only, twice over: the metadata arrives as distributed notifications, and "somebody is
-/// playing audio" arrives as a CoreAudio property listener. Nothing here polls (§65).
+/// playing audio" arrives as a CoreAudio property listener. The one exception is the timeline:
+/// no player publishes its position, so `startPolling` reads it once a second, and only while
+/// the player is on screen (§65; `ROADMAP.md` M16 records the exception).
 @MainActor
 @Observable
 public final class NowPlayingService {

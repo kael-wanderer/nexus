@@ -3,19 +3,30 @@ import NexusCore
 import SwiftUI
 
 /// Records a new global shortcut. Escape cancels, Delete clears, and at least one non-shift
-/// modifier is required (design/mvp.md §5).
+/// modifier is required (docs/design/mvp.md §5).
 public struct ShortcutRecorder: View {
     @Binding var shortcut: NexusCore.KeyboardShortcut
     /// Called with the candidate; returns an error message when registration failed, so the
     /// previous binding can be restored with an explanation.
     let validate: (NexusCore.KeyboardShortcut) -> String?
+    /// What Delete puts back: the default of the shortcut being recorded, not of search.
+    let resetValue: NexusCore.KeyboardShortcut
+    /// VoiceOver's name for the button, so three recorders on one pane are told apart.
+    let label: String
 
     @State private var isRecording = false
     @State private var monitor: Any?
     @State private var message: String?
 
-    public init(shortcut: Binding<NexusCore.KeyboardShortcut>, validate: @escaping (NexusCore.KeyboardShortcut) -> String?) {
+    public init(
+        shortcut: Binding<NexusCore.KeyboardShortcut>,
+        resetValue: NexusCore.KeyboardShortcut = .optionSpace,
+        label: String = String(localized: "Search shortcut"),
+        validate: @escaping (NexusCore.KeyboardShortcut) -> String?
+    ) {
         _shortcut = shortcut
+        self.resetValue = resetValue
+        self.label = label
         self.validate = validate
     }
 
@@ -26,7 +37,7 @@ public struct ShortcutRecorder: View {
                     isRecording.toggle()
                 }
                 .frame(minWidth: 160)
-                .accessibilityLabel(String(localized: "Global shortcut"))
+                .accessibilityLabel(label)
                 .accessibilityValue(shortcut.displayString)
                 .accessibilityHint(String(localized: "Activates recording of a new keyboard shortcut"))
 
@@ -69,7 +80,7 @@ public struct ShortcutRecorder: View {
             return
         }
         if keyCode == 51 {                       // Delete
-            apply(.optionSpace)
+            apply(resetValue)
             return
         }
         let candidate = NexusCore.KeyboardShortcut(
@@ -98,7 +109,7 @@ public struct ShortcutRecorder: View {
 
 /// Command+Space registration *succeeds* but Spotlight still wins, because the system shortcut
 /// is handled first — the failure is undetectable from the return code. So choosing it always
-/// shows this (design/mvp.md §5).
+/// shows this (docs/design/mvp.md §5).
 public struct SpotlightGuideView: View {
     @State private var state = SpotlightShortcut.state()
 

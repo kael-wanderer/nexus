@@ -81,8 +81,9 @@ public enum Ranking {
         }
     }
 
-    /// Per-category caps then a global cap, applied after sorting. No category is ever entirely
-    /// squeezed out by another's volume.
+    /// Per-category caps then a global cap, applied after sorting. The caps stop one category
+    /// flooding the list, but they add up to more than the global cap, so the lowest-scoring
+    /// category can still be cut short — or cut entirely — when the others fill it.
     public static func capped(_ results: [SearchResult], maximumTotal: Int) -> [SearchResult] {
         var perCategory: [SearchCategory: Int] = [:]
         var kept: [SearchResult] = []
