@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>Nexus feature review</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --ink: #1d1c1a; --muted: #6a675f; --line: #dedad0; --card: #ffffff;
+    --add: #1f6f43; --improve: #8a5a00; --remove: #a3312a; --chip: #efece4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --ink: #ecebe6; --muted: #a09c92; --line: #33312c; --card: #1e1e1b;
+      --add: #6fcf97; --improve: #e0b34f; --remove: #ef8a82; --chip: #2a2925;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 21px; margin: 44px 0 4px; }
+  h2.add { color: var(--add); } h2.improve { color: var(--improve); } h2.remove { color: var(--remove); }
+  p { margin: 10px 0; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  .lead { border-left: 3px solid var(--line); padding: 2px 0 2px 14px; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+  .item h3 { font-size: 16px; margin: 0 0 4px; }
+  .item p { margin: 6px 0 0; }
+  .chip { display: inline-block; background: var(--chip); border-radius: 999px; padding: 1px 9px; font-size: 12px; color: var(--muted); margin-left: 6px; font-weight: 500; white-space: nowrap; }
+  .why { color: var(--muted); font-size: 14px; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+  ol, ul { padding-left: 22px; } li { margin: 5px 0; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+<h1>Nexus feature review</h1>
+<p class="sub">15 November 2026 · what to improve, remove and add · judged by how often a feature is used, not by how long the list gets</p>
+
+<p class="lead"><strong>Short answer.</strong> Nexus already has more features than a Dock needs. The best return is not new
+features: it is four Dock habits Nexus still lacks, one unfinished headline feature, and cutting about a dozen
+options nobody changes after the first day. Five additions, five improvements, eleven removals.</p>
+
+<h2>How this was judged</h2>
+<ul>
+  <li>A feature stays or is added only if a normal user would use it at least once a quarter. Each item carries its expected frequency.</li>
+  <li>Sources: <code>FEATURES.md</code>, <code>ROADMAP.md</code>, the source, and the settings of the copy installed on this Mac (read only, nothing written).</li>
+  <li>The installed copy is one person's use. It is evidence, not proof: a setting left at its default may be unused or simply right.</li>
+</ul>
+
+<h2>What the installed copy shows</h2>
+<div class="scroll">
+<table>
+  <tr><th>Observation</th><th>What it suggests</th></tr>
+  <tr><td>Dock replacement is off. Nexus runs beside the system Dock.</td><td>The headline feature is not trusted or not needed yet. See Improve 1.</td></tr>
+  <tr><td>Usage history holds one entry.</td><td>Either the configuration was reset recently or the search palette is rarely used to launch. Worth watching for a month before investing more in search.</td></tr>
+  <tr><td>Window switcher is rebound to ⌥Tab.</td><td>Used as the daily window switcher. Its default shortcut (⌃⌥W) is the wrong default.</td></tr>
+  <tr><td>Bar on the right, always visible, reserved space on, clock, volume, now playing, Start menu all on.</td><td>The bar is used as a full Dock plus status strip. These features earn their place.</td></tr>
+  <tr><td>Row ceilings (<code>pinnedLimit</code>, <code>runningLimit</code>) are 0, category suggestions off, search box in the bar disabled.</td><td>Candidates for removal. See Remove.</td></tr>
+</table>
+</div>
+
+<h2 class="add">Add</h2>
+<p class="why">Five items. All are things the system Dock or Spotlight already does, so a user who switches to Nexus loses them today.</p>
+
+<div class="item"><h3>1. Drop a file onto an application to open it <span class="chip">daily</span></h3>
+<p>Drag a file from Finder onto a row in the bar and it opens in that application. <code>FEATURES.md</code> lists this as out of scope. It is the most used Dock gesture after clicking, and the drag code for pinning already receives the drop.</p></div>
+
+<div class="item"><h3>2. Hide and Hide Others <span class="chip">daily</span></h3>
+<p>The row menu has Quit, Force Quit and Show All Windows but no Hide. Add Hide, Hide Others, and the Dock's ⌥-click (hide the application being left). Uses <code>NSRunningApplication.hide()</code>: no permission.</p></div>
+
+<div class="item"><h3>3. Calculator in the search palette <span class="chip">daily</span></h3>
+<p>Type <code>128*1.07</code>, see the answer, Return copies it. Every launcher has it and it is the reason many people open one. Build it on a small arithmetic parser that accepts digits, operators and brackets only. Do not pass typed text to <code>NSExpression</code>: its format strings can call functions.</p></div>
+
+<div class="item"><h3>4. Newest first in a folder stack <span class="chip">daily</span></h3>
+<p>The Downloads stack is the Dock's second most used feature, and it is useful because the file just downloaded is at the top. Stacks today list folders first, capped at 60. Add a sort choice per stack (name, date added) and default Downloads to date added.</p></div>
+
+<div class="item"><h3>5. Export and import settings <span class="chip">quarterly</span></h3>
+<p>Pins, groups, folders and every preference live in one defaults key. A new Mac, a reinstall or a bad experiment loses them. Two buttons in Settings › About: save to a file, load from a file. The format is already versioned and migrated, so import is a decode. Validate the file like any untrusted input: size limit, version check, <code>repaired(capacity:)</code> on the pins.</p></div>
+
+<p class="why"><strong>Considered and not recommended:</strong> window tiling (macOS 15 does it natively), clipboard history (Bugler has it), weather, battery and network widgets (the menu bar has them), calendar events in the clock (needs a Calendar permission for a glance the menu bar gives free), recent documents per application (no public interface that is reliable), workspaces, plugins, AI. None passes the frequency test without duplicating something the Mac already does well.</p>
+
+<h2 class="improve">Improve</h2>
+
+<div class="item"><h3>1. Finish Dock replacement or stop presenting it as the point <span class="chip">daily</span></h3>
+<p>Nexus is described as a Dock replacement and the owner runs it with replacement off. Find out why in one sitting: missing gestures (Add 1, 2 and 4 are likely causes), fear of losing the Dock on a crash, or the release checklist never run. Then either fix what blocks it or reword the product as "a bar beside the Dock". Everything else in this review matters less than this.</p></div>
+
+<div class="item"><h3>2. Updates and notarisation <span class="chip">quarterly</span></h3>
+<p>Both are blocked on things outside the code: a paid Developer ID and somewhere to publish a version number. Without them every release reaches other Macs by hand with a right-click to open. A GitHub release already exists (v0.2.0), and its releases feed is a hosted endpoint: an update check can read it over HTTPS with no server of its own.</p></div>
+
+<div class="item"><h3>3. Media timeline off the main thread <span class="chip">daily, when music plays</span></h3>
+<p>Player position is read through AppleScript on the main thread. A slow or hung player freezes the whole bar. Move the script to a serial background queue with a timeout. Already agreed for after 0.2.1.</p></div>
+
+<div class="item"><h3>4. Window switcher default shortcut <span class="chip">daily</span></h3>
+<p>The owner rebound it to ⌥Tab. Make ⌥Tab the default and keep ⌃⌥W out of it. Also confirm the checklist row on keyboard focus scrolling into view, since a switcher that loses its highlight is not usable by keyboard.</p></div>
+
+<div class="item"><h3>5. Two copies of one application <span class="chip">monthly, for some users</span></h3>
+<p>Recorded as a known limit today. Not worth a rewrite of identity. Worth one cheap step: when a second copy launches, follow its window events too, so its windows are at least not stale.</p></div>
+
+<h2 class="remove">Remove</h2>
+<p class="why">Eleven items. Each is either a second way to do something, a setting changed once and never again, or off by default and off in practice. Removing them shrinks Settings from nine tabs toward six and removes code that tests have to keep alive. Stored keys stay readable so old configurations still load.</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Remove</th><th>Why</th><th>What stays</th></tr>
+  <tr><td>Category suggestions</td><td>Off by default, off in use. Guesses a group from an application's category.</td><td>Drag one icon onto another.</td></tr>
+  <tr><td>Row ceilings (<code>pinnedLimit</code>, <code>runningLimit</code>)</td><td>Zero in use. The bar already measures its own capacity from the screen edge.</td><td>Automatic capacity.</td></tr>
+  <tr><td>Move Up, Move Down, Move to End</td><td>Three menu items for what a drag does.</td><td>Drag to reorder. Keyboard mode can keep one shortcut for moving a row.</td></tr>
+  <tr><td>Edit mode (press and hold, jiggle, minus badges)</td><td>A third way to unpin after drag-out and the menu. Also one of the three behaviours never confirmed working.</td><td>Drag out, or Unpin in the menu.</td></tr>
+  <tr><td>Group colours and emoji</td><td>Decoration. Adds an editor, a stored field and a setting.</td><td>Group name and its 2×2 tile.</td></tr>
+  <tr><td>Group capacity choice (9 or 16)</td><td>A setting nobody needs to think about.</td><td>One capacity: 16.</td></tr>
+  <tr><td>Panel size (small, medium, large)</td><td>Set once. Pick medium, or derive it from icon size.</td><td>One size that follows the bar.</td></tr>
+  <tr><td>Opacity, corner radius, icon spacing</td><td>Three sliders set on day one. Opacity below 1 also makes rows harder to read.</td><td>Icon size and bar width.</td></tr>
+  <tr><td>Search scopes: six down to four</td><td>"Files &amp; Folders", "Files" and "Folders" are three chips for one distinction.</td><td>Everything, Applications, Files, Settings &amp; Actions.</td></tr>
+  <tr><td>Spotlight shortcut status</td><td>A read-only guess at a system preference, shown once during setup.</td><td>The static guide.</td></tr>
+  <tr><td>Search box in the bar (three-slot style)</td><td>Disabled in use. Typing in the bar is impossible by design, so the box is a wide button.</td><td>The search icon and the global shortcut.</td></tr>
+</table>
+</div>
+
+<p class="why"><strong>Keep, though they look removable:</strong> Start menu (on in use; the only place for Sleep, Restart, Shut Down, Log Out), Settings search (cheap, and more useful the fewer times Settings is opened), opened group as a list (on in use), minimized windows, clock, volume, now playing, reserved space, hide over full-screen applications.</p>
+
+<h2>Suggested order</h2>
+<ol>
+  <li><strong>0.2.1:</strong> run the release checklist, fix what fails. No feature work.</li>
+  <li><strong>0.3.0, "a Dock you can switch to":</strong> Add 1, 2 and 4, Improve 1 and 4. Then turn Dock replacement on and live with it for two weeks.</li>
+  <li><strong>0.3.x, "less":</strong> the Remove table, in two or three commits, each with its settings rows and tests.</li>
+  <li><strong>0.4.0:</strong> Add 3 and 5, Improve 2 and 3.</li>
+</ol>
+<p class="why">Removals are the owner's decision: several are features asked for earlier. Nothing in this review has been changed in the code.</p>
+</main>
+</body>
+</html>
