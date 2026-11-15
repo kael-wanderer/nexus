@@ -85,12 +85,25 @@ public final class OnboardingViewModel {
         }
     }
 
+    /// Only the applications this step listed are the user's to pin or unpin here. Groups,
+    /// folders and pinned applications that are not running were never offered, so running setup
+    /// again leaves them exactly where they are.
     private func applyPinning() {
-        // Preserve the candidate order rather than a Set's arbitrary one.
-        let ordered = candidates
-            .map(\.identity.bundleIdentifier)
-            .filter { selectedForPinning.contains($0) }
-        configuration.update { $0.setPinnedApplications(ordered) }
+        let offered = candidates.map(\.identity.bundleIdentifier)
+        let unpinned = Set(offered).subtracting(selectedForPinning)
+        configuration.update { configuration in
+            var entries = configuration.pinnedEntries.filter { entry in
+                guard let identifier = entry.applicationIdentifier else { return true }
+                return !unpinned.contains(identifier)
+            }
+            let alreadyPinned = Set(entries.flatMap(\.applications))
+            // Candidate order rather than a Set's arbitrary one.
+            for identifier in offered
+            where selectedForPinning.contains(identifier) && !alreadyPinned.contains(identifier) {
+                entries.append(.application(identifier))
+            }
+            configuration.pinnedEntries = entries
+        }
     }
 
     public func finish() {

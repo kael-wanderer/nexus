@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The full-screen window switcher (M25): a toolbar for filter/sort/group/stack, and a grid of
 /// `SwitcherCard`s below it. Gated by Accessibility (no windows without it) and offered Screen
-/// Recording in-panel rather than as an alert (design/window-switcher.md §5).
+/// Recording in-panel rather than as an alert (docs/design/window-switcher.md §5).
 public struct SwitcherView: View {
     @Bindable var model: SwitcherViewModel
 

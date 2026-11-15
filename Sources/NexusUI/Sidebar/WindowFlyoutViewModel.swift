@@ -10,7 +10,6 @@ public final class WindowFlyoutViewModel {
     public private(set) var applicationName = ""
     public private(set) var windows: [NexusWindow] = []
     public private(set) var accessibility: PermissionStatus = .denied
-    public private(set) var isLoading = false
     /// Set once the user dismisses the previews offer; never shown again (§3.5).
     public private(set) var previewsOfferDismissed = false
     public private(set) var previews: [CGWindowID: NSImage] = [:]
@@ -29,6 +28,9 @@ public final class WindowFlyoutViewModel {
     @ObservationIgnored private let previewService: any WindowPreviewing
     @ObservationIgnored private let permissions: any PermissionChecking
     @ObservationIgnored private let events: EventBus
+    /// Asks an application to quit. A seam, because the real thing quits a real application —
+    /// which a test run on the developer's machine must never do.
+    @ObservationIgnored private let terminate: @MainActor (String) -> Void
     @ObservationIgnored private var eventTask: Task<Void, Never>?
 
     @ObservationIgnored public var onDismiss: (() -> Void)?
@@ -38,8 +40,10 @@ public final class WindowFlyoutViewModel {
         service: any WindowServing,
         previewService: any WindowPreviewing,
         permissions: any PermissionChecking,
-        events: EventBus
+        events: EventBus,
+        terminate: @escaping @MainActor (String) -> Void = WindowFlyoutViewModel.terminateRunningApplication
     ) {
+        self.terminate = terminate
         self.service = service
         self.previewService = previewService
         self.permissions = permissions
@@ -111,8 +115,6 @@ public final class WindowFlyoutViewModel {
             onContentChange?()
             return
         }
-        isLoading = true
-        defer { isLoading = false }
         let loaded = (try? await service.windows(for: target)) ?? []
         // Both can change while the load was suspended: a different application's flyout, or a
         // revocation that already cleared the list — writing this result would put it back.
@@ -143,11 +145,15 @@ public final class WindowFlyoutViewModel {
     /// involved, so nothing here can fail silently the way `newWindow()` can.
     public func quit() {
         guard let target else { return }
+        terminate(target.bundleIdentifier)
+        hide()
+    }
+
+    public static func terminateRunningApplication(_ bundleIdentifier: String) {
         NSRunningApplication
-            .runningApplications(withBundleIdentifier: target.bundleIdentifier)
+            .runningApplications(withBundleIdentifier: bundleIdentifier)
             .first?
             .terminate()
-        hide()
     }
 
     /// The AX menu walk is synchronous IPC into another process, so it runs on `WindowService`'s

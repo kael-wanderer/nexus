@@ -117,4 +117,43 @@ struct VolumeServiceTests {
         device.hasVolume = false
         #expect(service(device).symbolName == "speaker.slash")
     }
+
+    /// A device with no mute control ignores the write. The service used to believe its own
+    /// request and show a muted glyph over audio that was still playing.
+    @Test func aDeviceThatIgnoresMuteIsNotShownAsMuted() {
+        final class NoMuteDevice: VolumeDevice {
+            var hasVolume = true
+            var volume: Float = 0.5
+            var isMuted: Bool {
+                get { false }
+                set { _ = newValue }
+            }
+        }
+        let volume = VolumeService()
+        volume.device = NoMuteDevice()
+        volume.refresh()
+
+        volume.setMuted(true)
+
+        #expect(volume.isMuted == false)
+    }
+
+    @Test func aLevelTheDeviceQuantisesIsReadBack() {
+        final class SteppedDevice: VolumeDevice {
+            var hasVolume = true
+            private var stored: Float = 0.5
+            var volume: Float {
+                get { stored }
+                set { stored = (newValue * 4).rounded() / 4 }
+            }
+            var isMuted = false
+        }
+        let volume = VolumeService()
+        volume.device = SteppedDevice()
+        volume.refresh()
+
+        volume.setLevel(0.6)
+
+        #expect(volume.level == 0.5)
+    }
 }

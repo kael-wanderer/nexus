@@ -26,8 +26,8 @@ public enum StartMenuLayout {
         return CGRect(x: x, y: y, width: width, height: height)
     }
 
-    /// The corner nearest the sidebar, used as the default so the button and the panel it opens
-    /// are on the same side of the screen.
+    /// The corner nearest the sidebar, so the button and the panel it opens are on the same side
+    /// of the screen. Nothing in the app calls this yet: the stored default is fixed.
     public static func defaultCorner(for position: SidebarPosition) -> StartMenuCorner {
         switch position {
         case .left, .bottom: .bottomLeading

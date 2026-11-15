@@ -154,13 +154,15 @@ struct KeyboardNavigationTests {
             )
         ])
         model.beginKeyboardNavigation()
-        while model.focusedRowID != "a#7" { model.moveFocus(by: 1) }
+        // Bounded: focus clamps at the last row, so an unreachable row must fail here, not spin.
+        for _ in 0..<20 where model.focusedRowID != "a#7" { model.moveFocus(by: 1) }
+        #expect(model.focusedRowID == "a#7")
 
         model.activateFocusedRow()
         #expect(restored == [7])
     }
 
-    @Test("A bar with nothing on it cannot be entered")
+    @Test("A bar with nothing but the Trash is entered on the Trash")
     func nothingToFocus() async {
         let model = await makeModel(running: [], entries: [])
         model.openSearch = nil
@@ -191,12 +193,16 @@ struct KeyboardNavigationTests {
         #expect(command(0) == nil)              // A — travels on
     }
 
-    @Test("The shortcut is on by default and can be switched off")
-    func shortcutDefault() {
+    @Test("The shortcut is on by default, and switching it off survives a save")
+    func shortcutDefault() throws {
         #expect(NexusConfiguration().general.focusBarShortcut == .focusBarDefault)
         #expect(KeyboardShortcut.focusBarDefault.displayString.hasPrefix("⌃"))
         var configuration = NexusConfiguration()
         configuration.general.focusBarShortcut = nil
-        #expect(configuration.general.focusBarShortcut == nil)
+        let decoded = try JSONDecoder().decode(
+            NexusConfiguration.self,
+            from: JSONEncoder().encode(configuration)
+        )
+        #expect(decoded.general.focusBarShortcut == nil)
     }
 }

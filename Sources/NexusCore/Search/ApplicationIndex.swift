@@ -32,13 +32,11 @@ public final class ApplicationIndex {
     private var buildTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var hasBuilt = false
-    private var usedFallback = false
 
     public init(events: EventBus) {
         self.events = events
     }
 
-    public var isUsingDirectoryFallback: Bool { usedFallback }
     /// Called on the main actor when a build finishes. The start menu opens before the first
     /// build can complete, so it needs telling rather than polling.
     public var onIndexed: (() -> Void)?
@@ -80,11 +78,8 @@ public final class ApplicationIndex {
 
             var urls = spotlight.map(\.url)
             if urls.isEmpty {
-                self.usedFallback = true
                 urls = Self.scanStandardDirectories()
                 Log.search.notice("Spotlight returned no applications; scanned \(urls.count, privacy: .public) from standard directories")
-            } else {
-                self.usedFallback = false
             }
             self.snapshot.write(Self.applications(from: urls))
             Log.search.notice("Application index: \(self.snapshot.read().count, privacy: .public) applications")

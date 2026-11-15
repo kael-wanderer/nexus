@@ -203,4 +203,55 @@ struct SettingsBindingTests {
         configuration.update { $0.behavior.autoHide = false }   // already false
         #expect(configuration.configuration == before)
     }
+
+    /// "Run Setup Again" used to rebuild the whole dock from the running applications, which
+    /// deleted every group, every folder and every pinned application that was not running.
+    @Test("Running setup again keeps groups, folders and pins that were not offered")
+    func rerunKeepsWhatWasNotOffered() async {
+        let (model, configuration) = makeOnboarding(running: [
+            makeApplication("com.running.kept", name: "Kept", running: true),
+            makeApplication("com.running.dropped", name: "Dropped", running: true),
+            makeApplication("com.running.new", name: "New", running: true),
+        ])
+        let group = ApplicationGroup(name: "Work", applications: ["com.grouped.a", "com.grouped.b"])
+        let before: [DockEntry] = [
+            .application("com.not.running"),
+            .group(group),
+            .folder("/tmp"),
+            .application("com.running.kept"),
+            .application("com.running.dropped"),
+        ]
+        configuration.update { $0.pinnedEntries = before }
+
+        model.start()
+        await waitForCandidates(model, 3)
+        model.step = .sidebar
+        model.togglePin("com.running.dropped")              // was pinned: unpin it
+        model.togglePin("com.running.new")                  // was not: pin it
+        model.advance()
+
+        #expect(configuration.configuration.pinnedEntries == [
+            .application("com.not.running"),
+            .group(group),
+            .folder("/tmp"),
+            .application("com.running.kept"),
+            .application("com.running.new"),
+        ])
+    }
+
+    @Test("An application already inside a group is not pinned a second time")
+    func rerunDoesNotDuplicateGroupMembers() async {
+        let (model, configuration) = makeOnboarding(running: [
+            makeApplication("com.grouped.a", name: "A", running: true)
+        ])
+        let group = ApplicationGroup(name: "Work", applications: ["com.grouped.a", "com.grouped.b"])
+        configuration.update { $0.pinnedEntries = [.group(group)] }
+
+        model.start()
+        await waitForCandidates(model, 1)
+        model.step = .sidebar
+        model.advance()
+
+        #expect(configuration.configuration.pinnedEntries == [.group(group)])
+    }
 }

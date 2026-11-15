@@ -9,17 +9,6 @@ public enum SidebarPosition: String, Codable, Sendable, CaseIterable {
     /// Vertical edges stack rows top-to-bottom; horizontal edges lay them out left-to-right.
     /// Every piece of layout maths branches on this and nothing else.
     public var isVertical: Bool { self == .left || self == .right }
-
-    /// The edge the macOS Dock is parked on while Dock Replacement Mode is active. Sharing an
-    /// edge would put the Dock's hot corner underneath Nexus's own edge trigger.
-    public var opposite: SidebarPosition {
-        switch self {
-        case .left: .right
-        case .right: .left
-        case .top: .bottom
-        case .bottom: .top
-        }
-    }
 }
 
 /// How much of the bar the media player takes (M17).
@@ -386,7 +375,7 @@ public enum SearchBarStyle: String, Codable, Sendable, CaseIterable {
     /// Three slots, drawn as a search box. Clicking it opens the palette beside the box.
     ///
     /// It is a box, not a field: this panel can never become key, so a real `NSTextField` here
-    /// could not be typed into (`design/mvp.md` §2.1). Every keystroke belongs to the palette.
+    /// could not be typed into (`docs/design/mvp.md` §2.1). Every keystroke belongs to the palette.
     case field
     /// No slot at all. The palette still opens on its shortcut; the bar just does not offer it.
     case disabled

@@ -41,6 +41,8 @@ public final class ReservedSpaceController {
     /// One entry per bar on screen: with a bar per display (D91) a window has to be measured
     /// against the bar on *its* display, and empty means there is nothing to keep clear of.
     public var geometries: (() -> [Geometry])?
+    /// What the last sweep was run against; `nil` while reserving is off.
+    private var lastSweptGeometries: [Geometry]?
     public var observeGeometry: ((Bool) -> Void)?
     /// Trust check, injected so tests do not depend on the machine's Accessibility grant.
     public var isTrusted: () -> Bool = { AX.isTrusted }
@@ -101,7 +103,13 @@ public final class ReservedSpaceController {
     }
 
     /// The bar moved, resized or changed edge: what counts as clear of it just changed.
+    ///
+    /// The panel reports a reframe on every hover enter and exit, most of which leave the bar
+    /// exactly where it was. Sweeping means an Accessibility round trip to every running
+    /// application, so it is only done when the geometry really is different.
     public func barFrameChanged() {
+        let bars = geometries?() ?? []
+        guard bars != lastSweptGeometries else { return }
         apply()
     }
 
@@ -111,8 +119,10 @@ public final class ReservedSpaceController {
         guard isEnabled, !bars.isEmpty else {
             setObserving(false)
             attempts.removeAll()
+            lastSweptGeometries = nil
             return
         }
+        lastSweptGeometries = bars
         setObserving(true)
         sweepTask?.cancel()
         sweepTask = Task { [weak self] in

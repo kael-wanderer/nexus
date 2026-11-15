@@ -62,7 +62,7 @@ public struct WindowSearchProvider: SearchProvider {
 
     public func results(for query: SearchQuery, context: SearchContext) async -> [SearchResult] {
         await windows().compactMap { window in
-            let label = "\(window.applicationName) — \(window.title)"
+            let label = "\(window.applicationName) — \(window.displayTitle)"
             let best = max(
                 StringMatch.score(query: query.trimmed, candidate: window.title) ?? 0,
                 StringMatch.score(query: query.trimmed, candidate: label) ?? 0

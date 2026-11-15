@@ -37,7 +37,9 @@ public enum StringMatch {
         if needle == haystack { return .exact }
         if haystack.hasPrefix(needle) { return .prefix }
 
-        let words = self.words(in: haystack)
+        // From the candidate as written: folding lowercases it, and a camelCase boundary is only
+        // visible while the capitals are still there.
+        let words = self.words(in: candidate).map(normalize)
         if words.dropFirst().contains(where: { $0.hasPrefix(needle) }) { return .wordPrefix }
 
         let initials = String(words.compactMap(\.first))

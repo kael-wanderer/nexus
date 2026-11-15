@@ -28,6 +28,7 @@ public final class ConfigurationController {
         var next = configuration
         mutate(&next)
         next.appearance.clamp()
+        next.behavior.clamp()
         guard next != configuration else { return }
         configuration = next
         events.publish(.configurationChanged(next))

@@ -132,6 +132,7 @@ public final class ConfigurationStore: ConfigurationStoring {
         var stored = configuration
         stored.version = NexusConfiguration.currentVersion
         stored.appearance.clamp()
+        stored.behavior.clamp()
         let data = try JSONEncoder().encode(stored)
         defaults.set(data, forKey: key)
     }

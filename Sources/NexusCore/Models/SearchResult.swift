@@ -82,7 +82,7 @@ public enum BuiltInAction: String, Sendable, Hashable, CaseIterable {
 }
 
 /// Results carry a value, not a closure (D6): `Sendable`, comparable, and testable without
-/// executing anything. One `ActionRunner` in the app layer performs the side effects.
+/// executing anything. One `ActionRunner`, built by the app layer, performs the side effects.
 public enum NexusActionDescriptor: Sendable, Hashable {
     case launchApplication(String)
     case activateWindow(WindowIdentity)

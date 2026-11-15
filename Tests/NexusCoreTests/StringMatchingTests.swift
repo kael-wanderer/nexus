@@ -82,6 +82,17 @@ struct StringMatchTests {
         #expect(StringMatch.words(in: "") == [])
     }
 
+    /// `words(in:)` was only ever tested on its own. `match` folded the candidate to lowercase
+    /// first, so the camelCase boundary was gone before anything looked for it.
+    @Test("A camelCase name is matched by its inner words and by its initials")
+    func camelCaseMatching() {
+        #expect(StringMatch.match(query: "studio", candidate: "VisualStudioCode") == .wordPrefix)
+        #expect(StringMatch.match(query: "vsc", candidate: "VisualStudioCode") == .acronym)
+        #expect(StringMatch.match(query: "STUDIO", candidate: "VisualStudioCode") == .wordPrefix)
+        // An all-lowercase name has no boundary to find, so this is still not a word prefix.
+        #expect(StringMatch.match(query: "studio", candidate: "visualstudiocode") != .wordPrefix)
+    }
+
     @Test("The ordering of match kinds is exactly the documented one")
     func ordering() {
         #expect(MatchKind.exact.score > MatchKind.prefix.score)

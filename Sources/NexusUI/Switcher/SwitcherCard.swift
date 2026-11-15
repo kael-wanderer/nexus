@@ -2,7 +2,7 @@ import AppKit
 import NexusCore
 import SwiftUI
 
-/// One window: an icon, an application name, a title, and a thumbnail (design/window-switcher.md
+/// One window: an icon, an application name, a title, and a thumbnail (docs/design/window-switcher.md
 /// §1, §6). The larger sibling of `WindowFlyoutView`'s `WindowCard` — same shape, drawn at grid
 /// size rather than beside a bar.
 struct SwitcherCard: View {

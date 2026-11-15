@@ -19,7 +19,7 @@ private struct FlyoutPanelModifier: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
             .overlay {
                 // The same hairline the flyout drew before this restyle, Increase Contrast doubled
-                // the way every other panel border in Nexus is (`design/mvp.md` §9).
+                // the way every other panel border in Nexus is (`docs/design/mvp.md` §9).
                 RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                     .strokeBorder(.separator, lineWidth: contrast == .increased ? 1 : 0.5)
             }

@@ -3,8 +3,8 @@ import CoreGraphics
 import NexusCore
 import SwiftUI
 
-/// Data, filter, sort, grouping, selection and keyboard focus for the window switcher (M25). The
-/// panel and grid views are later tasks; this is the object they read from and act through.
+/// Data, filter, sort, grouping, selection and keyboard focus for the window switcher (M25):
+/// the object `SwitcherPanelController` and `SwitcherView` read from and act through.
 @MainActor
 @Observable
 public final class SwitcherViewModel {
@@ -23,14 +23,14 @@ public final class SwitcherViewModel {
     public var isReversed: Bool { didSet { persist(); rebuild() } }
     public private(set) var sections: [SwitcherSection] = []
     /// How many cards are across, published by the view so arrow-key focus moves by a real row
-    /// (Task 6, and `moveFocus`'s `columns` parameter).
+    /// (`moveFocus`'s `columns` parameter).
     public var columns = 1
     /// `bundleIdentifier` → resolved application URL. See `applicationURL(forBundleIdentifier:)`.
     @ObservationIgnored private var applicationURLCache: [String: URL] = [:]
 
     @ObservationIgnored private let service: any WindowServing
     @ObservationIgnored private let previewService: any WindowPreviewing
-    // Not `private`: Task 5's gate view reads this through the view model rather than being handed
+    // Not `private`: the permission gate view reads this through the view model rather than being handed
     // a second reference to the permission service, and an `internal` (default) property is the
     // one access level an extension added in another file of this module can still see.
     @ObservationIgnored let permissions: any PermissionChecking
@@ -313,7 +313,12 @@ public final class SwitcherViewModel {
 
     public func addStack() {
         guard let group = stackFromSelection() else { return }
-        configuration.update { $0.pinnedEntries.append(.group(group)) }
+        // Through the same repair every bar edit goes through: an application that is already
+        // pinned keeps its first slot instead of appearing twice, and capacity is enforced.
+        configuration.update {
+            $0.pinnedEntries = ($0.pinnedEntries + [.group(group)])
+                .repaired(capacity: $0.behavior.groupCapacity)
+        }
         selection = []
     }
 

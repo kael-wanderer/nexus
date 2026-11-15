@@ -46,4 +46,18 @@ struct MetadataQueryRunnerTests {
         #expect(capped.map(\.url) == expectedCloud)
         #expect(MetadataQueryRunner.collect(entries, limit: 0, exclusion: exclusion).isEmpty)
     }
+
+    /// What is typed is text. Unescaped, a `?` matched any one character and a `*` any run of
+    /// them, so the query asked Spotlight for far more than the user did.
+    @Test("Wildcard characters typed into a search are escaped, not interpreted")
+    func escapesLikeWildcards() {
+        #expect(MetadataSearch.escapedForLike("report") == "report")
+        #expect(MetadataSearch.escapedForLike("what?") == #"what\?"#)
+        #expect(MetadataSearch.escapedForLike("a*b") == #"a\*b"#)
+        #expect(MetadataSearch.escapedForLike(#"back\slash"#) == #"back\\slash"#)
+        #expect(MetadataSearch.escapedForLike("") == "")
+
+        let predicate = MetadataSearch.displayNamePrefix("a*?").predicate
+        #expect(predicate.predicateFormat.contains(#"a\\*\\?*"#))
+    }
 }

@@ -259,11 +259,6 @@ struct DockPane: View {
         .onAppear { isDockHidden = dockReplacement.isDockHidden }
     }
 
-    /// Zero is not "no rows", it is "however many fit" — so it says so.
-    private static func rowLimitLabel(_ limit: Int) -> String {
-        limit == 0 ? String(localized: "Fit the screen") : "\(limit)"
-    }
-
     private enum DisplayPreferenceChoice: Hashable { case main, withMouse, everyDisplay }
 
     private var displayBinding: Binding<DisplayPreferenceChoice> {
@@ -488,7 +483,7 @@ struct BehaviorPane: View {
 
 /// Every global shortcut in one place. They used to live in the tab of the feature they belonged
 /// to, which answered "how do I change the palette's shortcut" and never "what is bound to what"
-/// (design/window-switcher.md §9).
+/// (docs/design/window-switcher.md §9).
 struct ShortcutsPane: View {
     @Bindable var configuration: ConfigurationController
     let validateShortcut: (NexusCore.KeyboardShortcut) -> String?
@@ -523,6 +518,8 @@ struct ShortcutsPane: View {
                                 get: { current },
                                 set: { new in configuration.update { $0.general.focusBarShortcut = new } }
                             ),
+                            resetValue: .focusBarDefault,
+                            label: String(localized: "Focus the bar shortcut"),
                             validate: { _ in nil }
                         )
                     }
@@ -550,6 +547,8 @@ struct ShortcutsPane: View {
                                 get: { current },
                                 set: { new in configuration.update { $0.general.windowSwitcherShortcut = new } }
                             ),
+                            resetValue: .windowSwitcherDefault,
+                            label: String(localized: "Window switcher shortcut"),
                             validate: { _ in nil }
                         )
                     }
@@ -717,7 +716,7 @@ struct BarPane: View {
                     String(localized: "Volume"),
                     isOn: configuration.binding(\.general.showVolume)
                 )
-                Text("Both sit at the very end of the bar. The clock takes two slots — the time over the date — and opens a calendar; the volume takes one, and opens a slider. Right-clicking it mutes.")
+                Text("Both sit at the very end of the bar. The clock takes two slots — the time over the date — and opens a calendar; the volume takes one, and opens a slider. Right-click it to mute.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

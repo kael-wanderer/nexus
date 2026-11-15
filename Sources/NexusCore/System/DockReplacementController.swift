@@ -82,8 +82,16 @@ public final class DockReplacementController {
     }
 
     private func restore() {
-        if let snapshot = configuration.configuration.dock.snapshot {
+        let stored = configuration.configuration.dock
+        if let snapshot = stored.snapshot {
             dock.restore(snapshot)
+        } else if stored.applied || dock.isDockHidden {
+            // Nexus hid the Dock but what it captured is gone — a hand-edited or partly written
+            // configuration. Clearing the keys puts the Dock back on macOS's own defaults, which
+            // is the only state that can be vouched for; leaving it hidden behind a
+            // 1000-second delay with `applied` cleared would never be retried.
+            Log.system.error("Dock snapshot missing; restoring the Dock to system defaults")
+            dock.restore(DockSnapshot())
         }
         configuration.update { $0.dock.applied = false }
     }

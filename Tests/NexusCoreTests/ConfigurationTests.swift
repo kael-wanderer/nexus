@@ -3,12 +3,6 @@ import Testing
 
 @testable import NexusCore
 
-private func makeDefaults(_ name: String = UUID().uuidString) -> UserDefaults {
-    let defaults = UserDefaults(suiteName: name)!
-    defaults.removePersistentDomain(forName: name)
-    return defaults
-}
-
 @Suite("Configuration")
 struct ConfigurationTests {
     @Test("Defaults match the documented schema")
@@ -273,11 +267,10 @@ private struct AddNicknameMigration: ConfigurationMigration {
 
 @Suite("Configuration migration")
 struct ConfigurationMigrationTests {
-    @Test("A registered migration runs and bumps the version")
-    func migrationRuns() throws {
-        // Pretend the current version is one ahead by writing a version-1 payload and
-        // registering a 1 -> 2 step. With currentVersion == 1 there is nothing to migrate,
-        // so exercise the step directly plus the no-op path through the store.
+    @Test("A migration step rewrites the payload it is handed")
+    func migrationStepRewritesPayload() throws {
+        // The step on its own. The real chain through the store — a stored older version
+        // loading as the current one — is covered by `migratesFromVersionFour`.
         var json: [String: Any] = ["version": 1, "general": ["showInMenuBar": true]]
         try AddNicknameMigration().migrate(&json)
         let general = json["general"] as! [String: Any]
@@ -330,5 +323,25 @@ struct KeyboardShortcutTests {
     @Test("No modifier is rejected")
     func noModifier() {
         #expect(KeyboardShortcut(keyCode: 49, modifiers: 0).isValid == false)
+    }
+
+    /// Only appearance was clamped on the way in. An out-of-range behaviour value was stored as
+    /// written and then silently changed by the next launch's decode.
+    @MainActor
+    @Test("An out-of-range behaviour value is clamped when it is set, not at the next launch")
+    func behaviorIsClampedOnUpdate() {
+        let controller = ConfigurationController(
+            store: InMemoryConfigurationStore(),
+            events: EventBus(),
+            saveDelay: .zero
+        )
+
+        controller.update {
+            $0.behavior.autoHideDelay = 99
+            $0.behavior.groupCapacity = 7
+        }
+
+        #expect(controller.configuration.behavior.autoHideDelay == 5)
+        #expect(controller.configuration.behavior.groupCapacity == 9)
     }
 }

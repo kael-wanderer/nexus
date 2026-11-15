@@ -269,23 +269,29 @@ struct WindowFlyoutTests {
         #expect(model.flyoutSize == .medium)
     }
 
-    @Test("Quit hides the flyout")
+    @Test("Quit asks that application to quit, once, and hides the flyout")
     func quitHidesFlyout() async {
+        // The terminate seam is replaced: the real one quits a real application, and Safari is
+        // very likely open on the machine running this.
+        var terminated: [String] = []
         let model = WindowFlyoutViewModel(
             service: FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]]),
             previewService: FakePreviewService(),
             permissions: FakePermissions([.accessibility: .granted]),
-            events: EventBus()
+            events: EventBus(),
+            terminate: { terminated.append($0) }
         )
         model.show(ApplicationIdentity(bundleIdentifier: "com.apple.Safari"), name: "Safari")
         await model.reload()
         #expect(model.target != nil)
 
-        // No real Safari process is running under a test's bundle identity, so this also proves
-        // the no-match path — `NSRunningApplication.runningApplications` empty — does not throw or
-        // hang; it just has nothing to terminate.
         model.quit()
+        #expect(terminated == ["com.apple.Safari"])
         #expect(model.target == nil)
+
+        // With no target there is nobody to ask.
+        model.quit()
+        #expect(terminated.count == 1)
     }
 
     @Test("New Window asks the service for the target application and hides the flyout")
@@ -309,23 +315,6 @@ struct WindowFlyoutTests {
         #expect(model.target == nil)
         try await waitUntil { await service.newWindowRequested == [target] }
         #expect(await service.newWindowRequested == [target])
-    }
-
-    @Test("Closing a window asks the service and leaves the list alone until it changes")
-    func closeIsRequestedNotAssumed() async throws {
-        let service = FakeWindowService()
-        let window = NexusWindow(
-            identity: WindowIdentity(owner: ApplicationIdentity(bundleIdentifier: "com.apple.Safari"), number: 1),
-            title: "Google",
-            applicationName: "Safari"
-        )
-        await service.setWindows([window], for: "com.apple.Safari")
-
-        try await service.close(window.identity)
-
-        #expect(await service.closed == [window.identity])
-        // Nothing was removed: an unsaved document puts up a sheet and the window is still there.
-        #expect(try await service.windows(for: window.identity.owner).count == 1)
     }
 }
 

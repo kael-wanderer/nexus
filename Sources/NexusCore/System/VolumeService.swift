@@ -59,18 +59,18 @@ public final class VolumeService {
         guard isAvailable else { return }
         let clamped = newValue.clampedToUnitInterval
         device.volume = clamped
-        level = clamped
         // Raising the volume on a muted device is the same gesture as unmuting it: leaving it muted
         // would move a slider that makes no sound.
-        if isMuted, clamped > 0 {
-            device.isMuted = false
-            isMuted = false
-        }
+        if isMuted, clamped > 0 { device.isMuted = false }
+        // Read back rather than assume: a write can fail, and a device may quantise the level.
+        refresh()
     }
 
     public func setMuted(_ newValue: Bool) {
         device.isMuted = newValue
-        isMuted = newValue
+        // Read back rather than assume: a device with no mute control ignores the write, and
+        // showing it as muted while it plays would be a lie.
+        refresh()
     }
 
     public func toggleMute() {

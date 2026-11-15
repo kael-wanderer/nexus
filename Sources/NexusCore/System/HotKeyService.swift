@@ -40,9 +40,17 @@ public final class HotKeyService {
         for slot: Slot = .search
     ) -> Result<Void, RegistrationError> {
         guard shortcut.isValid else { return .failure(.invalidShortcut) }
-        unregister(slot)
-        installHandlerIfNeeded()
+        // Registering a combination this process already holds is refused by Carbon, and there is
+        // nothing to change anyway.
+        if current[slot] == shortcut, hotKeyRefs[slot] != nil { return .success(()) }
+        let handlerStatus = installHandlerIfNeeded()
+        guard handlerStatus == noErr else {
+            Log.system.error("InstallEventHandler failed with \(handlerStatus, privacy: .public)")
+            return .failure(.systemRefused(handlerStatus))
+        }
 
+        // The new shortcut is registered before the old one is let go: a refused shortcut must
+        // leave the slot with the binding it had, not with none.
         var reference: EventHotKeyRef?
         let identifier = EventHotKeyID(signature: Self.signature, id: slot.rawValue)
         let status = RegisterEventHotKey(
@@ -57,6 +65,7 @@ public final class HotKeyService {
             Log.system.error("RegisterEventHotKey failed with \(status, privacy: .public)")
             return .failure(.systemRefused(status))
         }
+        if let previous = hotKeyRefs[slot] { UnregisterEventHotKey(previous) }
         hotKeyRefs[slot] = reference
         current[slot] = shortcut
         Log.system.notice("Global shortcut registered for \(String(describing: slot), privacy: .public) (key \(shortcut.keyCode, privacy: .public), modifiers \(shortcut.modifiers, privacy: .public))")
@@ -79,14 +88,14 @@ public final class HotKeyService {
         eventHandler = nil
     }
 
-    private func installHandlerIfNeeded() {
-        guard eventHandler == nil else { return }
+    private func installHandlerIfNeeded() -> OSStatus {
+        guard eventHandler == nil else { return noErr }
         var spec = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
         )
         let context = Unmanaged.passUnretained(self).toOpaque()
-        InstallEventHandler(
+        return InstallEventHandler(
             GetEventDispatcherTarget(),
             hotKeyEventHandler,
             1,

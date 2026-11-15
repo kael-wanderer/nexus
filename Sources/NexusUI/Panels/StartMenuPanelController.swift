@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The start menu is a keyboard surface — it has a text field — so it follows the palette's focus
 /// design rather than the sidebar's: it takes focus deliberately and gives it back on the way out
-/// (`design/mvp.md` §2.2).
+/// (`docs/design/mvp.md` §2.2).
 @MainActor
 public final class StartMenuPanelController {
     private let model: StartMenuViewModel

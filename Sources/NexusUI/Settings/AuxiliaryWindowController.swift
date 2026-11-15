@@ -27,7 +27,9 @@ public final class AuxiliaryWindowController: NSObject, NSWindowDelegate {
         if !NSApp.isActive { previousApplication = NSWorkspace.shared.frontmostApplication }
         let window = self.window ?? makeWindow()
         self.window = window
-        window.center()
+        // Centred when it opens, not every time it is asked for: a window that is already up
+        // stays where the user put it.
+        if !window.isVisible { window.center() }
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
     }

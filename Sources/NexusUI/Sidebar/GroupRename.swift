@@ -1,11 +1,11 @@
 import AppKit
 import NexusCore
 
-/// Renaming a group happens in an alert, not in the popover: the popover can never become key
-/// (design/mvp.md §2.1) and a text field nobody can type into is worse than a menu item.
+/// Renaming a group from its row's context menu happens in an alert. The popover has its own
+/// title field (D104); this is for the row, where there is nowhere to type.
 ///
-/// Shared by the row's context menu and the popover's title, so both land in the same place — on
-/// the screen the pointer is on, which is not where AppKit would put an alert (D102).
+/// The alert lands on the screen the pointer is on, which is not where AppKit would put it
+/// (D102).
 @MainActor
 public enum GroupRename {
     public static func prompt(for group: SidebarGroup, model: SidebarViewModel) {

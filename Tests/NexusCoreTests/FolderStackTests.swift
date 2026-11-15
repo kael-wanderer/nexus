@@ -151,7 +151,7 @@ struct FolderEntryTests {
         var stored = NexusConfiguration()
         stored.version = 4
         stored.pinnedEntries = [.application("com.apple.Safari")]
-        let defaults = UserDefaults(suiteName: "nexus.folder.test.\(UUID().uuidString)")!
+        let defaults = makeDefaults()
         defaults.set(try JSONEncoder().encode(stored), forKey: "configuration")
         let store = ConfigurationStore(defaults: defaults)
 

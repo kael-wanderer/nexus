@@ -21,7 +21,7 @@ public enum WindowCounts {
         return counts
     }
 
-    /// Window numbers for one process, so AX elements can be correlated at Milestone 4.
+    /// Window numbers for one process. Nothing in the app calls this; the tests do.
     public static func windowNumbers(for pid: pid_t) -> [CGWindowID] {
         guard let info = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID)
             as? [[String: Any]]
