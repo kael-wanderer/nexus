@@ -57,4 +57,33 @@ struct PanelFadeTests {
         #expect(!panel.isVisible)
         #expect(panel.alphaValue == 1)
     }
+
+    @Test("Hiding a panel that is not visible leaves it off screen at full alpha")
+    func hideWhenHidden() async throws {
+        let fade = PanelFade(reduceMotion: { false })
+        let panel = makePanel()
+        fade.hide(panel)
+        #expect(!panel.isVisible)
+        #expect(panel.alphaValue == 1)
+        // Nothing may bring it back, or dim it, later.
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(!panel.isVisible)
+        #expect(panel.alphaValue == 1)
+    }
+
+    @Test("Showing an already visible panel never dips to zero or orders it out")
+    func showWhenVisible() async throws {
+        let fade = PanelFade(reduceMotion: { false })
+        let panel = makePanel()
+        fade.show(panel)
+        try await waitUntil { panel.alphaValue == 1 }
+        fade.show(panel)
+        #expect(panel.isVisible)
+        #expect(panel.alphaValue > 0)
+        try await waitUntil { panel.alphaValue == 1 }
+        #expect(panel.isVisible)
+        #expect(panel.alphaValue == 1)
+        fade.hide(panel)
+        try await waitUntil { !panel.isVisible }
+    }
 }
