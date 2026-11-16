@@ -171,10 +171,26 @@ public actor ApplicationService: ApplicationServing {
     public func hideOthers(except identity: ApplicationIdentity) async {
         let own = Bundle.main.bundleIdentifier
         let count = await Self.hideApplications {
-            guard let bundleIdentifier = $0.bundleIdentifier else { return false }
-            return bundleIdentifier != identity.bundleIdentifier && bundleIdentifier != own
+            Self.shouldHideAsOther(
+                bundleIdentifier: $0.bundleIdentifier,
+                isRegular: $0.activationPolicy == .regular,
+                target: identity.bundleIdentifier,
+                own: own
+            )
         }
         Log.applications.notice("Hid \(count, privacy: .public) other application(s)")
+    }
+
+    /// Whether "Hide Others" hides an application: a regular one with a bundle identifier that is
+    /// neither the target nor this process.
+    static func shouldHideAsOther(
+        bundleIdentifier: String?,
+        isRegular: Bool,
+        target: String,
+        own: String?
+    ) -> Bool {
+        guard isRegular, let bundleIdentifier else { return false }
+        return bundleIdentifier != target && bundleIdentifier != own
     }
 
     /// Hides every regular running application the predicate accepts; returns how many.

@@ -58,7 +58,7 @@ struct SidebarViewModelTests {
         #expect(await service.hidden == ["com.apple.Safari"])
     }
 
-    @Test("Hide others spares the target and Nexus")
+    @Test("Hide others brings the target forward and hides the rest")
     func hideOthersRow() async throws {
         let (model, service, _) = makeModel(
             [makeApplication("com.apple.Safari", name: "Safari", running: true)],
@@ -111,6 +111,33 @@ struct SidebarViewModelTests {
         model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.mail") }
         model.activateOrLaunch(model.pinnedItems[0])
         try await waitUntil { await service.activated == ["com.apple.Safari"] }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.hidden.isEmpty)
+    }
+
+    @Test("Hide others does nothing when the target cannot be brought forward")
+    func hideOthersActivationFails() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        await service.setActivateFails(true)
+        model.hideOthers(model.pinnedItems[0])
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.hidOthersExcept.isEmpty)
+    }
+
+    @Test("Option-click hides nothing when the activation fails")
+    func optionClickActivationFails() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        await service.setActivateFails(true)
+        model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.mail") }
+        model.activateOrLaunch(model.pinnedItems[0], hidingPrevious: true)
         try await Task.sleep(for: .milliseconds(100))
         #expect(await service.hidden.isEmpty)
     }

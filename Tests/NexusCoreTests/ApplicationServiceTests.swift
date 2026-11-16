@@ -88,4 +88,18 @@ struct WindowCountsTests {
         #expect(WindowCounts.byProcess()[-1] == nil)
         #expect(WindowCounts.windowNumbers(for: -1).isEmpty)
     }
+
+    @Test("Hide others skips the target, Nexus, non-regular and identifier-less applications")
+    func hideOthersFilter() {
+        func hides(_ id: String?, regular: Bool = true) -> Bool {
+            ApplicationService.shouldHideAsOther(
+                bundleIdentifier: id, isRegular: regular, target: "com.apple.Safari", own: "com.congbui.nexus"
+            )
+        }
+        #expect(hides("com.apple.mail"))
+        #expect(!hides("com.apple.Safari"))
+        #expect(!hides("com.congbui.nexus"))
+        #expect(!hides("com.apple.mail", regular: false))
+        #expect(!hides(nil))
+    }
 }

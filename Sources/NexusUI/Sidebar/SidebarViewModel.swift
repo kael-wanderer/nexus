@@ -1592,7 +1592,14 @@ public final class SidebarViewModel {
     /// Brings the row's application forward, then hides everything else.
     public func hideOthers(_ item: SidebarItem) {
         Task { [applications] in
-            try? await applications.activate(item.identity)
+            do {
+                try await applications.activate(item.identity)
+            } catch {
+                Log.sidebar.error(
+                    "Hide others skipped: could not activate \(item.identity.bundleIdentifier, privacy: .public)"
+                )
+                return
+            }
             await applications.hideOthers(except: item.identity)
         }
     }

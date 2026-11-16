@@ -8,6 +8,8 @@ actor FakeApplicationService: ApplicationServing {
     private(set) var activated: [String] = []
     private(set) var quit: [(String, Bool)] = []
     private(set) var revealed: [String] = []
+    /// Makes `activate` throw, as it does for an application that has quit.
+    var activateFails = false
     private(set) var hidden: [String] = []
     private(set) var hidOthersExcept: [String] = []
 
@@ -39,7 +41,10 @@ actor FakeApplicationService: ApplicationServing {
         launched.append(identity.bundleIdentifier)
     }
 
+    func setActivateFails(_ fails: Bool) { activateFails = fails }
+
     func activate(_ identity: ApplicationIdentity) async throws {
+        if activateFails { throw NexusError.targetDisappeared }
         activated.append(identity.bundleIdentifier)
     }
 
