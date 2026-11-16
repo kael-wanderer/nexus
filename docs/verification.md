@@ -295,3 +295,7 @@ Still not driven, and why:
 `a588b637…5d16c8cb`, signature verified from the mounted image. Release build, arm64, minimum
 macOS 14.0, `0.2.0 (2)`. Not notarised — the identity is self-signed, so Gatekeeper warns on
 another machine, which is what the README says too. 516 tests pass on `main`.
+
+## Stall baseline, 2026-11-16
+
+not measured: needs a person at the machine (music playing, pointer on/off bar 20×, 5 flyouts, timeline 30 s). Run with `NEXUS_STALL_LOG=1`.
