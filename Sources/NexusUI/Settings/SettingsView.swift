@@ -875,8 +875,13 @@ struct AboutPane: View {
             }
         }
         .formStyle(.grouped)
-        // One check per visit to the pane, not per render.
-        .task { if updates.state == .idle { await updates.checkNow() } }
+        // One check per visit to the pane, not per render, and only when automatic checks are on:
+        // with them off, nothing goes online until the button is pressed.
+        .task {
+            if updates.state == .idle, configuration.configuration.general.checkForUpdates {
+                await updates.checkNow()
+            }
+        }
         // A channel change invalidates the answer on screen: it was measured against the other feed.
         .onChange(of: configuration.configuration.general.updateChannel) { updates.check() }
         .alert(String(localized: "Switch to Beta updates?"), isPresented: $confirmBeta) {
