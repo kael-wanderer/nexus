@@ -118,8 +118,14 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
 
     /// Players that answered "no". Asking again would mean another Automation prompt per second.
     private var refused: Set<String> = []
+    /// Consecutive timeouts per player. A slow answer is not a refusal, but a player that never
+    /// answers is not worth a stalled script a second.
+    private var timeouts: [String: Int] = [:]
+    private let runner: any ScriptRunning
 
-    public init() {}
+    public init(runner: any ScriptRunning = AppleScriptRunner()) {
+        self.runner = runner
+    }
 
     public static func canReportPosition(_ bundleIdentifier: String) -> Bool {
         dialects[bundleIdentifier] != nil
@@ -129,28 +135,57 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
         guard let dialect = Self.dialects[bundleIdentifier], !refused.contains(bundleIdentifier)
         else { return nil }
 
-        guard let reading = await Self.runForReading(dialect.read) else {
+        switch await runner.run(dialect.read) {
+        case .values(let values) where values.count == 3:
+            timeouts[bundleIdentifier] = 0
+            let duration = dialect.durationIsMilliseconds ? values[1] / 1_000 : values[1]
+            return MediaPlayback(
+                position: MediaPosition(position: values[0], duration: duration),
+                isPlaying: values[2] != 0
+            )
+        case .timedOut:
+            noteTimeout(bundleIdentifier)
+            return nil
+        case .values, .empty, .failed:
             refuse(bundleIdentifier)
             return nil
         }
-        let duration = dialect.durationIsMilliseconds ? reading.duration / 1_000 : reading.duration
-        return MediaPlayback(
-            position: MediaPosition(position: reading.position, duration: duration),
-            isPlaying: reading.isPlaying
-        )
     }
 
     public func command(_ transport: MediaTransport, in bundleIdentifier: String) async -> Bool {
         guard let source = Self.dialects[bundleIdentifier]?.transport[transport],
               !refused.contains(bundleIdentifier)
         else { return false }
-        return await Self.run(source)
+        return await succeeded(runner.run(source), for: bundleIdentifier)
     }
 
     public func seek(to seconds: Double, in bundleIdentifier: String) async {
         guard let dialect = Self.dialects[bundleIdentifier], !refused.contains(bundleIdentifier)
         else { return }
-        if await Self.run(dialect.seek(max(0, seconds))) == false { refuse(bundleIdentifier) }
+        if await succeeded(runner.run(dialect.seek(max(0, seconds))), for: bundleIdentifier) == false {
+            refuse(bundleIdentifier)
+        }
+    }
+
+    /// A timeout is `false` (the caller may fall back to a media key) but only counts towards a
+    /// refusal, it is not one.
+    private func succeeded(_ outcome: ScriptOutcome, for bundleIdentifier: String) -> Bool {
+        switch outcome {
+        case .values, .empty:
+            timeouts[bundleIdentifier] = 0
+            return true
+        case .timedOut:
+            noteTimeout(bundleIdentifier)
+            return false
+        case .failed:
+            return false
+        }
+    }
+
+    private func noteTimeout(_ bundleIdentifier: String) {
+        let count = (timeouts[bundleIdentifier] ?? 0) + 1
+        timeouts[bundleIdentifier] = count
+        if count >= 3 { refuse(bundleIdentifier) }
     }
 
     private func refuse(_ bundleIdentifier: String) {
@@ -158,47 +193,6 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
         Log.system.notice(
             "\(bundleIdentifier, privacy: .public) will not report its position; no timeline for it"
         )
-    }
-
-    /// `nil` on any failure at all — a refused Automation prompt, a player that quit mid-script, a
-    /// dictionary that changed. The caller's answer to all three is the same: no timeline.
-    ///
-    /// On the main actor because `NSAppleScript` is not thread-safe, and at `.notice` because a
-    /// failure here is invisible otherwise: a silently missing timeline is exactly the class of bug
-    /// that took three rebuilds to find at Milestone 10 (D66).
-    @MainActor
-    static func runForReading(_ source: String) -> (position: Double, duration: Double, isPlaying: Bool)? {
-        guard let script = NSAppleScript(source: source) else { return nil }
-        var error: NSDictionary?
-        let result = script.executeAndReturnError(&error)
-        if let error {
-            Log.system.notice("Media script failed: \(String(describing: error), privacy: .public)")
-            return nil
-        }
-        guard result.numberOfItems >= 3,
-              let position = result.atIndex(1)?.doubleValue,
-              let duration = result.atIndex(2)?.doubleValue,
-              let playing = result.atIndex(3)?.booleanValue
-        else {
-            Log.system.notice(
-                "Media script answered \(result.numberOfItems, privacy: .public) items, expected 3"
-            )
-            return nil
-        }
-        return (position, duration, playing)
-    }
-
-    @MainActor
-    @discardableResult
-    static func run(_ source: String) -> Bool {
-        guard let script = NSAppleScript(source: source) else { return false }
-        var error: NSDictionary?
-        _ = script.executeAndReturnError(&error)
-        if let error {
-            Log.system.notice("Media script failed: \(String(describing: error), privacy: .public)")
-            return false
-        }
-        return true
     }
 }
 

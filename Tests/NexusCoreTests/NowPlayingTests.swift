@@ -608,3 +608,42 @@ struct BrowserPlayStateTests {
         #expect(service.display.isPlaying)
     }
 }
+
+actor FakeScriptRunner: ScriptRunning {
+    var outcomes: [ScriptOutcome]
+    private(set) var sources: [String] = []
+    init(_ outcomes: [ScriptOutcome]) { self.outcomes = outcomes }
+    func run(_ source: String) async -> ScriptOutcome {
+        sources.append(source)
+        return outcomes.isEmpty ? .failed : outcomes.removeFirst()
+    }
+}
+
+@Suite("Media control over a script runner")
+struct MediaControlRunnerTests {
+    @Test("A timeout gives no reading and the player is asked again")
+    func timeoutDoesNotRefuse() async {
+        let runner = FakeScriptRunner([.timedOut, .values([12, 240, 1])])
+        let control = AppleScriptMediaControl(runner: runner)
+        #expect(await control.playback(of: "com.apple.Music") == nil)
+        #expect(await control.playback(of: "com.apple.Music")?.position.position == 12)
+    }
+
+    @Test("Three timeouts in a row refuse the player")
+    func threeTimeoutsRefuse() async {
+        let runner = FakeScriptRunner([.timedOut, .timedOut, .timedOut, .values([1, 2, 1])])
+        let control = AppleScriptMediaControl(runner: runner)
+        for _ in 0..<3 { _ = await control.playback(of: "com.apple.Music") }
+        #expect(await control.playback(of: "com.apple.Music") == nil)
+        #expect(await runner.sources.count == 3)
+    }
+
+    @Test("A failure refuses at once; Spotify's milliseconds become seconds")
+    func failureRefusesAndSpotifyConverts() async {
+        let failing = AppleScriptMediaControl(runner: FakeScriptRunner([.failed, .values([1, 2, 1])]))
+        #expect(await failing.playback(of: "com.apple.Music") == nil)
+        #expect(await failing.playback(of: "com.apple.Music") == nil)
+        let spotify = AppleScriptMediaControl(runner: FakeScriptRunner([.values([30, 240_000, 1])]))
+        #expect(await spotify.playback(of: "com.spotify.client")?.position.duration == 240)
+    }
+}
