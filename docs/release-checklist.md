@@ -50,3 +50,5 @@ Run on the installed candidate with a real keyboard and pointer. Set the shortcu
 | With Reduce Motion on, press an icon and launch an app. | No shrink and no hop; the launching icon is only dimmed. | | |
 | Open and close the window flyout, a group, a folder, the now-playing popover, the volume popover and the calendar. Switch rows with a flyout open. | Each popover fades in and out with its content showing throughout; switching rows does not flash. | | |
 | With Reduce Motion on, open and close the same popovers. | They appear and vanish at once, with no fade. | | |
+| Right-click a running app's row: choose Hide, then Hide Others. Right-click a stopped app's row. | Hide hides that app; Hide Others brings it forward and hides every other app except Nexus; the stopped app's menu has neither item. | | |
+| Hold ⌥ and click a row while another app is in front; click the frontmost app's own row with ⌥ held; click without ⌥. | The app you left is hidden; nothing is hidden for the frontmost app's own row or a plain click. | | |

@@ -8,6 +8,8 @@ actor FakeApplicationService: ApplicationServing {
     private(set) var activated: [String] = []
     private(set) var quit: [(String, Bool)] = []
     private(set) var revealed: [String] = []
+    private(set) var hidden: [String] = []
+    private(set) var hidOthersExcept: [String] = []
 
     init(_ applications: [NexusApplication] = []) {
         for application in applications { catalogue[application.identity.bundleIdentifier] = application }
@@ -47,6 +49,14 @@ actor FakeApplicationService: ApplicationServing {
 
     func revealInFinder(_ identity: ApplicationIdentity) async {
         revealed.append(identity.bundleIdentifier)
+    }
+
+    func hide(_ identity: ApplicationIdentity) async {
+        hidden.append(identity.bundleIdentifier)
+    }
+
+    func hideOthers(except identity: ApplicationIdentity) async {
+        hidOthersExcept.append(identity.bundleIdentifier)
     }
 }
 

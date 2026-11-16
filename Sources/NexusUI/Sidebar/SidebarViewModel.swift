@@ -677,17 +677,41 @@ public final class SidebarViewModel {
 
     // MARK: - Actions
 
+    /// The application in front right now. Injected so tests need no real `NSWorkspace`.
+    @ObservationIgnored public var frontmostApplication: () -> ApplicationIdentity? = {
+        NSWorkspace.shared.frontmostApplication.flatMap { running in
+            running.bundleIdentifier.map {
+                ApplicationIdentity(bundleIdentifier: $0, processIdentifier: running.processIdentifier)
+            }
+        }
+    }
+
     public func activateOrLaunch(_ item: SidebarItem) {
+        activateOrLaunch(item, hidingPrevious: false)
+    }
+
+    /// `hidingPrevious` is ⌥-click: the application being left is hidden once the new one is up.
+    public func activateOrLaunch(_ item: SidebarItem, hidingPrevious: Bool) {
+        let previous = hidingPrevious ? frontmostApplication() : nil
         if behavior.clickBehavior == .showWindowList, item.isRunning, showWindows != nil {
             openFlyout(for: item.identity)
             return
         }
         if !item.isRunning { markLaunching(item.id) }
+        let own = Bundle.main.bundleIdentifier
         Task { [applications] in
-            if item.isRunning {
-                try? await applications.activate(item.identity)
-            } else {
-                try? await applications.launch(item.identity)
+            do {
+                if item.isRunning {
+                    try await applications.activate(item.identity)
+                } else {
+                    try await applications.launch(item.identity)
+                }
+            } catch {
+                return
+            }
+            if let previous, previous.bundleIdentifier != item.identity.bundleIdentifier,
+               previous.bundleIdentifier != own {
+                await applications.hide(previous)
             }
         }
     }
@@ -1559,6 +1583,18 @@ public final class SidebarViewModel {
 
     public func revealInFinder(_ item: SidebarItem) {
         Task { [applications] in await applications.revealInFinder(item.identity) }
+    }
+
+    public func hide(_ item: SidebarItem) {
+        Task { [applications] in await applications.hide(item.identity) }
+    }
+
+    /// Brings the row's application forward, then hides everything else.
+    public func hideOthers(_ item: SidebarItem) {
+        Task { [applications] in
+            try? await applications.activate(item.identity)
+            await applications.hideOthers(except: item.identity)
+        }
     }
 
     public func quit(_ item: SidebarItem, force: Bool) {

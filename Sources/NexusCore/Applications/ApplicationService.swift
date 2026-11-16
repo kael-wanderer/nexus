@@ -9,6 +9,9 @@ public protocol ApplicationServing: Sendable {
     func activate(_ identity: ApplicationIdentity) async throws
     func quit(_ identity: ApplicationIdentity, force: Bool) async throws
     func revealInFinder(_ identity: ApplicationIdentity) async
+    func hide(_ identity: ApplicationIdentity) async
+    /// Hides every regular application except `identity` and this process.
+    func hideOthers(except identity: ApplicationIdentity) async
 }
 
 /// `NSWorkspace` / `NSRunningApplication` over an actor. Every AppKit object stays inside the
@@ -156,6 +159,33 @@ public actor ApplicationService: ApplicationServing {
         await MainActor.run {
             NSWorkspace.shared.activateFileViewerSelecting([url])
         }
+    }
+
+    public func hide(_ identity: ApplicationIdentity) async {
+        let count = await Self.hideApplications { $0.bundleIdentifier == identity.bundleIdentifier }
+        Log.applications.notice("Hid \(count, privacy: .public) instance(s) of \(identity.bundleIdentifier, privacy: .public)")
+    }
+
+    /// Not `NSWorkspace.hideOtherApplications()`: that spares the *active* application, which is
+    /// not necessarily the row's.
+    public func hideOthers(except identity: ApplicationIdentity) async {
+        let own = Bundle.main.bundleIdentifier
+        let count = await Self.hideApplications {
+            guard let bundleIdentifier = $0.bundleIdentifier else { return false }
+            return bundleIdentifier != identity.bundleIdentifier && bundleIdentifier != own
+        }
+        Log.applications.notice("Hid \(count, privacy: .public) other application(s)")
+    }
+
+    /// Hides every regular running application the predicate accepts; returns how many.
+    @MainActor
+    private static func hideApplications(where isTarget: (NSRunningApplication) -> Bool) -> Int {
+        var count = 0
+        for running in NSWorkspace.shared.runningApplications
+        where running.activationPolicy == .regular && isTarget(running) {
+            if running.hide() { count += 1 }
+        }
+        return count
     }
 
     /// `NSRunningApplication` is not `Sendable`; every use of one is confined to the main actor.

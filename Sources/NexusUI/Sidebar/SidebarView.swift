@@ -450,7 +450,7 @@ struct SidebarItemView: View, Equatable {
             model.endEditing()
             return
         }
-        model.activateOrLaunch(item)
+        model.activateOrLaunch(item, hidingPrevious: NSEvent.modifierFlags.contains(.option))
     }
 
     private var runningIndicator: some View {
@@ -502,6 +502,10 @@ struct SidebarItemView: View, Equatable {
                     model.openFlyout(for: item.identity)
                 }
             )
+        }
+        if item.isRunning {
+            items.append(ClosureMenuItem(title: String(localized: "Hide")) { model.hide(item) })
+            items.append(ClosureMenuItem(title: String(localized: "Hide Others")) { model.hideOthers(item) })
         }
         items.append(.separator())
         if item.isPinned {

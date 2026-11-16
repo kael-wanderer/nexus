@@ -46,6 +46,75 @@ struct SidebarViewModelTests {
         #expect(model.pinnedItems[0].isRunning == false)
     }
 
+    @Test("Hide hides the row's application")
+    func hideRow() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.hide(model.pinnedItems[0])
+        try await waitUntil { await service.hidden == ["com.apple.Safari"] }
+        #expect(await service.hidden == ["com.apple.Safari"])
+    }
+
+    @Test("Hide others spares the target and Nexus")
+    func hideOthersRow() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.hideOthers(model.pinnedItems[0])
+        try await waitUntil { await service.hidOthersExcept == ["com.apple.Safari"] }
+        #expect(await service.activated.contains("com.apple.Safari"))
+        #expect(await service.hidOthersExcept == ["com.apple.Safari"])
+    }
+
+    @Test("Option-click hides the application being left")
+    func optionClickHidesPrevious() async throws {
+        let (model, service, _) = makeModel(
+            [
+                makeApplication("com.apple.Safari", name: "Safari", running: true),
+                makeApplication("com.apple.mail", name: "Mail", running: true),
+            ],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.mail") }
+        model.activateOrLaunch(model.pinnedItems[0], hidingPrevious: true)
+        try await waitUntil { await service.hidden == ["com.apple.mail"] }
+        #expect(await service.hidden == ["com.apple.mail"])
+    }
+
+    @Test("Option-click on the frontmost application hides nothing")
+    func optionClickOnFrontmost() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.Safari") }
+        model.activateOrLaunch(model.pinnedItems[0], hidingPrevious: true)
+        try await waitUntil { await service.activated == ["com.apple.Safari"] }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.hidden.isEmpty)
+    }
+
+    @Test("A plain click hides nothing")
+    func plainClickHidesNothing() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.mail") }
+        model.activateOrLaunch(model.pinnedItems[0])
+        try await waitUntil { await service.activated == ["com.apple.Safari"] }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.hidden.isEmpty)
+    }
+
     @Test("A pinned application whose bundle has vanished is dropped, not rendered broken")
     func missingBundle() async {
         let (model, _, _) = makeModel([], pinned: ["com.example.gone"])

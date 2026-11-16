@@ -5,6 +5,10 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- The row menu of a running application has Hide and Hide Others, after Show All Windows. ⌥-click on a row opens its application and hides the one you were in.
+
 ### Removed
 
 - The "Favourites" switch in Settings › Bar. It never controlled anything.
