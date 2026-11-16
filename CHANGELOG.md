@@ -5,6 +5,12 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- A user guide in `docs/guide/` (19 pages), published at kael.io.vn/projects/nexus/docs from a
+  `guide-…` tag. `GuideContentTests` fails the test run on a missing page, a broken link or
+  image, forbidden HTML, or a published slug that no longer resolves.
+
 ## [0.3.0] — 2026-11-16
 
 ### Added

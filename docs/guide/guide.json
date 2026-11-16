@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "product": "nexus",
+  "title": "Nexus Guide",
+  "groups": [
+    {
+      "title": "Start Here",
+      "pages": [
+        {
+          "slug": "start-here/what-is-nexus",
+          "title": "What is Nexus?",
+          "summary": "A one-minute tour: the bar, search and the window switcher, and what each is for."
+        },
+        {
+          "slug": "start-here/install",
+          "title": "Install Nexus",
+          "summary": "Drag Nexus to Applications, open it past the first-launch warning, and keep it updated."
+        },
+        {
+          "slug": "start-here/first-five-minutes",
+          "title": "Your first five minutes",
+          "summary": "Finish setup, pin your apps, and try search with Option-Space."
+        }
+      ]
+    },
+    {
+      "title": "Recipes",
+      "pages": [
+        {
+          "slug": "recipes/replace-the-dock",
+          "title": "Use Nexus instead of the Dock",
+          "summary": "Hide the macOS Dock while Nexus runs, and get it back exactly as it was."
+        },
+        {
+          "slug": "recipes/find-anything",
+          "title": "Find any app, window or file",
+          "summary": "Open search from anywhere, narrow it with a scope, and run the result from the keyboard."
+        },
+        {
+          "slug": "recipes/tidy-the-bar",
+          "title": "Tidy a crowded bar",
+          "summary": "Group apps into folders, pin folder stacks, and keep the bar short."
+        }
+      ]
+    },
+    {
+      "title": "The bar",
+      "pages": [
+        {
+          "slug": "bar/applications",
+          "title": "Applications",
+          "summary": "Pin, reorder, launch, hide and quit apps, and drop files onto them."
+        },
+        {
+          "slug": "bar/groups",
+          "title": "Groups",
+          "summary": "Drag one icon onto another to make a group, then rename, colour and lay it out."
+        },
+        {
+          "slug": "bar/folder-stacks",
+          "title": "Folder stacks",
+          "summary": "Pin a folder from Finder and open its contents on a grid beside the bar."
+        },
+        {
+          "slug": "bar/windows",
+          "title": "Windows on the bar",
+          "summary": "The window flyout, thumbnails, minimized windows and window counts."
+        },
+        {
+          "slug": "bar/media-clock-volume",
+          "title": "Media, clock, volume and Trash",
+          "summary": "The rows at the end of the bar: what plays now, the time, the volume and the Trash."
+        },
+        {
+          "slug": "bar/position-and-displays",
+          "title": "Position and displays",
+          "summary": "Put the bar on any edge, auto-hide it, and choose which displays get one."
+        }
+      ]
+    },
+    {
+      "title": "Search and windows",
+      "pages": [
+        {
+          "slug": "search/search",
+          "title": "Search",
+          "summary": "The search palette: apps, windows, files, System Settings panes and actions in one list."
+        },
+        {
+          "slug": "windows/window-switcher",
+          "title": "Window switcher",
+          "summary": "Option-Tab shows every window as a card; filter, sort, group and switch."
+        },
+        {
+          "slug": "windows/keyboard-control",
+          "title": "Control the bar from the keyboard",
+          "summary": "Control-Option-Space puts the keyboard on the bar; arrows walk it, Return opens."
+        }
+      ]
+    },
+    {
+      "title": "Reference",
+      "pages": [
+        {
+          "slug": "reference/settings",
+          "title": "Settings",
+          "summary": "Every Settings tab and what its options change."
+        },
+        {
+          "slug": "reference/keyboard-shortcuts",
+          "title": "Keyboard shortcuts",
+          "summary": "Every shortcut Nexus listens for, and how to change them."
+        },
+        {
+          "slug": "reference/privacy-and-permissions",
+          "title": "Privacy and permissions",
+          "summary": "No account and no telemetry. Which permission each feature needs, and what works without it."
+        },
+        {
+          "slug": "reference/troubleshooting",
+          "title": "Troubleshooting",
+          "summary": "Permissions that will not stick, a missing Dock, a hidden bar, and answers to common questions."
+        }
+      ]
+    }
+  ]
+}
