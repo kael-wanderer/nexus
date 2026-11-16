@@ -43,6 +43,10 @@ macOS asks before an app reads Desktop, Documents or Downloads. Allow it when th
 
 Turn on **Show Nexus in the menu bar** in Settings › **General**.
 
+### Check for Updates says Retry
+
+Nexus could not reach kael.io.vn, or the site did not answer. The line under the button says which. Check your connection and click **Retry**. A failed check never reports **Up to Date**, so you are not told you are current when Nexus could not find out.
+
 ## What it will not do
 
 - Nexus does not fix permissions for you. Only macOS can grant them.

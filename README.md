@@ -45,6 +45,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Clock and volume** | The time over the date at the far end of the bar, opening the system's own month grid, and a volume row beside it — the speaker glyph follows the level and the mute state, a click opens a slider, a right-click mutes. Both on by default, both switchable in Settings → Bar. |
 | **Settings** | Nine panes — General, Dock (where the bar is), Bar (what it shows), Appearance (how it looks), Behavior, Shortcuts, Search, Permissions, About — with a search field above them, since nine tabs is more than anybody reads. Everything applies live. |
 | **Onboarding** | Six skippable steps. Skipping all of them still leaves a working launcher. |
+| **Guide and updates** | The [Nexus Guide](https://kael.io.vn/projects/nexus/docs) is linked from the menu-bar menu, Settings and setup. Settings › About checks kael.io.vn for a newer version (on launch and daily, or on demand) and opens its release page; Nexus never installs anything itself. |
 | **Accessible** | VoiceOver labels on every element, Reduce Motion and Increase Contrast honoured. |
 
 ### Screenshots

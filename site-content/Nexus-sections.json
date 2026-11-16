@@ -101,13 +101,13 @@
       "background": "tint",
       "kicker": "Privacy and permissions",
       "title": "Local, quiet, and asks for little",
-      "description": "Nexus has no account and makes no network connections. Permissions are requested only by the features that need them, never at launch, and never asked for twice.",
+      "description": "Nexus has no account and no analytics; it only checks for updates. Permissions are requested only by the features that need them, never at launch, and never asked for twice.",
       "layout": "cards",
       "numbered": false,
       "cards": [
         {
           "title": "Nothing leaves your Mac",
-          "text": "No sign-in, no analytics, no network code. Your setup is stored in macOS preferences on this Mac."
+          "text": "No sign-in, no analytics. Its one request online is an update check you can switch off."
         },
         {
           "title": "Works with nothing granted",
@@ -147,15 +147,15 @@
     },
     {
       "question": "Where is my data stored? Is anything sent online?",
-      "answer": "Everything stays on your Mac. Your pinned apps, groups and settings are stored in macOS preferences for this Mac. Nexus has no account, no analytics and no network code. File search uses Spotlight's existing index on your Mac."
+      "answer": "Everything stays on your Mac. Your pinned apps, groups and settings are stored in macOS preferences for this Mac. Nexus has no account and no analytics. The only thing it asks online is whether a newer version exists, once a day, and you can switch that off. File search uses Spotlight's existing index on your Mac."
     },
     {
       "question": "Does it work offline, and does it sync between Macs?",
-      "answer": "It works fully offline; nothing in it needs a connection. There is no sync: each Mac keeps its own setup, and permissions such as Accessibility are granted separately on each Mac."
+      "answer": "It works fully offline; only the update check needs a connection. There is no sync: each Mac keeps its own setup, and permissions such as Accessibility are granted separately on each Mac."
     },
     {
       "question": "How do I install and update it?",
-      "answer": "Open the disk image and drag Nexus to Applications. The app is not notarised, so the first time macOS will block it: right-click Nexus, choose Open, then confirm. macOS remembers after that. Nexus does not check for updates itself; to update, download the new version and replace the app in Applications. Your settings are kept."
+      "answer": "Open the disk image and drag Nexus to Applications. The app is not notarised, so the first time macOS will block it: right-click Nexus, choose Open, then confirm. macOS remembers after that. Nexus checks for a newer version once a day and names it in its menu-bar menu; it never installs anything itself. To update, download the new version and replace the app in Applications. Your settings are kept."
     },
     {
       "question": "Can I import or export my setup?",

@@ -157,3 +157,5 @@ show them | [The system around Nexus](decisions/system.md) |
 | **D121** | The settings window is searched through a hand-kept index | [Search](decisions/search.md) |
 | **D122** | An opened group draws its members as icons or as a list | [The bar](decisions/bar.md) |
 | **D123** | The clock and the volume live at the end of the bar, and neither reinvents what macOS draws | [The bar](decisions/bar.md) |
+| **D124** | Nexus checks a feed for a newer version and opens its release page; it never installs one | [The system around Nexus](decisions/system.md) |
+| **D125** | In-app guide links are built from `GuideLink.Page`, and the test suite keeps every one alive | [The system around Nexus](decisions/system.md) |

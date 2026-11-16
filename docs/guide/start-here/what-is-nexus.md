@@ -24,7 +24,7 @@ Nexus is a vertical dock and a search palette in one. It runs in the menu bar, k
 - **Window switcher (⌥Tab).** Every window as a card. See [Window switcher](../windows/window-switcher.md).
 - **Keyboard control (⌃⌥Space).** Put the keyboard on the bar and walk it with the arrow keys. See [Control the bar from the keyboard](../windows/keyboard-control.md).
 - **Settings.** Every option, in tabs. See [Settings](../reference/settings.md).
-- **The menu-bar icon.** Click it for **Search…**, **Hide Nexus Bar** or **Show Nexus Bar**, **Settings…**, **Run Setup Again…** and **Quit Nexus**. If you use Nexus instead of the Dock, it also shows **Restore macOS Dock**.
+- **The menu-bar icon.** Click it for **Search…**, **Hide Nexus Bar** or **Show Nexus Bar**, **Settings…**, **Run Setup Again…**, **Nexus Guide** and **Quit Nexus**. When a newer version is out, it is named at the top of this menu. If you use Nexus instead of the Dock, it also shows **Restore macOS Dock**.
 
 > [!NOTE]
 > Everything stays on this Mac. Nexus has no account and sends nothing anywhere. See [Privacy and permissions](../reference/privacy-and-permissions.md).

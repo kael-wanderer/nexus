@@ -141,6 +141,15 @@ scope).
 
 ---
 
+## Added after the MVP (0.3.x)
+
+| Feature | Permission | Notes |
+|---|---|---|
+| Guide links | None | The menu-bar menu, Settings (About, Dock, Shortcuts, Permissions) and the last setup step open pages of kael.io.vn/projects/nexus/docs, built only from `GuideLink.Page`; `GuideContentTests` keeps every slug alive (D125) |
+| Update check | None (network) | `latest.json` from kael.io.vn on launch and daily when `general.checkForUpdates` is on, or from Settings › About on demand. Stable or Beta channel. An offer opens the release page; nothing is installed (D124) |
+
+---
+
 ## Explicitly out of the MVP (§28, §101)
 
 AI · full automation engine · plugin marketplace · widget system · workspaces and workspace

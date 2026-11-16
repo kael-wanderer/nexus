@@ -35,6 +35,12 @@ final class Composition {
     let startMenu: StartMenuPanelController
     let onboardingModel: OnboardingViewModel
     let dockReplacement: DockReplacementController
+    /// Built lazily so it can read `configuration` live: the channel and the automatic switch are
+    /// asked on every check, never captured.
+    private(set) lazy var updates = UpdateChecker(
+        channel: { [weak self] in self?.configuration.configuration.general.updateChannel ?? .stable },
+        isAutomatic: { [weak self] in self?.configuration.configuration.general.checkForUpdates ?? false }
+    )
 
     private var settingsWindow: AuxiliaryWindowController?
     private var onboardingWindow: AuxiliaryWindowController?
@@ -131,6 +137,7 @@ final class Composition {
         // Materialise the loaded (or default) configuration so it is inspectable with `defaults`
         // from the first launch onwards.
         configuration.flush()
+        updates.startAutomaticChecks()
 
         startMenuModel.setPinned = { [weak self] identifier, pinned in
             guard let self else { return }
@@ -297,7 +304,8 @@ final class Composition {
                 permissions: permissions,
                 dockReplacement: dockReplacement,
                 validateShortcut: { [weak self] in self?.validate($0) },
-                runOnboarding: { [weak self] in self?.runOnboarding() }
+                runOnboarding: { [weak self] in self?.runOnboarding() },
+                updates: updates
             )
         }
         settingsWindow = controller
@@ -526,13 +534,16 @@ final class Composition {
             openSearch: { [weak self] in self?.searchPanel.show() },
             isBarVisible: { [weak self] in self?.panels.isBarVisible ?? true },
             isDockHidden: { [weak self] in self?.dockReplacement.isDockHidden ?? false },
-            restoreDock: { [weak self] in self?.dockReplacement.restoreNow() }
+            restoreDock: { [weak self] in self?.dockReplacement.restoreNow() },
+            openGuide: { NSWorkspace.shared.open(GuideLink.url(.home)) },
+            offeredUpdate: { [weak self] in self?.updates.offeredUpdate }
         )
     }
 
     func shutDown() {
         // Before anything else: the Dock comes back whenever Nexus is not running (D52).
         dockReplacement.stop()
+        updates.stop()
         permissionTask?.cancel()
         configurationTask?.cancel()
         hotKeys.stop()

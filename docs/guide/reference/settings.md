@@ -84,6 +84,16 @@ Shows **Accessibility** and **Screen Recording**, each marked **Granted** or **N
 ## About
 Shows the version, author, licence and where Nexus is running from. **Copy Version Details** copies a short summary to paste into a bug report.
 
+| Setting | What it does |
+|---|---|
+| **Check for updates automatically** | On (default): Nexus looks for a newer version on launch and once a day. Off: it only looks when you click **Check Now**. |
+| **Update channel** | **Stable** (default) or **Beta**. Beta asks you to confirm first, and still offers a Stable release when it is newer. |
+| **Check for Updates** | **Check Now** looks right away. The button then says **Up to Date**, or **Get** and the new version, which opens its release page in your browser. If the check fails it says **Retry** and why. |
+| **Nexus Guide** | Opens this guide. |
+| **Troubleshooting** | Opens [Troubleshooting](troubleshooting.md). |
+
+Nexus never downloads or installs an update itself. See [Install Nexus](../start-here/install.md) for how to replace the app.
+
 ## Next steps
 - [Keyboard shortcuts](keyboard-shortcuts.md)
 - [Privacy and permissions](privacy-and-permissions.md)

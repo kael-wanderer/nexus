@@ -253,6 +253,11 @@ public struct OnboardingView: View {
                 Text("The sidebar is on your \(positionName), and \(model.configuration.configuration.search.shortcut.displayString) opens search.")
                 Text("Nexus lives in the menu bar. Everything here is in Settings, and you can run this setup again from there.")
                     .foregroundStyle(.secondary)
+                // Every feature, step by step, in the online guide. Built from `GuideLink` so the
+                // target is a slug `GuideContentTests` has checked.
+                Link(destination: GuideLink.url(.firstFiveMinutes)) {
+                    Label(String(localized: "Where to start: the Nexus Guide"), systemImage: "arrow.up.right.square")
+                }
             }
         }
     }

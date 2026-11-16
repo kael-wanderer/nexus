@@ -10,6 +10,16 @@ this project follows [Semantic Versioning](https://semver.org).
 - A user guide in `docs/guide/` (19 pages), published at kael.io.vn/projects/nexus/docs from a
   `guide-…` tag. `GuideContentTests` fails the test run on a missing page, a broken link or
   image, forbidden HTML, or a published slug that no longer resolves.
+- Links into the guide: **Nexus Guide** in the menu-bar menu, a Help section in Settings › About
+  (guide and troubleshooting), a link on the last setup step, and one each in the Dock, Shortcuts
+  and Permissions tabs. Every link is a `GuideLink.Page`, and the guide check fails if one of them
+  stops resolving.
+- Update check, ported from Bugler. Settings › About has **Check for updates automatically** (on),
+  **Update channel** (Stable, or Beta after a confirmation) and a **Check Now** button. With
+  automatic checks on, Nexus reads kael.io.vn/projects/nexus/latest.json on launch and once a day;
+  a newer version appears at the top of the menu-bar menu and on the button, and opens its release
+  page in the browser. Nexus never downloads or installs anything itself. The request is bounded
+  (4 s idle, 20 s total, 64 KB, https only, no cookies) and is the only network access Nexus makes.
 
 ## [0.3.0] — 2026-11-16
 
