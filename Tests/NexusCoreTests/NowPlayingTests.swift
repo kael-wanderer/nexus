@@ -608,3 +608,64 @@ struct BrowserPlayStateTests {
         #expect(service.display.isPlaying)
     }
 }
+
+actor FakeScriptRunner: ScriptRunning {
+    var outcomes: [ScriptOutcome]
+    private(set) var sources: [String] = []
+    init(_ outcomes: [ScriptOutcome]) { self.outcomes = outcomes }
+    func run(_ source: String) async -> ScriptOutcome {
+        sources.append(source)
+        return outcomes.isEmpty ? .failed : outcomes.removeFirst()
+    }
+}
+
+@Suite("Media control over a script runner")
+struct MediaControlRunnerTests {
+    @Test("A timeout gives no reading and the player is asked again")
+    func timeoutDoesNotRefuse() async {
+        let runner = FakeScriptRunner([.timedOut, .values([12, 240, 1])])
+        let control = AppleScriptMediaControl(runner: runner)
+        #expect(await control.playback(of: "com.apple.Music") == nil)
+        #expect(await control.playback(of: "com.apple.Music")?.position.position == 12)
+    }
+
+    @Test("Three timeouts in a row refuse the player")
+    func threeTimeoutsRefuse() async {
+        let runner = FakeScriptRunner([.values([1, 2, 1]), .timedOut, .timedOut, .timedOut, .values([1, 2, 1])])
+        let control = AppleScriptMediaControl(runner: runner)
+        for _ in 0..<4 { _ = await control.playback(of: "com.apple.Music") }
+        #expect(await control.playback(of: "com.apple.Music") == nil)
+        #expect(await runner.sources.count == 4)
+    }
+
+    @Test("Timeouts before any successful reading never refuse (first-run consent prompt)")
+    func timeoutsBeforeSuccessDoNotRefuse() async {
+        let runner = FakeScriptRunner([.timedOut, .timedOut, .timedOut, .timedOut, .values([5, 9, 1])])
+        let control = AppleScriptMediaControl(runner: runner)
+        for _ in 0..<4 { #expect(await control.playback(of: "com.apple.Music") == nil) }
+        #expect(await control.playback(of: "com.apple.Music")?.position.position == 5)
+    }
+
+    @Test("A timed-out seek does not refuse the player")
+    func seekTimeoutDoesNotRefuse() async {
+        let control = AppleScriptMediaControl(runner: FakeScriptRunner([.timedOut, .values([1, 2, 1])]))
+        await control.seek(to: 10, in: "com.apple.Music")
+        #expect(await control.playback(of: "com.apple.Music") != nil)
+    }
+
+    @Test("A timed-out command counts as delivered, so no media key is sent on top")
+    func commandTimeoutIsDelivered() async {
+        let control = AppleScriptMediaControl(runner: FakeScriptRunner([.timedOut, .failed]))
+        #expect(await control.command(.playPause, in: "com.apple.Music") == true)
+        #expect(await control.command(.playPause, in: "com.apple.Music") == false)
+    }
+
+    @Test("A failure refuses at once; Spotify's milliseconds become seconds")
+    func failureRefusesAndSpotifyConverts() async {
+        let failing = AppleScriptMediaControl(runner: FakeScriptRunner([.failed, .values([1, 2, 1])]))
+        #expect(await failing.playback(of: "com.apple.Music") == nil)
+        #expect(await failing.playback(of: "com.apple.Music") == nil)
+        let spotify = AppleScriptMediaControl(runner: FakeScriptRunner([.values([30, 240_000, 1])]))
+        #expect(await spotify.playback(of: "com.spotify.client")?.position.duration == 240)
+    }
+}

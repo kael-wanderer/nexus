@@ -14,21 +14,40 @@ public struct SidebarView: View {
     private var isVertical: Bool { model.appearance.position.isVertical }
 
     public var body: some View {
+        // The window takes its frame in one step (the larger one while a motion is under way) and
+        // the bar moves inside it: its thickness animates for hover-expand, its offset for
+        // auto-hide. Both animations come from `PanelController`'s `withAnimation`, so the window
+        // and the content run on one clock.
+        let motion = BarMotion.resolve(
+            appearance: model.appearance,
+            expanded: model.isExpanded,
+            hidden: model.isBarHidden
+        )
         // Three zones, and only the middle one scrolls (M14): with thirty applications running,
         // Trash and Search used to scroll off the end of the bar and have to be hunted for.
         content
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(
+                width: isVertical ? motion.thickness : nil,
+                height: isVertical ? nil : motion.thickness
+            )
+            .frame(
+                maxWidth: isVertical ? nil : .infinity,
+                maxHeight: isVertical ? .infinity : nil
+            )
             .background(VisualEffectBackground())
-        .clipShape(RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous)
-                .strokeBorder(.separator, lineWidth: contrast == .increased ? 1 : 0.5)
-        }
-        .opacity(model.appearance.opacity)
-        .animation(Design.animation(Design.reveal, reduceMotion: reduceMotion), value: model.isExpanded)
-        .onHover { model.hoverChanged($0) }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "Nexus sidebar"))
+            .clipShape(RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: model.appearance.cornerRadius, style: .continuous)
+                    .strokeBorder(.separator, lineWidth: contrast == .increased ? 1 : 0.5)
+            }
+            .opacity(model.appearance.opacity)
+            // On the bar, not on the window-sized frame below: the transparent part of a wide
+            // window is not "over the bar".
+            .onHover { model.hoverChanged($0) }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(String(localized: "Nexus sidebar"))
+            .offset(motion.offset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: motion.alignment)
     }
 
     /// The bar's axis, applied to every stack in it. `AnyLayout` swaps the axis without

@@ -19,8 +19,14 @@ public enum Design {
         reduceMotion ? nil : base
     }
 
-    public static let reveal = Animation.easeOut(duration: 0.18)
+    /// The bar's own motion: hover-expand and auto-hide. A spring with no bounce, so an
+    /// interrupted motion turns around from where it is with the speed it has.
+    public static let reveal = Animation.spring(duration: 0.26, bounce: 0)
     public static let hover = Animation.easeOut(duration: 0.12)
+
+    /// How long the bar is left alone after a hover-expand starts, so the refreshes it triggers
+    /// do not rebuild the rows while they are still moving.
+    public static let settleDelay: Duration = .milliseconds(300)
 }
 
 extension Design {

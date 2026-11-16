@@ -36,3 +36,13 @@ Run on the installed candidate with a real keyboard and pointer. Set the shortcu
 | Press and hold a pinned row until the icons jiggle, then let go without moving. | The bar stays in edit mode after release. *(Found by reading the code, not reproduced.)* | | |
 | With enough windows that the switcher scrolls, hold ↓ or Tab until the focus passes the last visible row. | The focused card scrolls into view. *(Found by reading the code, not reproduced.)* | | |
 | Launch an app and, within a second, open a new window in it; check its window-count badge and flyout. Then run a few searches and launches with the bar visible. | The new window is counted without hovering the bar; the bar does not flicker or reflow after each search. | | |
+| Hover-expand on a left bar and on a right bar. | Background and labels move together; no jump. | | |
+| Leave the bar halfway through the expand. | It turns round smoothly; the window ends narrow (a window under where the wide bar was can be clicked). | | |
+| Turn on auto-hide; let the bar hide and bring it back, with a bar on every display. | The bar slides out and back; every display's bar does. | | |
+| Turn Reduce Motion on; expand, collapse, hide and reveal the bar. | Each is immediate; nothing is left wide or half hidden. | | |
+| Expand the bar, then collapse it, and look at its shadow each time. | The shadow follows the bar after expand and after collapse (no shadow in the shape of the old size). | | |
+| Play music in Music, then in Spotify, with the timeline visible for a minute; hover the bar throughout. | The bar's hover highlight never freezes. | | |
+| Quit the player while its timeline is showing. | The timeline goes; the bar does not hang. | | |
+| During the 0.26 s collapse, click on the transparent strip beside the bar. | The click reaches the window underneath. | | |
+| Toggle Sidebar mid-collapse and mid-hide, then toggle back. | The bar is narrow / parked correctly; no transparent strip is left. | | |
+| Run `tccutil reset AppleEvents com.congbui.nexus`, launch Nexus with a player running and press Allow on the Automation prompt. | The now-playing timeline appears after Allow; the player is not dropped. | | |

@@ -459,6 +459,44 @@ struct SidebarViewModelTests {
         #expect(model.isExpanded == false)
     }
 
+    @Test("Entering the bar refreshes after the settle delay, not before")
+    func refreshWaits() async throws {
+        let (model, _, _) = makeModel()
+        model.hoverSettleDelay = .milliseconds(20)
+        var counts = 0, badges = 0
+        model.refreshWindowCounts = { counts += 1 }
+        model.refreshBadges = { badges += 1 }
+        model.hoverChanged(true)
+        #expect(counts == 0 && badges == 0)
+        try await waitUntil { counts == 1 && badges == 1 }
+        #expect(counts == 1 && badges == 1)
+    }
+
+    @Test("Leaving before the settle delay cancels the refresh")
+    func leavingCancels() async throws {
+        let (model, _, _) = makeModel()
+        model.hoverSettleDelay = .milliseconds(80)
+        var counts = 0
+        model.refreshWindowCounts = { counts += 1 }
+        model.hoverChanged(true)
+        model.hoverChanged(false)
+        try await Task.sleep(for: .milliseconds(200))  // showing an absence: a sleep is right here
+        #expect(counts == 0)
+    }
+
+    @Test("Entering twice refreshes once")
+    func reenteringRestarts() async throws {
+        let (model, _, _) = makeModel()
+        model.hoverSettleDelay = .milliseconds(40)
+        var counts = 0
+        model.refreshWindowCounts = { counts += 1 }
+        model.hoverChanged(true)
+        model.hoverChanged(true)
+        try await waitUntil { counts >= 1 }
+        try await Task.sleep(for: .milliseconds(150))  // showing an absence
+        #expect(counts == 1)
+    }
+
     @Test("Section row counts drive the panel height and exclude hidden sections")
     func sectionRowCounts() async {
         let (model, _, configuration) = makeModel(

@@ -295,3 +295,13 @@ Still not driven, and why:
 `a588b637…5d16c8cb`, signature verified from the mounted image. Release build, arm64, minimum
 macOS 14.0, `0.2.0 (2)`. Not notarised — the identity is self-signed, so Gatekeeper warns on
 another machine, which is what the README says too. 516 tests pass on `main`.
+
+## Stall baseline, 2026-11-16
+
+not measured: needs a person at the machine (music playing, pointer on/off bar 20×, 5 flyouts, timeline 30 s). Run with `NEXUS_STALL_LOG=1`.
+
+Measure the baseline on a build of commit fca6798, the main branch before the smooth-bar work, not on this branch: `git worktree add ../nexus-baseline fca6798 && cd ../nexus-baseline && make app`.
+
+## Stall result, week 1
+
+not measured: needs a person at the machine; repeat the Task 1 baseline procedure with `NEXUS_STALL_LOG=1`. Pass: no stall >= 50 ms during hover, expand, collapse, reveal or hide, and none at one-second intervals while a timeline shows.
