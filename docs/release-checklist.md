@@ -57,5 +57,6 @@ Run on the installed candidate with a real keyboard and pointer. Set the shortcu
 | On a fresh configuration press ⌥Tab. On an existing configuration with another switcher shortcut (or the switcher turned off), check Settings → Shortcuts and press it. | ⌥Tab opens the switcher on a fresh configuration; an existing configuration keeps its own shortcut, or stays off. Check with a real keypress: a synthetic ⌥Tab never reached the hotkey (docs/verification.md). | | |
 | With the switcher open, press ⌥Tab again. | Focus moves to the next card; the switcher stays open. Escape closes it. | | |
 | Add 20 or more applications to the bar, then drag one row along it. | The other rows slide aside under the drag without stutter. | | |
+| Drag a folder from Finder onto an app row; then drag it again holding ⌥, pressing and releasing ⌥ while over the row. | Without ⌥ the row is not outlined and the folder is pinned as a stack; with ⌥ the row is outlined (appearing and going as the key is pressed and released) and the folder opens in that app, with nothing pinned. | | |
 | Hover a running application, then move to the next row. | The flyout fades in once and does not flash between rows. | | |
 | Open and close each of the six popovers quickly, twice. | None stays on screen and none fails to appear. | | |

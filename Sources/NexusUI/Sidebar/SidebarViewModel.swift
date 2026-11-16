@@ -1604,6 +1604,14 @@ public final class SidebarViewModel {
         return accepted
     }
 
+    /// A directory that is not a package: a document bundle is one file to whoever dropped it.
+    nonisolated static func isPlainFolder(_ url: URL) -> Bool {
+        guard url.isFileURL,
+              let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+        else { return false }
+        return values.isDirectory == true && values.isPackage != true
+    }
+
     public func fileDragChanged(over id: String?) {
         guard fileDropTarget != id else { return }
         fileDropTarget = id
@@ -1611,15 +1619,22 @@ public final class SidebarViewModel {
 
     /// Files dropped on an application row. Anything that is not at most 64 existing file URLs is
     /// refused whole. An application bundle among them is a pin, wherever on the bar it lands;
-    /// otherwise the files open in the row's application. `true` when the drop was used.
+    /// and so is a drop of plain folders and nothing else (a stack each) — the bar is mostly
+    /// application rows, and a folder that could only be pinned by hitting a gap between them
+    /// could hardly be pinned at all. `openingFolders` (Option held) opens those folders in the
+    /// application instead. Anything else opens in the row's application. `true` when the drop
+    /// was used.
     @discardableResult
-    public func filesDropped(_ urls: [URL], on item: SidebarItem) -> Bool {
+    public func filesDropped(_ urls: [URL], on item: SidebarItem, openingFolders: Bool = false) -> Bool {
         fileDropTarget = nil
         guard !urls.isEmpty, urls.count <= Self.maximumDroppedFiles,
               urls.allSatisfy(\.isFileURL),
               urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) })
         else { return false }
         if urls.contains(where: { $0.pathExtension.lowercased() == "app" }) {
+            return pinApplications(at: urls)
+        }
+        if !openingFolders, urls.allSatisfy(Self.isPlainFolder) {
             return pinApplications(at: urls)
         }
         Task { [applications] in

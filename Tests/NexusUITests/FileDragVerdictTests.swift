@@ -35,6 +35,27 @@ struct FileDragVerdictTests {
         }
     }
 
+    @Test("Folders alone are taken as a pin: no outline, unless Option asks to open them")
+    func foldersAlone() {
+        let verdict = FileDragVerdict(urls: urls(2, ext: ""), isPlainFolder: { _ in true })
+        #expect(verdict.operation == .copy)
+        #expect(verdict.outlines(optionHeld: false) == false)
+        #expect(verdict.outlines(optionHeld: true))
+    }
+
+    @Test("A folder among files outlines the row: the whole drop opens in the application")
+    func folderAmongFiles() {
+        let all = urls(2)
+        let verdict = FileDragVerdict(urls: all, isPlainFolder: { $0 == all[0] })
+        #expect(verdict.outlines(optionHeld: false))
+    }
+
+    @Test("Option does not turn an application bundle into something to open")
+    func bundleWithOption() {
+        let verdict = FileDragVerdict(urls: urls(1, ext: "app"), isPlainFolder: { _ in true })
+        #expect(verdict.outlines(optionHeld: true) == false)
+    }
+
     @Test("Nothing to drag is refused")
     func empty() {
         let verdict = FileDragVerdict(urls: [])

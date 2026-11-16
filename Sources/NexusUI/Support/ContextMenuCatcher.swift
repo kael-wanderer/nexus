@@ -3,19 +3,33 @@ import SwiftUI
 
 /// What a drag of files over an application row means, decided once from what is being dragged.
 /// More than the drop limit is refused outright; an application bundle is a pin rather than
-/// something to open, so the row is not outlined for it, but the drop is still taken.
+/// something to open, so the row is not outlined for it, but the drop is still taken. Folders
+/// alone are a pin too — a stack — unless Option is held, which opens them in the application.
 @MainActor
 struct FileDragVerdict: Equatable {
     let operation: NSDragOperation
-    let outlinesRow: Bool
+    /// The drop would open in the row's application whatever the keyboard says.
+    private let opens: Bool
+    /// The drop is plain folders and nothing else: a pin, or with Option something to open.
+    private let foldersOnly: Bool
 
-    init(urls: [URL]) {
+    /// The outline is the promise "this opens in that application".
+    var outlinesRow: Bool { outlines(optionHeld: false) }
+
+    func outlines(optionHeld: Bool) -> Bool {
+        opens || (foldersOnly && optionHeld)
+    }
+
+    init(urls: [URL], isPlainFolder: (URL) -> Bool = SidebarViewModel.isPlainFolder) {
         if urls.isEmpty || urls.count > SidebarViewModel.maximumDroppedFiles {
             operation = []
-            outlinesRow = false
+            opens = false
+            foldersOnly = false
         } else {
             operation = .copy
-            outlinesRow = !urls.contains { $0.pathExtension.lowercased() == "app" }
+            let hasBundle = urls.contains { $0.pathExtension.lowercased() == "app" }
+            foldersOnly = !hasBundle && urls.allSatisfy(isPlainFolder)
+            opens = !hasBundle && !foldersOnly
         }
     }
 }
@@ -327,7 +341,8 @@ struct PanelRowInteraction: NSViewRepresentable {
         /// A pasteboard of files, for a row that opens them. Rows' own drags are handled first.
         private func fileDragOperation() -> NSDragOperation {
             guard let verdict = fileDragVerdict else { return [] }
-            onFileDrag?(verdict.outlinesRow)
+            // Asked on every update, so pressing or letting go of Option mid-drag shows at once.
+            onFileDrag?(verdict.outlines(optionHeld: NSEvent.modifierFlags.contains(.option)))
             return verdict.operation
         }
 

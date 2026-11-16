@@ -650,6 +650,58 @@ struct SidebarViewModelTests {
         #expect(await service.opened[0].with == item.id)
     }
 
+    private func temporaryFolder() throws -> (root: URL, folder: URL) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = root.appendingPathComponent("Projects")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return (root, folder)
+    }
+
+    private func pinnedFolderPaths(_ configuration: ConfigurationController) -> [String] {
+        configuration.configuration.pinnedEntries.compactMap(\.folderPath)
+    }
+
+    @Test("A folder dropped on a row is pinned as a stack, not opened in the application")
+    func folderIsPinned() async throws {
+        let (root, folder) = try temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, configuration, item) = await droppedFilesModel()
+
+        #expect(model.filesDropped([folder], on: item))
+        #expect(pinnedFolderPaths(configuration).count == 1)
+        // Showing an absence: nothing may be opened, and only a sleep shows that.
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("A folder dropped with Option held opens in the row's application")
+    func folderOpensWithOption() async throws {
+        let (root, folder) = try temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, configuration, item) = await droppedFilesModel()
+
+        #expect(model.filesDropped([folder], on: item, openingFolders: true))
+        try await waitUntil { await service.opened.count == 1 }
+        #expect(await service.opened[0].urls == [folder])
+        #expect(pinnedFolderPaths(configuration).isEmpty)
+    }
+
+    @Test("A folder dropped together with a file opens both in the application")
+    func folderWithFileOpens() async throws {
+        let (root, folder) = try temporaryFolder()
+        let (fileRoot, files) = try temporaryFiles(1)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: fileRoot)
+        }
+        let (model, service, configuration, item) = await droppedFilesModel()
+
+        #expect(model.filesDropped([folder] + files, on: item))
+        try await waitUntil { await service.opened.count == 1 }
+        #expect(await service.opened[0].urls == [folder] + files)
+        #expect(pinnedFolderPaths(configuration).isEmpty)
+    }
+
     @Test("An application bundle dropped on a row is pinned")
     func applicationBundleIsPinned() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
