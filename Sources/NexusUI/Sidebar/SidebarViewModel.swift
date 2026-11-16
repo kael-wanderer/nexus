@@ -716,7 +716,7 @@ public final class SidebarViewModel {
                 }
             } catch {
                 // A failed launch must not keep the icon hopping until the timeout.
-                await self?.launchFailed(item.id)
+                self?.launchFailed(item.id)
                 return
             }
             if let previous, previous.bundleIdentifier != item.identity.bundleIdentifier,
