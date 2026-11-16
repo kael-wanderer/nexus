@@ -16,10 +16,9 @@ extension Design {
     /// How far a row leans while it jiggles, and how far an icon travels when its application is
     /// launching. Small numbers: this is a bar somebody works next to all day.
     public static let jiggleDegrees: Double = 2.2
-    public static let launchBounce: CGFloat = 7
+    public static let launchBounce: CGFloat = 10
 
     public static let jiggle = Animation.easeInOut(duration: 0.16).repeatForever(autoreverses: true)
-    public static let bounce = Animation.easeOut(duration: 0.22).repeatCount(3, autoreverses: true)
 
     /// The minus badge is a fixed size rather than whatever the symbol measures, because where it
     /// goes is arithmetic and arithmetic needs a number (D110).

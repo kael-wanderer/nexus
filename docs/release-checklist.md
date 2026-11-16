@@ -46,3 +46,5 @@ Run on the installed candidate with a real keyboard and pointer. Set the shortcu
 | During the 0.26 s collapse, click on the transparent strip beside the bar. | The click reaches the window underneath. | | |
 | Toggle Sidebar mid-collapse and mid-hide, then toggle back. | The bar is narrow / parked correctly; no transparent strip is left. | | |
 | Run `tccutil reset AppleEvents com.congbui.nexus`, launch Nexus with a player running and press Allow on the Automation prompt. | The now-playing timeline appears after Allow; the player is not dropped. | | |
+| Press and hold an icon, a group and a folder on the bar, then release. Launch an app that takes several seconds to start. | The icon shrinks to about 92% while held and springs back; the launching icon hops every 0.4 s, dimmed, until the app appears, then stops at rest. | | |
+| With Reduce Motion on, press an icon and launch an app. | No shrink and no hop; the launching icon is only dimmed. | | |

@@ -16,6 +16,7 @@ struct SidebarGroupView: View, Equatable {
     }
 
     @State private var isHovered = false
+    @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var iconSize: CGFloat { state.iconSize }
@@ -74,7 +75,8 @@ struct SidebarGroupView: View, Equatable {
             onDragOut: { point in
                 if model.dragDroppedOutside() { Poof.show(at: point) }
             },
-            onLongPress: { model.beginEditing() }
+            onLongPress: { model.beginEditing() },
+            onPressChange: { isPressed = $0 }
         )
         .nexusRemoveBadge(state.isEditing) { model.removeRow(group.id) }
         .accessibilityElement(children: .ignore)
@@ -137,6 +139,8 @@ struct SidebarGroupView: View, Equatable {
                         .offset(x: iconSize * 0.16, y: -iconSize * 0.1)
                 }
             }
+            .scaleEffect(isPressed && !reduceMotion ? Design.pressScale : 1)
+            .animation(Design.animation(Design.press, reduceMotion: reduceMotion), value: isPressed)
             .nexusIconAnchor()
     }
 

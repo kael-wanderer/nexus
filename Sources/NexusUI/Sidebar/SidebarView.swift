@@ -312,17 +312,18 @@ struct SidebarItemView: View, Equatable {
     }
 
     @State private var isHovered = false
-    @State private var bounced = false
+    @State private var isPressed = false
+    @State private var hopTrigger = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var iconSize: CGFloat { state.iconSize }
     private var isVertical: Bool { state.isVertical }
     private var isLaunching: Bool { state.isLaunching }
 
-    /// The hop, away from the edge the bar is on — which is the direction the Dock bounces, and the
-    /// only one with room. Reduce Motion gets the dimming and no movement.
-    private var bounceOffset: CGSize {
-        guard bounced, !reduceMotion else { return .zero }
+    /// The top of the hop, away from the edge the bar is on — which is the direction the Dock
+    /// bounces, and the only one with room. Reduce Motion gets the dimming and no movement.
+    private var hopOffset: CGSize {
+        guard !reduceMotion else { return .zero }
         switch state.position {
         case .left: return CGSize(width: Design.launchBounce, height: 0)
         case .right: return CGSize(width: -Design.launchBounce, height: 0)
@@ -349,9 +350,15 @@ struct SidebarItemView: View, Equatable {
                         .accessibilityHidden(true)
                 }
             }
-            // Dimmed until the application turns up, and it hops once on the way (M24).
+            .scaleEffect(isPressed && !reduceMotion ? Design.pressScale : 1)
+            .animation(Design.animation(Design.press, reduceMotion: reduceMotion), value: isPressed)
+            // Dimmed until the application turns up, and it hops for as long as that takes (M24).
             .opacity(isLaunching ? 0.45 : 1)
-            .offset(bounceOffset)
+            .phaseAnimator([false, true], trigger: hopTrigger) { view, up in
+                view.offset(up ? hopOffset : .zero)
+            } animation: { up in
+                up ? Design.hopUp : Design.hopDown
+            }
             .overlay(alignment: .topTrailing) {
                 if let badge = state.badge {
                     DockBadge(label: badge, iconSize: iconSize)
@@ -396,11 +403,13 @@ struct SidebarItemView: View, Equatable {
             // Warms the window titles the context menu needs (D60) and drives the hover flyout.
             model.rowHoverChanged(item, hovering: hovering)
         }
-        // One hop when the click lands, and only when something was actually launched.
-        .onChange(of: isLaunching) { _, launching in
-            guard launching, !reduceMotion else { return }
-            withAnimation(Design.bounce) { bounced = true }
-            bounced = false
+        // One hop every 400 ms while something is launching; cancelled when it turns up.
+        .task(id: state.isLaunching) {
+            guard state.isLaunching, !reduceMotion else { return }
+            while !Task.isCancelled {
+                hopTrigger += 1
+                try? await Task.sleep(for: .milliseconds(400))
+            }
         }
         // The drag is AppKit's, not SwiftUI's: this panel can never become key, so
         // PanelRowInteraction claims every mouse-down and SwiftUI's own drag gestures never fire.
@@ -416,7 +425,8 @@ struct SidebarItemView: View, Equatable {
             onDragOut: { point in
                 if model.dragDroppedOutside() { Poof.show(at: point) }
             },
-            onLongPress: item.isPinned ? { model.beginEditing() } : nil
+            onLongPress: item.isPinned ? { model.beginEditing() } : nil,
+            onPressChange: { isPressed = $0 }
         )
         .nexusRemoveBadge(state.isEditing && item.isPinned) { model.removeRow(item.id) }
         .accessibilityElement(children: .ignore)
@@ -562,6 +572,7 @@ struct SidebarGlyphRow: View {
     let action: () -> Void
 
     @State private var isHovered = false
+    @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -580,6 +591,8 @@ struct SidebarGlyphRow: View {
                 }
             }
             .frame(width: iconSize, height: iconSize)
+            .scaleEffect(isPressed && !reduceMotion ? Design.pressScale : 1)
+            .animation(Design.animation(Design.press, reduceMotion: reduceMotion), value: isPressed)
             if expanded, isVertical {
                 Text(title)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -599,7 +612,7 @@ struct SidebarGlyphRow: View {
                 isHovered = hovering
             }
         }
-        .nexusRow(onClick: action, menu: menu)
+        .nexusRow(onClick: action, menu: menu, onPressChange: { isPressed = $0 })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityHint(hint)

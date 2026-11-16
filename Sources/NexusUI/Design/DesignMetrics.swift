@@ -24,6 +24,14 @@ public enum Design {
     public static let reveal = Animation.spring(duration: 0.26, bounce: 0)
     public static let hover = Animation.easeOut(duration: 0.12)
 
+    /// An icon under the pointer's press shrinks to `pressScale` and springs back on release.
+    public static let press = Animation.spring(duration: 0.18, bounce: 0)
+    public static let pressScale: CGFloat = 0.92
+
+    /// One launch hop is `hopUp` then `hopDown`, 400 ms in all; it repeats while the launch lasts.
+    public static let hopUp = Animation.easeOut(duration: 0.20)
+    public static let hopDown = Animation.easeIn(duration: 0.20)
+
     /// How long the bar is left alone after a hover-expand starts, so the refreshes it triggers
     /// do not rebuild the rows while they are still moving.
     public static let settleDelay: Duration = .milliseconds(300)

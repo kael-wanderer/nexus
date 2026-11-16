@@ -16,6 +16,7 @@ struct SidebarFolderView: View, Equatable {
     }
 
     @State private var isHovered = false
+    @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var iconSize: CGFloat { state.iconSize }
@@ -29,6 +30,8 @@ struct SidebarFolderView: View, Equatable {
             Image(nsImage: IconCache.shared.icon(for: folder.url, size: iconSize))
                 .resizable()
                 .frame(width: iconSize, height: iconSize)
+                .scaleEffect(isPressed && !reduceMotion ? Design.pressScale : 1)
+                .animation(Design.animation(Design.press, reduceMotion: reduceMotion), value: isPressed)
                 .nexusIconAnchor()
             if state.expanded, isVertical {
                 Text(folder.name)
@@ -71,7 +74,8 @@ struct SidebarFolderView: View, Equatable {
             onDragOut: { point in
                 if model.dragDroppedOutside() { Poof.show(at: point) }
             },
-            onLongPress: { model.beginEditing() }
+            onLongPress: { model.beginEditing() },
+            onPressChange: { isPressed = $0 }
         )
         .nexusRemoveBadge(state.isEditing) { model.removeRow(folder.id) }
         .accessibilityElement(children: .ignore)

@@ -11,6 +11,7 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ### Changed
 
+- Icons shrink a little under the pointer while pressed, and the launch hop is higher and repeats for as long as the application is launching (Reduce Motion: no movement).
 - Media scripts (Music, Spotify) run off the main thread with a 2 s timeout, so a slow player cannot freeze the bar.
 - The bar window takes its frame once and its content animates inside it with a 0.26 s spring, instead of the window resizing every frame.
 - Hover refresh waits 300 ms for motion to settle.
