@@ -818,7 +818,7 @@ struct AboutPane: View {
     }
 
     private var copyright: String {
-        Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String ?? "MIT Licensed."
+        Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String ?? "Copyright © 2026 Kael Wanderer."
     }
 
     private var location: String {
@@ -836,6 +836,9 @@ struct AboutPane: View {
                         Text("Nexus").font(.title2.weight(.semibold))
                         Text("Version \(version) (\(build))")
                             .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Text(copyright)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                         Text("A dock and a launcher for macOS.")
                             .font(.caption)
@@ -855,8 +858,8 @@ struct AboutPane: View {
                 }
             }
             Section {
-                LabeledContent(String(localized: "Author"), value: "Cong Bui")
-                LabeledContent(String(localized: "Licence"), value: copyright)
+                LabeledContent(String(localized: "Author"), value: "Kael")
+                LabeledContent(String(localized: "Licence"), value: "MIT")
                 LabeledContent(String(localized: "Running from"), value: location)
             }
             Section {

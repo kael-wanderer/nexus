@@ -21,7 +21,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>3</string>
+	<string>127</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSUIElement</key>
@@ -29,7 +29,7 @@
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Nexus asks Finder to empty the Trash, asks System Events to sleep, restart, shut down or log out, and asks your music player for the playback position — each only when you use that feature.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>MIT Licensed.</string>
+	<string>Copyright © 2026 Kael Wanderer.</string>
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>
 	<key>NSSupportsSuddenTermination</key>

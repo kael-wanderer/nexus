@@ -35,6 +35,9 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ### Changed
 
+- Build number starts at 127 (`CFBundleVersion`), so 0.3.0 ships as 0.3.0 (127) and the update
+  feed version is `0.3.0-build.127`. Settings › About shows the copyright line under the version,
+  like Bugler; author is Kael, copyright holder Kael Wanderer, licence still MIT.
 - The window switcher opens with ⌥Tab by default instead of ⌃⌥W. A configuration that stored a shortcut keeps it, and one that switched the switcher off keeps it off; only a configuration with no stored choice gets the new default. Pressing it again with the switcher open moves focus to the next card instead of closing it.
 - The flyout, group, folder, now-playing, volume and calendar popovers fade in (0.12 s) and out (0.09 s) instead of appearing and vanishing (Reduce Motion: no fade).
 - Icons shrink a little under the pointer while pressed, and the launch hop is higher and repeats for as long as the application is launching (Reduce Motion: no movement).
