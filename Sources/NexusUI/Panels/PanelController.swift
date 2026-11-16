@@ -64,6 +64,12 @@ public final class PanelController {
     /// The bars' windows sit at their parked, off-screen frame. True only once a hide's slide has
     /// finished: while the bar is still sliding off, its window stays where it was.
     private var isParked = false
+    /// Bumped by every hover-expand change, and by every reveal or hide. A completion acts only
+    /// if no newer motion of its kind has started since: checking the state alone is not enough,
+    /// because collapse A → expand → collapse B leaves the state as A expects while B is still
+    /// moving.
+    private var expansionGeneration = 0
+    private var visibilityGeneration = 0
     /// Read wherever this controller gates an animation; injectable so tests can ask for either.
     var reduceMotion: () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     /// Every bar's window frame, for tests.
@@ -816,9 +822,17 @@ public final class PanelController {
             onBarFrameChange?()
         } else {
             updateFullScreenDisplays()
+            settleBarMotion()
             reframe(animated: false)
             updateEdgePanel()
         }
+    }
+
+    /// Finishes whatever motion a hidden bar was in the middle of. Its completion may never have
+    /// come — nothing was drawn — so the window takes the frame the motion would have left it at.
+    private func settleBarMotion() {
+        if !model.isExpanded { model.windowIsExpanded = false }
+        if !isRevealed, model.isBarHidden { isParked = true }
     }
 
     // MARK: - Geometry
@@ -905,6 +919,7 @@ public final class PanelController {
         Log.sidebar.notice(
             "Full-screen displays: \(self.fullScreenDisplays.count, privacy: .public) of \(NSScreen.screens.count, privacy: .public)"
         )
+        settleBarMotion()
         reframe(animated: false)
     }
 
@@ -1022,7 +1037,7 @@ public final class PanelController {
         else { return }
         pointerScreen = identity
         Log.sidebar.notice("Pointer moved to another display; the bar follows")
-        reframe(animated: true)
+        reframe(animated: false)
     }
 
     // MARK: - Auto-hide
@@ -1051,8 +1066,14 @@ public final class PanelController {
     /// Runs `change` inside the bar's one animation and `completion` once it is logically over.
     /// With Reduce Motion there is no animation: the change and then the completion run at once,
     /// in that order.
+    /// A bar whose window is ordered out — suppressed by Toggle Sidebar, or on a display showing a
+    /// full-screen space (D111) — draws nothing, and its completion may be held back or lost, so
+    /// it takes the same synchronous path.
     private func animateBar(_ change: () -> Void, completion: @escaping @MainActor () -> Void) {
-        guard let animation = Design.animation(Design.reveal, reduceMotion: reduceMotion()) else {
+        let onScreen = !isSuppressed && bars.contains(where: \.isVisible)
+        guard onScreen,
+              let animation = Design.animation(Design.reveal, reduceMotion: reduceMotion())
+        else {
             change()
             completion()
             return
@@ -1067,6 +1088,8 @@ public final class PanelController {
     /// collapsing shrinks the bar and narrows the window only once that is over — and only if
     /// nothing expanded it again meanwhile.
     private func expansionChanged(_ expanded: Bool) {
+        expansionGeneration += 1
+        let generation = expansionGeneration
         if expanded {
             model.windowIsExpanded = BarMotion.windowExpanded(from: model.isExpanded, to: true)
             animateBar({ model.isExpanded = true }, completion: {})
@@ -1077,7 +1100,9 @@ public final class PanelController {
             invalidateBarShadows()
         } else {
             animateBar({ model.isExpanded = false }, completion: { [weak self] in
-                guard let self, !self.model.isExpanded, self.model.windowIsExpanded else { return }
+                guard let self, generation == self.expansionGeneration,
+                      !self.model.isExpanded, self.model.windowIsExpanded
+                else { return }
                 self.model.windowIsExpanded = false
                 self.reframe(animated: false)
                 self.invalidateBarShadows()
@@ -1096,8 +1121,8 @@ public final class PanelController {
         guard !isRevealed else { return }
         isRevealed = true
         isParked = false
+        visibilityGeneration += 1
         reframe(animated: false)
-        for bar in bars where bar.isVisible { bar.orderFrontRegardless() }
         animateBar({ model.isBarHidden = false }, completion: {})
     }
 
@@ -1110,10 +1135,14 @@ public final class PanelController {
             guard !Task.isCancelled, let self, self.isRevealed else { return }
             self.isRevealed = false
             self.model.setExpanded(false)
+            self.visibilityGeneration += 1
+            let generation = self.visibilityGeneration
             // The bar slides off inside a window that stays put; the window is parked once the
             // slide is over, and only if nothing revealed the bar again meanwhile.
             self.animateBar({ self.model.isBarHidden = true }, completion: { [weak self] in
-                guard let self, self.model.isBarHidden, !self.isRevealed else { return }
+                guard let self, generation == self.visibilityGeneration,
+                      self.model.isBarHidden, !self.isRevealed
+                else { return }
                 self.isParked = true
                 self.reframe(animated: false)
             })

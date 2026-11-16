@@ -305,4 +305,90 @@ struct BarWindowMotionTests {
         #expect(!model.isBarHidden)
         #expect(framesMatch(panels.barFrames, expectedFrames(model, expanded: true, hidden: false)))
     }
+    @Test("A stale collapse's completion never narrows the window under a newer collapse")
+    func staleCollapseCompletion() async throws {
+        let (panels, model, _) = await makePanels(reduceMotion: false)
+        defer { panels.stop() }
+
+        model.setExpanded(true)
+        try await Task.sleep(for: .milliseconds(400))
+        // Collapse A, then an expand and collapse B before A has finished.
+        model.setExpanded(false)
+        try await Task.sleep(for: .milliseconds(150))
+        model.setExpanded(true)
+        model.setExpanded(false)
+        // A would have finished by now; B has not. Showing an absence needs a fixed wait.
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(model.windowIsExpanded)
+        #expect(framesMatch(panels.barFrames, expectedFrames(model, expanded: true, hidden: false)))
+
+        try await waitUntil { !model.windowIsExpanded }
+        #expect(!model.windowIsExpanded)
+        #expect(framesMatch(panels.barFrames, expectedFrames(model, expanded: false, hidden: false)))
+    }
+
+    @Test("A stale hide's completion never parks the window under a newer hide")
+    func staleHideCompletion() async throws {
+        let (panels, model, _) = await makePanels(reduceMotion: false, autoHide: true)
+        defer { panels.stop() }
+
+        model.hoverChanged(true)
+        model.hoverChanged(false)
+        try await waitUntil { model.isBarHidden }
+        // Hide A is sliding; reveal and leave again, so hide B starts after the 0.1 s delay.
+        model.hoverChanged(true)
+        model.hoverChanged(false)
+        try await waitUntil { model.isBarHidden }
+        // B started just now, after A would have finished; showing an absence needs a fixed wait.
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(framesMatch(panels.barFrames, expectedFrames(model, expanded: false, hidden: false))
+            || framesMatch(panels.barFrames, expectedFrames(model, expanded: true, hidden: false)))
+
+        try await waitUntil {
+            framesMatch(panels.barFrames, expectedFrames(model, expanded: false, hidden: true))
+        }
+        #expect(framesMatch(panels.barFrames, expectedFrames(model, expanded: false, hidden: true)))
+    }
+
+    @Test("Toggle Sidebar during a collapse leaves the window narrow when it comes back")
+    func suppressDuringCollapse() async throws {
+        let (panels, model, _) = await makePanels(reduceMotion: false)
+        defer { panels.stop() }
+
+        model.setExpanded(true)
+        try await Task.sleep(for: .milliseconds(400))
+        model.setExpanded(false)
+        panels.toggleSidebar()
+        panels.toggleSidebar()
+
+        #expect(!model.windowIsExpanded)
+        #expect(framesMatch(panels.barFrames, expectedFrames(model, expanded: false, hidden: false)))
+    }
+
+    @Test("Toggle Sidebar during a hide leaves the window parked when it comes back")
+    func suppressDuringHide() async throws {
+        let (panels, model, _) = await makePanels(reduceMotion: false, autoHide: true)
+        defer { panels.stop() }
+
+        model.hoverChanged(true)
+        model.hoverChanged(false)
+        try await waitUntil { model.isBarHidden }
+        panels.toggleSidebar()
+        panels.toggleSidebar()
+
+        #expect(framesMatch(panels.barFrames, expectedFrames(model, expanded: false, hidden: true)))
+    }
+
+    @Test("A collapse while the bar is suppressed finishes at once")
+    func collapseWhileSuppressed() async throws {
+        let (panels, model, _) = await makePanels(reduceMotion: false)
+        defer { panels.stop() }
+
+        model.setExpanded(true)
+        panels.toggleSidebar()
+        model.setExpanded(false)
+
+        #expect(!model.windowIsExpanded)
+        #expect(!model.isExpanded)
+    }
 }
