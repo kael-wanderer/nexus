@@ -18,6 +18,8 @@ final class Composition {
     let searchEngine: SearchEngine
     let actionRunner: ActionRunner
     let hotKeys = HotKeyService()
+    /// Only created when `NEXUS_STALL_LOG=1`; logs every main-thread stall of 32 ms or more.
+    private var stallMonitor: StallMonitor?
     let sidebarModel: SidebarViewModel
     let flyoutModel: WindowFlyoutViewModel
     let groupModel: GroupPopoverViewModel
@@ -262,6 +264,15 @@ final class Composition {
             )
         }
         nowPlaying.start()
+        if StallMonitor.isRequested() {
+            let monitor = StallMonitor { stall in
+                let milliseconds = Int((Double(stall.components.seconds) * 1000
+                    + Double(stall.components.attoseconds) / 1e15).rounded())
+                Log.system.notice("Main thread stalled \(milliseconds, privacy: .public) ms")
+            }
+            monitor.start()
+            stallMonitor = monitor
+        }
         sidebarModel.nowPlayingChanged(
             nowPlaying.display,
             isActive: nowPlaying.isActive,
