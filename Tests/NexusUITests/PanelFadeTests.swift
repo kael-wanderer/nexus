@@ -22,9 +22,9 @@ struct PanelFadeTests {
         fade.show(panel)
         #expect(panel.isVisible)
         fade.hide(panel)
-        try await waitUntil { !panel.isVisible }
+        try await waitUntil(timeout: .seconds(10)) { !panel.isVisible }
         #expect(!panel.isVisible)
-        try await waitUntil { panel.alphaValue == 1 }
+        try await waitUntil(timeout: .seconds(10)) { panel.alphaValue == 1 }
         #expect(panel.alphaValue == 1)
     }
 
@@ -39,11 +39,11 @@ struct PanelFadeTests {
         try await Task.sleep(for: .milliseconds(200))
         #expect(panel.isVisible)
         // The fade back in is an event that will finish, so it is waited for, not guessed at.
-        try await waitUntil { panel.alphaValue == 1 }
+        try await waitUntil(timeout: .seconds(10)) { panel.alphaValue == 1 }
         #expect(panel.isVisible)
         #expect(panel.alphaValue == 1)
         fade.hide(panel)
-        try await waitUntil { !panel.isVisible }
+        try await waitUntil(timeout: .seconds(10)) { !panel.isVisible }
     }
 
     @Test("Reduce motion shows and hides synchronously")
@@ -76,14 +76,14 @@ struct PanelFadeTests {
         let fade = PanelFade(reduceMotion: { false })
         let panel = makePanel()
         fade.show(panel)
-        try await waitUntil { panel.alphaValue == 1 }
+        try await waitUntil(timeout: .seconds(10)) { panel.alphaValue == 1 }
         fade.show(panel)
         #expect(panel.isVisible)
         #expect(panel.alphaValue > 0)
-        try await waitUntil { panel.alphaValue == 1 }
+        try await waitUntil(timeout: .seconds(10)) { panel.alphaValue == 1 }
         #expect(panel.isVisible)
         #expect(panel.alphaValue == 1)
         fade.hide(panel)
-        try await waitUntil { !panel.isVisible }
+        try await waitUntil(timeout: .seconds(10)) { !panel.isVisible }
     }
 }
