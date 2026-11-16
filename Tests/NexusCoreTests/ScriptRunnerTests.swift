@@ -15,6 +15,16 @@ struct ScriptRunnerTests {
         #expect(await AppleScriptRunner().run("error number -128") == .failed)
     }
 
+    @Test("Error -1712 is a timeout")
+    func timeout() async {
+        #expect(await AppleScriptRunner().run("error number -1712") == .timedOut)
+    }
+
+    @Test("A script that returns nothing is empty")
+    func empty() async {
+        #expect(await AppleScriptRunner().run("return") == .empty)
+    }
+
     @Test("A script that blocks its thread does not block the main actor")
     @MainActor func mainActorStaysFree() async {
         // A stand-in that blocks for 0.4 s. A slow *real* script cannot be used here: the test

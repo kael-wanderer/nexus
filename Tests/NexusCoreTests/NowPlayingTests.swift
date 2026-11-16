@@ -631,11 +631,33 @@ struct MediaControlRunnerTests {
 
     @Test("Three timeouts in a row refuse the player")
     func threeTimeoutsRefuse() async {
-        let runner = FakeScriptRunner([.timedOut, .timedOut, .timedOut, .values([1, 2, 1])])
+        let runner = FakeScriptRunner([.values([1, 2, 1]), .timedOut, .timedOut, .timedOut, .values([1, 2, 1])])
         let control = AppleScriptMediaControl(runner: runner)
-        for _ in 0..<3 { _ = await control.playback(of: "com.apple.Music") }
+        for _ in 0..<4 { _ = await control.playback(of: "com.apple.Music") }
         #expect(await control.playback(of: "com.apple.Music") == nil)
-        #expect(await runner.sources.count == 3)
+        #expect(await runner.sources.count == 4)
+    }
+
+    @Test("Timeouts before any successful reading never refuse (first-run consent prompt)")
+    func timeoutsBeforeSuccessDoNotRefuse() async {
+        let runner = FakeScriptRunner([.timedOut, .timedOut, .timedOut, .timedOut, .values([5, 9, 1])])
+        let control = AppleScriptMediaControl(runner: runner)
+        for _ in 0..<4 { #expect(await control.playback(of: "com.apple.Music") == nil) }
+        #expect(await control.playback(of: "com.apple.Music")?.position.position == 5)
+    }
+
+    @Test("A timed-out seek does not refuse the player")
+    func seekTimeoutDoesNotRefuse() async {
+        let control = AppleScriptMediaControl(runner: FakeScriptRunner([.timedOut, .values([1, 2, 1])]))
+        await control.seek(to: 10, in: "com.apple.Music")
+        #expect(await control.playback(of: "com.apple.Music") != nil)
+    }
+
+    @Test("A timed-out command counts as delivered, so no media key is sent on top")
+    func commandTimeoutIsDelivered() async {
+        let control = AppleScriptMediaControl(runner: FakeScriptRunner([.timedOut, .failed]))
+        #expect(await control.command(.playPause, in: "com.apple.Music") == true)
+        #expect(await control.command(.playPause, in: "com.apple.Music") == false)
     }
 
     @Test("A failure refuses at once; Spotify's milliseconds become seconds")

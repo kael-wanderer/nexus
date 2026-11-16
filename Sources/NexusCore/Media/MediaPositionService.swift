@@ -121,6 +121,9 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
     /// Consecutive timeouts per player. A slow answer is not a refusal, but a player that never
     /// answers is not worth a stalled script a second.
     private var timeouts: [String: Int] = [:]
+    /// Players that have answered at least once. Until then a timeout is probably the first-run
+    /// Automation consent prompt waiting for the owner, and must not count against the player.
+    private var answered: Set<String> = []
     private let runner: any ScriptRunning
 
     public init(runner: any ScriptRunning = AppleScriptRunner()) {
@@ -137,7 +140,7 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
 
         switch await runner.run(dialect.read) {
         case .values(let values) where values.count == 3:
-            timeouts[bundleIdentifier] = 0
+            noteSuccess(bundleIdentifier)
             let duration = dialect.durationIsMilliseconds ? values[1] / 1_000 : values[1]
             return MediaPlayback(
                 position: MediaPosition(position: values[0], duration: duration),
@@ -146,7 +149,11 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
         case .timedOut:
             noteTimeout(bundleIdentifier)
             return nil
-        case .values, .empty, .failed:
+        case .values(let values):
+            Log.system.notice("Media script answered \(values.count, privacy: .public) items, expected 3")
+            refuse(bundleIdentifier)
+            return nil
+        case .empty, .failed:
             refuse(bundleIdentifier)
             return nil
         }
@@ -162,27 +169,39 @@ public actor AppleScriptMediaControl: MediaPositionControlling {
     public func seek(to seconds: Double, in bundleIdentifier: String) async {
         guard let dialect = Self.dialects[bundleIdentifier], !refused.contains(bundleIdentifier)
         else { return }
-        if await succeeded(runner.run(dialect.seek(max(0, seconds))), for: bundleIdentifier) == false {
-            refuse(bundleIdentifier)
+        switch await runner.run(dialect.seek(max(0, seconds))) {
+        case .values: noteSuccess(bundleIdentifier)
+        case .empty: timeouts[bundleIdentifier] = 0
+        case .timedOut: noteTimeout(bundleIdentifier)
+        case .failed: refuse(bundleIdentifier)
         }
     }
 
-    /// A timeout is `false` (the caller may fall back to a media key) but only counts towards a
-    /// refusal, it is not one.
+    /// A timeout means the Apple Event was delivered and the player answered late: `true`, so the
+    /// caller does not also send a media key and toggle twice. Only `.failed` is "would not take it".
     private func succeeded(_ outcome: ScriptOutcome, for bundleIdentifier: String) -> Bool {
         switch outcome {
-        case .values, .empty:
+        case .values:
+            noteSuccess(bundleIdentifier)
+            return true
+        case .empty:
             timeouts[bundleIdentifier] = 0
             return true
         case .timedOut:
             noteTimeout(bundleIdentifier)
-            return false
+            return true
         case .failed:
             return false
         }
     }
 
+    private func noteSuccess(_ bundleIdentifier: String) {
+        timeouts[bundleIdentifier] = 0
+        answered.insert(bundleIdentifier)
+    }
+
     private func noteTimeout(_ bundleIdentifier: String) {
+        guard answered.contains(bundleIdentifier) else { return }
         let count = (timeouts[bundleIdentifier] ?? 0) + 1
         timeouts[bundleIdentifier] = count
         if count >= 3 { refuse(bundleIdentifier) }
