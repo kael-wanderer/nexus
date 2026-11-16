@@ -194,6 +194,13 @@ final class Composition {
         // Opening what is in a stack is the system's business: a file goes to its default
         // application, a folder to Finder (M21).
         folderModel.open = { url in NSWorkspace.shared.open(url) }
+        folderModel.read = { [configuration] folder in
+            FolderStackService.list(
+                folder.url,
+                sort: configuration.configuration.behavior.sort(forFolder: folder.path)
+            )
+        }
+        sidebarModel.folderSortChanged = { [weak self] path in self?.folderModel.reload(path: path) }
 
         // Now playing (M15): the metadata is pushed by the players that publish it, the controls
         // are media keys, and the flyout follows the track.
@@ -391,7 +398,7 @@ final class Composition {
             switch slot {
             case .search: searchPanel.toggle()
             case .focusBar: panels.focusBar()
-            case .windowSwitcher: switcherPanel.toggle()
+            case .windowSwitcher: switcherPanel.hotKeyPressed()
             }
         }
         // The switch is the search shortcut's own. The bar and the switcher each have theirs, so

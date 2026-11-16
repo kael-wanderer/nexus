@@ -1,6 +1,25 @@
 import AppKit
 import SwiftUI
 
+/// What a drag of files over an application row means, decided once from what is being dragged.
+/// More than the drop limit is refused outright; an application bundle is a pin rather than
+/// something to open, so the row is not outlined for it, but the drop is still taken.
+@MainActor
+struct FileDragVerdict: Equatable {
+    let operation: NSDragOperation
+    let outlinesRow: Bool
+
+    init(urls: [URL]) {
+        if urls.isEmpty || urls.count > SidebarViewModel.maximumDroppedFiles {
+            operation = []
+            outlinesRow = false
+        } else {
+            operation = .copy
+            outlinesRow = !urls.contains { $0.pathExtension.lowercased() == "app" }
+        }
+    }
+}
+
 /// Event-transparent hover tracking for controls drawn inside non-key panels.
 ///
 /// SwiftUI's `onHover` is tied to whichever rendered layer is under the pointer. That is normally
@@ -97,6 +116,10 @@ struct PanelRowInteraction: NSViewRepresentable {
     /// `true` when the button goes down on the row, `false` when it comes up, a drag starts or a
     /// long press takes over.
     var onPressChange: ((Bool) -> Void)?
+    /// A file from outside the bar entered (`true`) or left (`false`) this row.
+    var onFileDrag: ((Bool) -> Void)?
+    /// Files from outside the bar were dropped on this row; `true` when they were used.
+    var onFileDrop: (([URL]) -> Bool)?
 
     func makeNSView(context: Context) -> NSView {
         let view = CatcherView(onClick: onClick, items: items)
@@ -121,6 +144,8 @@ struct PanelRowInteraction: NSViewRepresentable {
         view.onDragOut = onDragOut
         view.onLongPress = onLongPress
         view.onPressChange = onPressChange
+        view.onFileDrag = onFileDrag
+        view.onFileDrop = onFileDrop
     }
 
     final class CatcherView: NSView, NSDraggingSource {
@@ -137,9 +162,15 @@ struct PanelRowInteraction: NSViewRepresentable {
         var onDragOut: ((NSPoint) -> Void)?
         var onLongPress: (() -> Void)?
         var onPressChange: ((Bool) -> Void)?
+        var onFileDrag: ((Bool) -> Void)?
+        var onFileDrop: (([URL]) -> Bool)? {
+            didSet { registerDropTypes() }
+        }
 
         private var mouseDownLocation: NSPoint?
         private var isDragging = false
+        /// What the file drag in progress means for this row; set on entry, cleared on exit or end.
+        private var fileDragVerdict: FileDragVerdict?
         private var longPressTask: Task<Void, Never>?
 
         /// Squared distance, in points, a press may travel and still count as a click.
@@ -160,10 +191,13 @@ struct PanelRowInteraction: NSViewRepresentable {
         }
 
         private func registerDropTypes() {
-            if onDrop == nil {
+            var types: [NSPasteboard.PasteboardType] = []
+            if onDrop != nil { types.append(Self.rowType) }
+            if onFileDrop != nil { types.append(.fileURL) }
+            if types.isEmpty {
                 unregisterDraggedTypes()
             } else {
-                registerForDraggedTypes([Self.rowType])
+                registerForDraggedTypes(types)
             }
         }
 
@@ -260,15 +294,49 @@ struct PanelRowInteraction: NSViewRepresentable {
         // MARK: - NSDraggingDestination
 
         override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-            guard let payload = payload(from: sender) else { return [] }
-            onDragOver?(payload, fraction(of: sender))
-            return .move
+            if let payload = payload(from: sender) {
+                onDragOver?(payload, fraction(of: sender))
+                return .move
+            }
+            // Computed once per drag session: reading the pasteboard on every update is wasted work.
+            fileDragVerdict = FileDragVerdict(urls: onFileDrop == nil ? [] : fileURLs(from: sender))
+            return fileDragOperation()
         }
 
         override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
-            guard let payload = payload(from: sender) else { return [] }
-            onDragOver?(payload, fraction(of: sender))
-            return .move
+            if let payload = payload(from: sender) {
+                onDragOver?(payload, fraction(of: sender))
+                return .move
+            }
+            if fileDragVerdict == nil {
+                fileDragVerdict = FileDragVerdict(urls: onFileDrop == nil ? [] : fileURLs(from: sender))
+            }
+            return fileDragOperation()
+        }
+
+        override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+            fileDragVerdict = nil
+            onFileDrag?(false)
+        }
+
+        override func draggingEnded(_ sender: any NSDraggingInfo) {
+            fileDragVerdict = nil
+            onFileDrag?(false)
+        }
+
+        /// A pasteboard of files, for a row that opens them. Rows' own drags are handled first.
+        private func fileDragOperation() -> NSDragOperation {
+            guard let verdict = fileDragVerdict else { return [] }
+            onFileDrag?(verdict.outlinesRow)
+            return verdict.operation
+        }
+
+        private func fileURLs(from sender: any NSDraggingInfo) -> [URL] {
+            let objects = sender.draggingPasteboard.readObjects(
+                forClasses: [NSURL.self],
+                options: [.urlReadingFileURLsOnly: true]
+            )
+            return (objects as? [URL]) ?? []
         }
 
         /// Where in the row the drag is, 0…1 from the top-left corner. Grouping is a *place* inside
@@ -285,10 +353,15 @@ struct PanelRowInteraction: NSViewRepresentable {
         }
 
         override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-            payload(from: sender) != nil
+            payload(from: sender) != nil || (onFileDrop != nil && !fileURLs(from: sender).isEmpty)
         }
 
         override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+            if payload(from: sender) == nil, let onFileDrop {
+                fileDragVerdict = nil
+                onFileDrag?(false)
+                return onFileDrop(fileURLs(from: sender))
+            }
             guard let payload = payload(from: sender), let onDrop else { return false }
             onDrop(payload)
             return true
@@ -332,7 +405,9 @@ extension View {
         onDragEnd: ((Bool) -> Void)? = nil,
         onDragOut: ((NSPoint) -> Void)? = nil,
         onLongPress: (() -> Void)? = nil,
-        onPressChange: ((Bool) -> Void)? = nil
+        onPressChange: ((Bool) -> Void)? = nil,
+        onFileDrag: ((Bool) -> Void)? = nil,
+        onFileDrop: (([URL]) -> Bool)? = nil
     ) -> some View {
         overlay(
             PanelRowInteraction(
@@ -346,7 +421,9 @@ extension View {
                 onDragEnd: onDragEnd,
                 onDragOut: onDragOut,
                 onLongPress: onLongPress,
-                onPressChange: onPressChange
+                onPressChange: onPressChange,
+                onFileDrag: onFileDrag,
+                onFileDrop: onFileDrop
             )
         )
     }

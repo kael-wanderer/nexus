@@ -16,4 +16,10 @@ struct SwitcherPanelTests {
         let visible = CGRect(x: 2560, y: 0, width: 2560, height: 1440)
         #expect(SwitcherPanelController.frame(for: visible) == visible)
     }
+
+    @Test("The shortcut shows a closed switcher and moves focus in an open one")
+    func hotKeyDecision() {
+        #expect(SwitcherPanelController.hotKeyAction(isVisible: false) == .show)
+        #expect(SwitcherPanelController.hotKeyAction(isVisible: true) == .focusNext)
+    }
 }

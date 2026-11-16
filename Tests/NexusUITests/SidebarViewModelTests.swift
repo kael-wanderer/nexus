@@ -46,6 +46,102 @@ struct SidebarViewModelTests {
         #expect(model.pinnedItems[0].isRunning == false)
     }
 
+    @Test("Hide hides the row's application")
+    func hideRow() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.hide(model.pinnedItems[0])
+        try await waitUntil { await service.hidden == ["com.apple.Safari"] }
+        #expect(await service.hidden == ["com.apple.Safari"])
+    }
+
+    @Test("Hide others brings the target forward and hides the rest")
+    func hideOthersRow() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.hideOthers(model.pinnedItems[0])
+        try await waitUntil { await service.hidOthersExcept == ["com.apple.Safari"] }
+        #expect(await service.activated.contains("com.apple.Safari"))
+        #expect(await service.hidOthersExcept == ["com.apple.Safari"])
+    }
+
+    @Test("Option-click hides the application being left")
+    func optionClickHidesPrevious() async throws {
+        let (model, service, _) = makeModel(
+            [
+                makeApplication("com.apple.Safari", name: "Safari", running: true),
+                makeApplication("com.apple.mail", name: "Mail", running: true),
+            ],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.mail") }
+        model.activateOrLaunch(model.pinnedItems[0], hidingPrevious: true)
+        try await waitUntil { await service.hidden == ["com.apple.mail"] }
+        #expect(await service.hidden == ["com.apple.mail"])
+    }
+
+    @Test("Option-click on the frontmost application hides nothing")
+    func optionClickOnFrontmost() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.Safari") }
+        model.activateOrLaunch(model.pinnedItems[0], hidingPrevious: true)
+        try await waitUntil { await service.activated == ["com.apple.Safari"] }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.hidden.isEmpty)
+    }
+
+    @Test("A plain click hides nothing")
+    func plainClickHidesNothing() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.mail") }
+        model.activateOrLaunch(model.pinnedItems[0])
+        try await waitUntil { await service.activated == ["com.apple.Safari"] }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.hidden.isEmpty)
+    }
+
+    @Test("Hide others does nothing when the target cannot be brought forward")
+    func hideOthersActivationFails() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        await service.setActivateFails(true)
+        model.hideOthers(model.pinnedItems[0])
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.hidOthersExcept.isEmpty)
+    }
+
+    @Test("Option-click hides nothing when the activation fails")
+    func optionClickActivationFails() async throws {
+        let (model, service, _) = makeModel(
+            [makeApplication("com.apple.Safari", name: "Safari", running: true)],
+            pinned: ["com.apple.Safari"]
+        )
+        await model.refresh()
+        await service.setActivateFails(true)
+        model.frontmostApplication = { ApplicationIdentity(bundleIdentifier: "com.apple.mail") }
+        model.activateOrLaunch(model.pinnedItems[0], hidingPrevious: true)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await service.hidden.isEmpty)
+    }
+
     @Test("A pinned application whose bundle has vanished is dropped, not rendered broken")
     func missingBundle() async {
         let (model, _, _) = makeModel([], pinned: ["com.example.gone"])
@@ -517,5 +613,162 @@ struct SidebarViewModelTests {
         let accepted = model.pinApplications(at: [URL(fileURLWithPath: "/tmp/notes.txt")])
         #expect(accepted == false)
         #expect(configuration.configuration.pinnedApplications.isEmpty)
+    }
+
+    // MARK: - Files dropped on a row
+
+    private func temporaryFiles(_ count: Int, directory: String = UUID().uuidString) throws -> (URL, [URL]) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(directory)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let files = try (0..<count).map { index in
+            let file = root.appendingPathComponent("file\(index).txt")
+            try Data().write(to: file)
+            return file
+        }
+        return (root, files)
+    }
+
+    private func droppedFilesModel() async -> (SidebarViewModel, FakeApplicationService, ConfigurationController, SidebarItem) {
+        let (model, service, configuration) = makeModel(
+            [makeApplication("com.apple.TextEdit", name: "TextEdit")],
+            pinned: ["com.apple.TextEdit"]
+        )
+        await model.refresh()
+        return (model, service, configuration, model.pinnedItems[0])
+    }
+
+    @Test("Files open in a row's application whether or not it runs")
+    func filesOpenInApplication() async throws {
+        let (root, files) = try temporaryFiles(1)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, _, item) = await droppedFilesModel()
+        #expect(item.isRunning == false)
+
+        #expect(model.filesDropped(files, on: item))
+        try await waitUntil { await service.opened.count == 1 }
+        #expect(await service.opened[0].urls == files)
+        #expect(await service.opened[0].with == item.id)
+    }
+
+    @Test("An application bundle dropped on a row is pinned")
+    func applicationBundleIsPinned() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let bundle = root.appendingPathComponent("Fake.app")
+        try FileManager.default.createDirectory(
+            at: bundle.appendingPathComponent("Contents"), withIntermediateDirectories: true
+        )
+        let plist: [String: Any] = [
+            "CFBundleIdentifier": "com.example.fake",
+            "CFBundleName": "Fake",
+            "CFBundlePackageType": "APPL",
+        ]
+        try (plist as NSDictionary).write(to: bundle.appendingPathComponent("Contents/Info.plist"))
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, configuration, item) = await droppedFilesModel()
+        await service.define(makeApplication("com.example.fake", name: "Fake"))
+
+        #expect(model.filesDropped([bundle], on: item))
+        #expect(await service.opened.isEmpty)
+        #expect(configuration.configuration.pinnedApplications.contains("com.example.fake"))
+        await model.refresh()
+        #expect(model.pinned.count == 2)
+    }
+
+    @Test("An application bundle dropped on a row is pinned whatever the case of its extension")
+    func uppercaseBundleIsPinned() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let bundle = root.appendingPathComponent("Fake.APP")
+        try FileManager.default.createDirectory(
+            at: bundle.appendingPathComponent("Contents"), withIntermediateDirectories: true
+        )
+        let plist: [String: Any] = [
+            "CFBundleIdentifier": "com.example.fakeupper",
+            "CFBundleName": "Fake",
+            "CFBundlePackageType": "APPL",
+        ]
+        try (plist as NSDictionary).write(to: bundle.appendingPathComponent("Contents/Info.plist"))
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, configuration, item) = await droppedFilesModel()
+        await service.define(makeApplication("com.example.fakeupper", name: "FakeUpper"))
+
+        #expect(model.filesDropped([bundle], on: item))
+        #expect(await service.opened.isEmpty)
+        #expect(configuration.configuration.pinnedEntries.allSatisfy { if case .folder = $0 { false } else { true } })
+        #expect(configuration.configuration.pinnedApplications.contains("com.example.fakeupper"))
+        await model.refresh()
+        #expect(model.pinned.count == 2)
+    }
+
+    @Test("More than 64 files are refused")
+    func tooManyFiles() async throws {
+        let (root, files) = try temporaryFiles(SidebarViewModel.maximumDroppedFiles + 1)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, _, item) = await droppedFilesModel()
+
+        #expect(model.filesDropped(files, on: item) == false)
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("A URL that is not a file is refused")
+    func nonFileURL() async throws {
+        let (root, files) = try temporaryFiles(1)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, _, item) = await droppedFilesModel()
+
+        #expect(model.filesDropped([URL(string: "https://example.com/a.pdf")!], on: item) == false)
+        // One bad URL spoils the whole drop.
+        #expect(model.filesDropped(files + [URL(string: "https://example.com/a.pdf")!], on: item) == false)
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("A file that does not exist is refused")
+    func missingFile() async throws {
+        let (root, files) = try temporaryFiles(1)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, _, item) = await droppedFilesModel()
+        let missing = root.appendingPathComponent("missing.txt")
+
+        #expect(model.filesDropped([missing], on: item) == false)
+        #expect(model.filesDropped(files + [missing], on: item) == false)
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("An empty drop is refused")
+    func emptyDrop() async {
+        let (model, service, _, item) = await droppedFilesModel()
+        #expect(model.filesDropped([], on: item) == false)
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("A file drag marks only the row under it")
+    func fileDragMarksRow() async {
+        let (model, _, _) = makeModel(
+            [makeApplication("a", name: "A"), makeApplication("b", name: "B")],
+            pinned: ["a", "b"]
+        )
+        await model.refresh()
+        let a = model.pinnedItems[0].id
+        let b = model.pinnedItems[1].id
+
+        model.fileDragChanged(over: a)
+        #expect(model.rowState(for: a).isFileDropTarget)
+        #expect(model.rowState(for: b).isFileDropTarget == false)
+        model.fileDragChanged(over: nil)
+        #expect(model.rowState(for: a).isFileDropTarget == false)
+    }
+
+    @Test("A file drag target whose row disappears is cleared on refresh")
+    func fileDropTargetClearedWhenRowGoes() async {
+        let (model, _, _) = makeModel(
+            [makeApplication("a", name: "A"), makeApplication("b", name: "B")],
+            pinned: ["a", "b"]
+        )
+        await model.refresh()
+        model.fileDragChanged(over: "a")
+        #expect(model.fileDropTarget == "a")
+
+        model.unpin("a")
+        await model.refresh()
+        #expect(model.fileDropTarget == nil)
     }
 }

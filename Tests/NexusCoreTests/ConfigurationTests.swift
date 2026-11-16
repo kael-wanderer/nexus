@@ -46,6 +46,36 @@ struct ConfigurationTests {
         #expect(configuration.behavior.flyoutSize == .medium)
     }
 
+    @Test("The default switcher shortcut is option-tab")
+    func defaultIsOptionTab() {
+        #expect(KeyboardShortcut.windowSwitcherDefault == KeyboardShortcut(keyCode: 48, modifiers: KeyboardShortcut.optionKey))
+        #expect(GeneralConfiguration().windowSwitcherShortcut == .windowSwitcherDefault)
+    }
+
+    @Test("A stored control-option-W is kept")
+    func storedControlOptionWIsKept() throws {
+        let json = Data("""
+        {"windowSwitcherShortcut": {"keyCode": 13, "modifiers": 6144}}
+        """.utf8)
+        let general = try JSONDecoder().decode(GeneralConfiguration.self, from: json)
+        #expect(general.windowSwitcherShortcut == KeyboardShortcut(keyCode: 13, modifiers: KeyboardShortcut.controlKey | KeyboardShortcut.optionKey))
+    }
+
+    @Test("A stored null keeps the switcher off")
+    func storedNullKeepsSwitcherOff() throws {
+        let json = Data("""
+        {"windowSwitcherShortcut": null}
+        """.utf8)
+        let general = try JSONDecoder().decode(GeneralConfiguration.self, from: json)
+        #expect(general.windowSwitcherShortcut == nil)
+    }
+
+    @Test("A configuration with no switcher key gets the default")
+    func absentKeyGetsDefault() throws {
+        let general = try JSONDecoder().decode(GeneralConfiguration.self, from: Data("{}".utf8))
+        #expect(general.windowSwitcherShortcut == .windowSwitcherDefault)
+    }
+
     @Test("The switcher shortcut is a valid, non-colliding combination")
     func windowSwitcherShortcutIsValid() {
         let shortcut = KeyboardShortcut.windowSwitcherDefault
@@ -66,6 +96,41 @@ struct ConfigurationTests {
         #expect(behavior.windowSwitcherGrouping == .flat)
         #expect(behavior.windowSwitcherSort == .recent)
         #expect(behavior.windowSwitcherThumbnails == true)
+    }
+
+    @Test("A stored sort survives a round trip; an unknown value is dropped, not fatal")
+    func folderSortDecode() throws {
+        let json = Data("""
+        {"autoHide": true, "folderSort": {"/a": "dateAdded", "/b": "bySize"}}
+        """.utf8)
+        let behavior = try JSONDecoder().decode(BehaviorConfiguration.self, from: json)
+        #expect(behavior.autoHide == true)
+        #expect(behavior.folderSort == ["/a": .dateAdded])
+
+        let again = try JSONDecoder().decode(BehaviorConfiguration.self, from: JSONEncoder().encode(behavior))
+        #expect(again.folderSort == ["/a": .dateAdded])
+    }
+
+    @Test("A configuration written before this key existed still loads")
+    func folderSortAbsent() throws {
+        let behavior = try JSONDecoder().decode(BehaviorConfiguration.self, from: Data("{}".utf8))
+        #expect(behavior.folderSort == [:])
+        #expect(NexusConfiguration.currentVersion == 5)
+
+        let defaults = makeDefaults()
+        let store = ConfigurationStore(defaults: defaults)
+        var configuration = NexusConfiguration()
+        configuration.behavior.folderSort["/a"] = .dateAdded
+        try store.save(configuration)
+        #expect(ConfigurationStore(defaults: defaults).load().behavior.folderSort == ["/a": .dateAdded])
+    }
+
+    @Test("A folder's sort is the stored one, else the default for its path")
+    func folderSortLookup() {
+        var behavior = BehaviorConfiguration()
+        behavior.folderSort["/Users/x/Documents"] = .dateAdded
+        #expect(behavior.sort(forFolder: "/Users/x/Documents") == .dateAdded)
+        #expect(behavior.sort(forFolder: "/Users/x/Other") == .name)
     }
 
     @Test("A file written before the flyout size setting existed decodes to medium")

@@ -112,11 +112,12 @@ public struct KeyboardShortcut: Codable, Sendable, Equatable, Hashable {
     public static let optionSpace = KeyboardShortcut(keyCode: spaceKeyCode, modifiers: optionKey)
     public static let commandSpace = KeyboardShortcut(keyCode: spaceKeyCode, modifiers: cmdKey)
 
-    /// `⌃⌥W` — the window switcher (M25). `⌥Space` is the palette and `⌃⌥Space` is the bar (D101);
-    /// `⌘Tab` and `⌃↓` belong to the system and never reach a Carbon hotkey.
+    /// `⌥Tab` — the window switcher (M25). `⌥Space` is the palette and `⌃⌥Space` is the bar (D101);
+    /// `⌘Tab` and `⌃↓` belong to the system and never reach a Carbon hotkey. It was `⌃⌥W` before 0.3.0;
+    /// a configuration that stored a shortcut keeps it.
     public static let windowSwitcherDefault = KeyboardShortcut(
-        keyCode: 13,                                     // kVK_ANSI_W
-        modifiers: controlKey | optionKey
+        keyCode: 48,                                     // kVK_Tab
+        modifiers: optionKey
     )
 
     public var isCommandSpace: Bool { self == .commandSpace }
@@ -326,7 +327,13 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     public var flyoutSize: FlyoutSize = .medium
     /// Icons or a list inside an opened group (M13).
     public var groupLayout: GroupLayout = .icons
+    /// A stack's chosen order, keyed by the folder's stored path. Absent means the default for it.
+    public var folderSort: [String: FolderSort] = [:]
     public init() {}
+
+    public func sort(forFolder path: String) -> FolderSort {
+        folderSort[path] ?? FolderSort.defaultSort(forPath: path)
+    }
 
     public static let hoverPreviewDelayRange: ClosedRange<Double> = 0.2...1.5
 
@@ -359,6 +366,9 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         windowSwitcherThumbnails = try container.decodeIfPresent(Bool.self, forKey: .windowSwitcherThumbnails) ?? true
         flyoutSize = try container.decodeIfPresent(FlyoutSize.self, forKey: .flyoutSize) ?? .medium
         groupLayout = try container.decodeIfPresent(GroupLayout.self, forKey: .groupLayout) ?? .icons
+        // Raw strings, so one unknown value (a later build's sort) drops only its own entry.
+        let stored = try container.decodeIfPresent([String: String].self, forKey: .folderSort) ?? [:]
+        folderSort = stored.compactMapValues(FolderSort.init(rawValue:))
     }
 
     public static let groupCapacities = [9, 16]

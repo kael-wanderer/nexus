@@ -5,12 +5,21 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-11-16
+
+### Added
+
+- Drop files on an application's row to open them there (the row is outlined while you hover). A dropped `.app` is pinned instead; a drop of more than 64 files, or of anything that is not an existing file, is refused.
+- A folder stack can sort by Date Added (newest first) from its row menu, Sort By. Downloads starts on Date Added; every other folder on Name.
+- The row menu of a running application has Hide and Hide Others, after Show All Windows. ⌥-click on a row opens its application and hides the one you were in.
+
 ### Removed
 
 - The "Favourites" switch in Settings › Bar. It never controlled anything.
 
 ### Changed
 
+- The window switcher opens with ⌥Tab by default instead of ⌃⌥W. A configuration that stored a shortcut keeps it, and one that switched the switcher off keeps it off; only a configuration with no stored choice gets the new default. Pressing it again with the switcher open moves focus to the next card instead of closing it.
 - The flyout, group, folder, now-playing, volume and calendar popovers fade in (0.12 s) and out (0.09 s) instead of appearing and vanishing (Reduce Motion: no fade).
 - Icons shrink a little under the pointer while pressed, and the launch hop is higher and repeats for as long as the application is launching (Reduce Motion: no movement).
 - Media scripts (Music, Spotify) run off the main thread with a 2 s timeout, so a slow player cannot freeze the bar.

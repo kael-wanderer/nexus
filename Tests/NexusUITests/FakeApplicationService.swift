@@ -8,6 +8,13 @@ actor FakeApplicationService: ApplicationServing {
     private(set) var activated: [String] = []
     private(set) var quit: [(String, Bool)] = []
     private(set) var revealed: [String] = []
+    /// Makes `activate` throw, as it does for an application that has quit.
+    var activateFails = false
+    /// Makes `launch` throw, as it does when LaunchServices cannot open the application.
+    var launchFails = false
+    private(set) var hidden: [String] = []
+    private(set) var hidOthersExcept: [String] = []
+    private(set) var opened: [(urls: [URL], with: String)] = []
 
     init(_ applications: [NexusApplication] = []) {
         for application in applications { catalogue[application.identity.bundleIdentifier] = application }
@@ -32,12 +39,18 @@ actor FakeApplicationService: ApplicationServing {
         catalogue.values.filter(\.isRunning).sorted { $0.name < $1.name }
     }
 
+    func setLaunchFails(_ fails: Bool) { launchFails = fails }
+
     func launch(_ identity: ApplicationIdentity) async throws {
+        if launchFails { throw NexusError.targetDisappeared }
         guard catalogue[identity.bundleIdentifier] != nil else { throw NexusError.notFound }
         launched.append(identity.bundleIdentifier)
     }
 
+    func setActivateFails(_ fails: Bool) { activateFails = fails }
+
     func activate(_ identity: ApplicationIdentity) async throws {
+        if activateFails { throw NexusError.targetDisappeared }
         activated.append(identity.bundleIdentifier)
     }
 
@@ -47,6 +60,18 @@ actor FakeApplicationService: ApplicationServing {
 
     func revealInFinder(_ identity: ApplicationIdentity) async {
         revealed.append(identity.bundleIdentifier)
+    }
+
+    func hide(_ identity: ApplicationIdentity) async {
+        hidden.append(identity.bundleIdentifier)
+    }
+
+    func hideOthers(except identity: ApplicationIdentity) async {
+        hidOthersExcept.append(identity.bundleIdentifier)
+    }
+
+    func open(_ urls: [URL], with identity: ApplicationIdentity) async throws {
+        opened.append((urls, identity.bundleIdentifier))
     }
 }
 

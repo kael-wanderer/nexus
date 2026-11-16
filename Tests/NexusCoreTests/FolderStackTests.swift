@@ -1,5 +1,5 @@
 import Foundation
-import NexusCore
+@testable import NexusCore
 import Testing
 
 /// A directory that cleans itself up, so a listing test needs no fixture checked into the repo.
@@ -97,6 +97,50 @@ struct FolderStackTests {
         let items = FolderStackService.list(directory.url).items
         #expect(items.count == 1)
         #expect(items[0].isDirectory == false)
+    }
+
+    @Test("By date: newest first, folders not grouped, undated last")
+    func dateOrder() {
+        let d = Date(timeIntervalSince1970: 1_000)
+        let items = [
+            FolderItem(url: URL(fileURLWithPath: "/t/old.txt"), name: "old.txt", isDirectory: false, dateAdded: d),
+            FolderItem(url: URL(fileURLWithPath: "/t/dir"), name: "dir", isDirectory: true, dateAdded: d.addingTimeInterval(50)),
+            FolderItem(url: URL(fileURLWithPath: "/t/none"), name: "none", isDirectory: false, dateAdded: nil),
+            FolderItem(url: URL(fileURLWithPath: "/t/new.txt"), name: "new.txt", isDirectory: false, dateAdded: d.addingTimeInterval(100)),
+        ]
+        #expect(FolderStackService.sorted(items, by: .dateAdded).map(\.name) == ["new.txt", "dir", "old.txt", "none"])
+        #expect(FolderStackService.sorted(items, by: .name).map(\.name) == ["dir", "new.txt", "none", "old.txt"])
+    }
+
+    @Test("Equal dates fall back to name order")
+    func dateTies() {
+        let d = Date(timeIntervalSince1970: 1_000)
+        let items = ["b.txt", "a.txt", "c.txt"].map {
+            FolderItem(url: URL(fileURLWithPath: "/t/\($0)"), name: $0, isDirectory: false, dateAdded: d)
+        }
+        #expect(FolderStackService.sorted(items, by: .dateAdded).map(\.name) == ["a.txt", "b.txt", "c.txt"])
+    }
+
+    @Test("Date order is applied before the limit")
+    func dateBeforeLimit() throws {
+        let directory = try TemporaryDirectory { url in
+            for index in 0..<5 {
+                try write("file-\(index).txt", in: url)
+                try FileManager.default.setAttributes(
+                    [.creationDate: Date(timeIntervalSince1970: 1_000_000 + Double(index) * 100)],
+                    ofItemAtPath: url.appendingPathComponent("file-\(index).txt").path
+                )
+            }
+        }
+        let items = FolderStackService.list(directory.url, limit: 2, sort: .dateAdded).items
+        #expect(items.map(\.name) == ["file-4.txt", "file-3.txt"])
+    }
+
+    @Test("Downloads defaults to date added, anything else to name")
+    func defaults() {
+        #expect(FolderSort.defaultSort(forPath: "/Users/x/Downloads", downloads: "/Users/x/Downloads") == .dateAdded)
+        #expect(FolderSort.defaultSort(forPath: "/Users/x/Documents", downloads: "/Users/x/Downloads") == .name)
+        #expect(FolderSort.defaultSort(forPath: "/Users/x/Documents", downloads: "") == .name)
     }
 }
 

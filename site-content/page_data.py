@@ -10,7 +10,7 @@ CATALOG = {
     "details": (
         "Nexus replaces the macOS Dock with a bar on any screen edge and adds a search palette. "
         "The bar holds your apps, groups, folders, the Trash, a clock and a volume control. Hover "
-        "an app to see its windows, or press ⌃⌥W to see every window on the Mac at once. The "
+        "an app to see its windows, or press ⌥Tab to see every window on the Mac at once. The "
         "palette (⌥Space) searches apps, open windows, files and System Settings panes. It all "
         "runs locally: no account, no network, and your Dock settings are put back exactly when "
         "Nexus quits."
@@ -71,7 +71,7 @@ FEATURES = [
             },
             {
                 "title": "Window switcher",
-                "caption": "⌃⌥W shows every window as a card. Type to filter, Return to open, ⌘W to close.",
+                "caption": "⌥Tab shows every window as a card. Type to filter, Return to open, ⌘W to close.",
                 "picture": "03-window-switcher.png",
             },
             {
@@ -130,7 +130,7 @@ FEATURES = [
             },
             {
                 "title": "Use the shortcuts",
-                "text": "⌥Space opens search, ⌃⌥W opens the window switcher, ⌃⌥Space puts the keyboard on the bar. All three can be changed.",
+                "text": "⌥Space opens search, ⌥Tab opens the window switcher, ⌃⌥Space puts the keyboard on the bar. All three can be changed.",
             },
         ],
     },
@@ -175,7 +175,7 @@ FAQ = [
         "Nexus is a macOS app that puts a dock-style bar on any edge of your screen and adds a "
         "search palette. The bar holds apps, groups, folders, the Trash, a clock and a volume "
         "control, and shows each app's windows on hover. The palette finds apps, open windows, "
-        "files, folders and System Settings panes. A window switcher (⌃⌥W) shows every open window "
+        "files, folders and System Settings panes. A window switcher (⌥Tab) shows every open window "
         "at once.",
     ),
     (

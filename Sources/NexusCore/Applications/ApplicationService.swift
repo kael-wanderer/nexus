@@ -9,6 +9,11 @@ public protocol ApplicationServing: Sendable {
     func activate(_ identity: ApplicationIdentity) async throws
     func quit(_ identity: ApplicationIdentity, force: Bool) async throws
     func revealInFinder(_ identity: ApplicationIdentity) async
+    func hide(_ identity: ApplicationIdentity) async
+    /// Hides every regular application except `identity` and this process.
+    func hideOthers(except identity: ApplicationIdentity) async
+    /// Opens `urls` with the application, launching it first when it is not running.
+    func open(_ urls: [URL], with identity: ApplicationIdentity) async throws
 }
 
 /// `NSWorkspace` / `NSRunningApplication` over an actor. Every AppKit object stays inside the
@@ -109,8 +114,10 @@ public actor ApplicationService: ApplicationServing {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
             Log.applications.notice("Launched \(identity.bundleIdentifier, privacy: .public)")
         } catch {
+            // Cocoa errors embed the paths they failed on: log the domain and code only.
+            let nsError = error as NSError
             Log.applications.error(
-                "Launch failed for \(identity.bundleIdentifier, privacy: .public): \(String(describing: error), privacy: .public)"
+                "Launch failed for \(identity.bundleIdentifier, privacy: .public): \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)"
             )
             throw NexusError.notFound
         }
@@ -130,12 +137,35 @@ public actor ApplicationService: ApplicationServing {
         do {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
         } catch {
+            // Cocoa errors embed the paths they failed on: log the domain and code only.
+            let nsError = error as NSError
             Log.applications.error(
-                "Activate failed for \(identity.bundleIdentifier, privacy: .public): \(String(describing: error), privacy: .public)"
+                "Activate failed for \(identity.bundleIdentifier, privacy: .public): \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)"
             )
             throw NexusError.targetDisappeared
         }
         Log.applications.notice("Activated \(identity.bundleIdentifier, privacy: .public)")
+    }
+
+    public func open(_ urls: [URL], with identity: ApplicationIdentity) async throws {
+        guard let applicationURL = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: identity.bundleIdentifier
+        ) else {
+            Log.applications.error("Open failed: LaunchServices knows no \(identity.bundleIdentifier, privacy: .public)")
+            throw NexusError.notFound
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        do {
+            _ = try await NSWorkspace.shared.open(urls, withApplicationAt: applicationURL, configuration: configuration)
+        } catch {
+            // Cocoa errors embed the file paths they failed on: log the domain and code only.
+            let nsError = error as NSError
+            Log.applications.error(
+                "Open of \(urls.count, privacy: .public) file(s) failed for \(identity.bundleIdentifier, privacy: .public): \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)"
+            )
+            throw error
+        }
     }
 
     public func quit(_ identity: ApplicationIdentity, force: Bool) async throws {
@@ -156,6 +186,49 @@ public actor ApplicationService: ApplicationServing {
         await MainActor.run {
             NSWorkspace.shared.activateFileViewerSelecting([url])
         }
+    }
+
+    public func hide(_ identity: ApplicationIdentity) async {
+        let count = await Self.hideApplications { $0.bundleIdentifier == identity.bundleIdentifier }
+        Log.applications.notice("Hid \(count, privacy: .public) instance(s) of \(identity.bundleIdentifier, privacy: .public)")
+    }
+
+    /// Not `NSWorkspace.hideOtherApplications()`: that spares the *active* application, which is
+    /// not necessarily the row's.
+    public func hideOthers(except identity: ApplicationIdentity) async {
+        let own = Bundle.main.bundleIdentifier
+        let count = await Self.hideApplications {
+            Self.shouldHideAsOther(
+                bundleIdentifier: $0.bundleIdentifier,
+                isRegular: $0.activationPolicy == .regular,
+                target: identity.bundleIdentifier,
+                own: own
+            )
+        }
+        Log.applications.notice("Hid \(count, privacy: .public) other application(s)")
+    }
+
+    /// Whether "Hide Others" hides an application: a regular one with a bundle identifier that is
+    /// neither the target nor this process.
+    static func shouldHideAsOther(
+        bundleIdentifier: String?,
+        isRegular: Bool,
+        target: String,
+        own: String?
+    ) -> Bool {
+        guard isRegular, let bundleIdentifier else { return false }
+        return bundleIdentifier != target && bundleIdentifier != own
+    }
+
+    /// Hides every regular running application the predicate accepts; returns how many.
+    @MainActor
+    private static func hideApplications(where isTarget: (NSRunningApplication) -> Bool) -> Int {
+        var count = 0
+        for running in NSWorkspace.shared.runningApplications
+        where running.activationPolicy == .regular && isTarget(running) {
+            if running.hide() { count += 1 }
+        }
+        return count
     }
 
     /// `NSRunningApplication` is not `Sendable`; every use of one is confined to the main actor.

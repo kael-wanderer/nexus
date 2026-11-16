@@ -35,7 +35,7 @@
         },
         {
           "title": "Window switcher",
-          "caption": "⌃⌥W shows every window as a card. Type to filter, Return to open, ⌘W to close.",
+          "caption": "⌥Tab shows every window as a card. Type to filter, Return to open, ⌘W to close.",
           "picture": "03-window-switcher.png"
         },
         {
@@ -93,7 +93,7 @@
         },
         {
           "title": "Use the shortcuts",
-          "text": "⌥Space opens search, ⌃⌥W opens the window switcher, ⌃⌥Space puts the keyboard on the bar. All three can be changed."
+          "text": "⌥Space opens search, ⌥Tab opens the window switcher, ⌃⌥Space puts the keyboard on the bar. All three can be changed."
         }
       ]
     },
@@ -131,7 +131,7 @@
   "faq": [
     {
       "question": "What is Nexus?",
-      "answer": "Nexus is a macOS app that puts a dock-style bar on any edge of your screen and adds a search palette. The bar holds apps, groups, folders, the Trash, a clock and a volume control, and shows each app's windows on hover. The palette finds apps, open windows, files, folders and System Settings panes. A window switcher (⌃⌥W) shows every open window at once."
+      "answer": "Nexus is a macOS app that puts a dock-style bar on any edge of your screen and adds a search palette. The bar holds apps, groups, folders, the Trash, a clock and a volume control, and shows each app's windows on hover. The palette finds apps, open windows, files, folders and System Settings panes. A window switcher (⌥Tab) shows every open window at once."
     },
     {
       "question": "Who is it for?",

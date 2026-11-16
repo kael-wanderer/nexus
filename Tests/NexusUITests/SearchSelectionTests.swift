@@ -4,16 +4,35 @@ import Testing
 
 @testable import NexusUI
 
+/// Holds a provider's answer until the test opens it, so arrival order does not depend on timing.
+private actor Gate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        for waiter in waiters { waiter.resume() }
+        waiters = []
+    }
+}
+
 /// A provider whose answer can be delayed, so snapshot arrival order is controllable.
 private struct DelayedProvider: SearchProvider {
     let identifier: SearchProviderID
     let category: SearchCategory
     var delay: Duration = .zero
+    var gate: Gate?
     var titles: [String] = []
     var score: Double = 0.5
 
     func results(for query: SearchQuery, context: SearchContext) async -> [SearchResult] {
         if delay > .zero { try? await Task.sleep(for: delay) }
+        if let gate { await gate.wait() }
         return titles.enumerated().map { index, title in
             SearchResult(
                 id: "\(identifier.rawValue):\(index)",
@@ -136,12 +155,13 @@ struct SearchSelectionTests {
 
     @Test("Once the user arrows, a later snapshot leaves the selection alone")
     func keyboardSelectionSurvivesLaterSnapshot() async throws {
+        let gate = Gate()
         let model = makeSearch([
             DelayedProvider(identifier: .application, category: .application, titles: ["One", "Two"], score: 0.95),
             DelayedProvider(
                 identifier: .file,
                 category: .file,
-                delay: .milliseconds(500),
+                gate: gate,
                 titles: ["a file"],
                 score: 0.10
             ),
@@ -154,6 +174,7 @@ struct SearchSelectionTests {
         let chosen = model.selectedID
         #expect(chosen == model.results[1].id)
 
+        await gate.open()
         try await waitForResults(model, count: 3)
         #expect(model.selectedID == chosen)
     }

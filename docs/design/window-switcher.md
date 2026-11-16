@@ -49,13 +49,13 @@ there.
 
 ## 2. Opening and closing
 
-**Open:** the global shortcut in `HotKeyService.Slot.windowSwitcher`, default **`⌃⌥W`**.
+**Open:** the global shortcut in `HotKeyService.Slot.windowSwitcher`, default **`⌥Tab`** (`⌃⌥W` before 0.3.0).
 `⌥Space` is the palette, `⌃⌥Space` is the bar (D101), and `⌘Tab` and `⌃↓` belong to the system.
 
 The panel appears on the display containing the pointer — the same rule the palette uses for its
 centred placement, and for the same reason: that is where the user is looking.
 
-**Close:** Escape, clicking a card, clicking the background, or the shortcut again. Losing key
+**Close:** Escape, clicking a card, or clicking the background. Pressing the shortcut again with the switcher open moves focus to the next card, as Tab does. Losing key
 status closes it too, exactly as the palette does. Focus goes back to whatever was frontmost
 unless a card was clicked — that card's window is the intended destination.
 
@@ -195,7 +195,7 @@ In `general`, beside `focusBarShortcut`, because that is where a global shortcut
 
 | | |
 |---|---|
-| `windowSwitcherShortcut` | `KeyboardShortcut?`, default `⌃⌥W`. `nil` switches it off. |
+| `windowSwitcherShortcut` | `KeyboardShortcut?`, default `⌥Tab`. `nil` switches it off. |
 
 
 And in `behavior`:

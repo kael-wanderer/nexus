@@ -79,7 +79,7 @@ scope).
 |---|---|---|---|
 | Auto-hide | M2 | None | Edge-hover reveal, configurable delay |
 | Hover expand | M2 | None | Widened panel with names; must not steal focus |
-| Drag and drop | M2 (pin from Finder), M9 (reorder) | None | Dropping an `.app` onto the sidebar pins it. Dragging a row onto another reorders the pins, and dragging a running application onto them pins it in that slot. Dropping files onto an app icon remains out of scope |
+| Drag and drop | M2 (pin from Finder), M9 (reorder) | None | Dropping an `.app` onto the sidebar pins it. Dragging a row onto another reorders the pins, and dragging a running application onto them pins it in that slot. Dropping files onto an app icon opens them in that application, launching it when it is not running; a dropped `.app` is pinned instead (at most 64 existing files per drop) |
 | Smooth animations | M2 → M7 | None | Reduce Motion honoured from the first animation written |
 | Custom icon size | M2 | None | |
 | Custom sidebar width | M2 | None | |
@@ -122,7 +122,7 @@ scope).
 
 | Feature | Permission | Notes |
 |---|---|---|
-| Window switcher | **Accessibility**, **Screen Recording** *(optional, thumbnails)* | `⌃⌥W` opens a full-screen grid, one card per window, not per application (D112). Filters by application and window title, sorts by recency / application / title, groups flat / by application / by display — remembered in `behavior`. `general.windowSwitcherShortcut`, default `⌃⌥W`, `nil` off |
+| Window switcher | **Accessibility**, **Screen Recording** *(optional, thumbnails)* | `⌥Tab` opens a full-screen grid, one card per window, not per application (D112). Filters by application and window title, sorts by recency / application / title, groups flat / by application / by display — remembered in `behavior`. `general.windowSwitcherShortcut`, default `⌥Tab`, `nil` off |
 | Bulk window previews | **Screen Recording** *(optional)* | One `SCShareableContent` fetch per batch, at most four captures in flight, shared cache raised from 32 to 64 entries (D113). Off entirely with `behavior.windowSwitcherThumbnails` false — icons only, no permission ever asked |
 | Add Stack | None | Selecting cards across applications and choosing Add Stack turns their distinct bundle identifiers into a group in the bar, the same kind a stack made in the bar already is (D115) |
 | Shortcuts tab | None | Every global shortcut — palette, bar focus, switcher — in one settings tab instead of scattered across the tabs of the features they belong to; flags a conflict when two share a combination (D117) |

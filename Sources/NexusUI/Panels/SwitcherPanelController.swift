@@ -80,6 +80,22 @@ public final class SwitcherPanelController {
         if isVisible { hide(restoreFocus: true) } else { show() }
     }
 
+    /// What the switcher's global shortcut does. The hotkey is caught before the panel's local
+    /// monitor, so with the switcher open the shortcut must do what Tab does: move to the next
+    /// card. Escape closes.
+    public enum HotKeyAction: Equatable, Sendable { case show, focusNext }
+
+    public nonisolated static func hotKeyAction(isVisible: Bool) -> HotKeyAction {
+        isVisible ? .focusNext : .show
+    }
+
+    public func hotKeyPressed() {
+        switch Self.hotKeyAction(isVisible: isVisible) {
+        case .show: show()
+        case .focusNext: model.focusNext()
+        }
+    }
+
     public func show() {
         guard let panel else { return }
         // Capture BEFORE anything can change the frontmost application.

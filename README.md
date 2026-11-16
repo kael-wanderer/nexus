@@ -7,7 +7,7 @@ in the menu bar, never takes focus away from what you are typing in, and changes
 setting unless you ask it to replace the Dock — and then puts the Dock back exactly as it was.
 
 Search opens with **⌥Space**, the keyboard reaches the bar with **⌃⌥Space**, and the window
-switcher opens with **⌃⌥W**. All three can be changed in Settings › Shortcuts.
+switcher opens with **⌥Tab**. All three can be changed in Settings › Shortcuts.
 
 > Status: Milestones 1–27 shipped — the MVP and twenty milestones past it. Local builds only —
 > see [Installation](#installation).
@@ -28,7 +28,7 @@ built the way a macOS utility should be: native, event-driven, local, and quiet.
 | **Sidebar on any edge** | Left, right, top or bottom, configurable width, icon size, spacing, corner radius and opacity. A horizontal bar sizes its own thickness to the icons it holds. Auto-hide with an edge-hover reveal, or always visible. |
 | **Applications** | Pin, unpin, reorder by dragging one icon onto another, launch, activate, quit and force quit. Running indicator and per-app window count. |
 | **Windows** | An application's windows are in its context menu, frontmost ticked. Hovering an icon opens a flyout with live titles and optional thumbnails; **Show All Windows** opens the same flyout from the menu. *(Accessibility)* |
-| **Window switcher** | `⌃⌥W` opens every window on the machine as one card per window — filter by application or title, sort and group, arrows and Return, `⌘W` to close one. Selected cards become a group in the bar. *(Accessibility; Screen Recording only for the thumbnails)* |
+| **Window switcher** | `⌥Tab` opens every window on the machine as one card per window — filter by application or title, sort and group, arrows and Return, `⌘W` to close one. Selected cards become a group in the bar. *(Accessibility; Screen Recording only for the thumbnails)* |
 | **Trash** | Always in the bar, before Search, with the macOS Trash icon showing full or empty. Click opens it; the context menu empties it, after asking. |
 | **Start menu** | Optional launcher button and a browsable grid of everything installed, with a filter field and Sleep / Restart / Shut Down / Log Out. Off by default. |
 | **Media player** | Optional: artwork, track name, ⏮ ⏯ ⏭ and a draggable timeline, all in the bar — nothing to hover, nothing to open. *(Timeline for Music, Spotify and VLC.)* |

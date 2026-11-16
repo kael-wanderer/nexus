@@ -156,6 +156,10 @@ public final class SidebarViewModel {
     /// The row the drag is over the *middle* of, which is what means "put these together" rather
     /// than "move me here" — highlighted while it holds, and what a drop acts on (M13, D103).
     public private(set) var groupCandidate: String?
+    /// The most files one drop may carry. A drop is untrusted input.
+    public static let maximumDroppedFiles = 64
+    /// The row a file from outside the bar is being dragged over.
+    public private(set) var fileDropTarget: String?
     /// Where the rows would land if the drag were dropped now — one list per section. Never
     /// written to the configuration until the drop lands.
     private var previewPinned: [DockEntry]?
@@ -291,6 +295,8 @@ public final class SidebarViewModel {
     @ObservationIgnored public var showGroup: ((SidebarGroup) -> Void)?
     /// Opens a pinned folder's stack, the same way `showGroup` opens a group (M21).
     @ObservationIgnored public var showFolder: ((SidebarFolder) -> Void)?
+    /// Told after a stack's sort changes, so an open stack of that folder re-reads.
+    @ObservationIgnored public var folderSortChanged: ((String) -> Void)?
     /// The system volume, held rather than pushed: the row draws three of its properties and the
     /// slider writes one back, which is a lot of pushing for what is already `@Observable`. Nothing
     /// starts until the composition root calls `start()`, so tests get an inert one for free.
@@ -581,6 +587,8 @@ public final class SidebarViewModel {
         }
 
         items = resolved
+        // A row that went away mid-drag sends no exit event; do not leave it outlined.
+        if let target = fileDropTarget, resolved[target] == nil { fileDropTarget = nil }
         // Whatever has turned up is not launching any more, and its row stops being dimmed (M24).
         launching = launching.filter { resolved[$0]?.isRunning != true }
         alphabeticalRunning = runningApplications
@@ -677,17 +685,43 @@ public final class SidebarViewModel {
 
     // MARK: - Actions
 
+    /// The application in front right now. Injected so tests need no real `NSWorkspace`.
+    @ObservationIgnored public var frontmostApplication: () -> ApplicationIdentity? = {
+        NSWorkspace.shared.frontmostApplication.flatMap { running in
+            running.bundleIdentifier.map {
+                ApplicationIdentity(bundleIdentifier: $0, processIdentifier: running.processIdentifier)
+            }
+        }
+    }
+
     public func activateOrLaunch(_ item: SidebarItem) {
+        activateOrLaunch(item, hidingPrevious: false)
+    }
+
+    /// `hidingPrevious` is ⌥-click: the application being left is hidden once the new one is up.
+    public func activateOrLaunch(_ item: SidebarItem, hidingPrevious: Bool) {
+        let previous = hidingPrevious ? frontmostApplication() : nil
         if behavior.clickBehavior == .showWindowList, item.isRunning, showWindows != nil {
             openFlyout(for: item.identity)
             return
         }
         if !item.isRunning { markLaunching(item.id) }
-        Task { [applications] in
-            if item.isRunning {
-                try? await applications.activate(item.identity)
-            } else {
-                try? await applications.launch(item.identity)
+        let own = Bundle.main.bundleIdentifier
+        Task { [weak self, applications] in
+            do {
+                if item.isRunning {
+                    try await applications.activate(item.identity)
+                } else {
+                    try await applications.launch(item.identity)
+                }
+            } catch {
+                // A failed launch must not keep the icon hopping until the timeout.
+                self?.launchFailed(item.id)
+                return
+            }
+            if let previous, previous.bundleIdentifier != item.identity.bundleIdentifier,
+               previous.bundleIdentifier != own {
+                await applications.hide(previous)
             }
         }
     }
@@ -703,6 +737,10 @@ public final class SidebarViewModel {
             try? await Task.sleep(for: .seconds(15))
             self?.launching.remove(identifier)
         }
+    }
+
+    private func launchFailed(_ identifier: String) {
+        launching.remove(identifier)
     }
 
     public func isLaunching(_ identifier: String) -> Bool { launching.contains(identifier) }
@@ -1006,7 +1044,16 @@ public final class SidebarViewModel {
     }
 
     public func unpinFolder(_ id: String) {
+        // A folder pinned again later starts from its default, not from a choice made long ago.
+        if case .folder(let path)? = configuration.configuration.pinnedEntries.first(where: { $0.id == id }) {
+            configuration.update { $0.behavior.folderSort[path] = nil }
+        }
         setEntries(configuration.configuration.pinnedEntries.filter { $0.id != id })
+    }
+
+    public func setSort(_ sort: FolderSort, forFolder path: String) {
+        configuration.update { $0.behavior.folderSort[path] = sort }
+        folderSortChanged?(path)
     }
 
     /// Pins a folder at the end of the dock. Idempotent: a folder already on the bar keeps its
@@ -1543,7 +1590,7 @@ public final class SidebarViewModel {
     public func pinApplications(at urls: [URL]) -> Bool {
         var accepted = false
         for url in urls {
-            if url.pathExtension == "app", let identifier = Bundle(url: url)?.bundleIdentifier {
+            if url.pathExtension.lowercased() == "app", let identifier = Bundle(url: url)?.bundleIdentifier {
                 pin(identifier)
                 accepted = true
                 continue
@@ -1557,8 +1604,60 @@ public final class SidebarViewModel {
         return accepted
     }
 
+    public func fileDragChanged(over id: String?) {
+        guard fileDropTarget != id else { return }
+        fileDropTarget = id
+    }
+
+    /// Files dropped on an application row. Anything that is not at most 64 existing file URLs is
+    /// refused whole. An application bundle among them is a pin, wherever on the bar it lands;
+    /// otherwise the files open in the row's application. `true` when the drop was used.
+    @discardableResult
+    public func filesDropped(_ urls: [URL], on item: SidebarItem) -> Bool {
+        fileDropTarget = nil
+        guard !urls.isEmpty, urls.count <= Self.maximumDroppedFiles,
+              urls.allSatisfy(\.isFileURL),
+              urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) })
+        else { return false }
+        if urls.contains(where: { $0.pathExtension.lowercased() == "app" }) {
+            return pinApplications(at: urls)
+        }
+        Task { [applications] in
+            do {
+                try await applications.open(urls, with: item.identity)
+                Log.sidebar.notice(
+                    "Opened \(urls.count, privacy: .public) dropped file(s) with \(item.identity.bundleIdentifier, privacy: .public)"
+                )
+            } catch {
+                Log.sidebar.error(
+                    "Could not open dropped files with \(item.identity.bundleIdentifier, privacy: .public)"
+                )
+            }
+        }
+        return true
+    }
+
     public func revealInFinder(_ item: SidebarItem) {
         Task { [applications] in await applications.revealInFinder(item.identity) }
+    }
+
+    public func hide(_ item: SidebarItem) {
+        Task { [applications] in await applications.hide(item.identity) }
+    }
+
+    /// Brings the row's application forward, then hides everything else.
+    public func hideOthers(_ item: SidebarItem) {
+        Task { [applications] in
+            do {
+                try await applications.activate(item.identity)
+            } catch {
+                Log.sidebar.error(
+                    "Hide others skipped: could not activate \(item.identity.bundleIdentifier, privacy: .public)"
+                )
+                return
+            }
+            await applications.hideOthers(except: item.identity)
+        }
     }
 
     public func quit(_ item: SidebarItem, force: Bool) {
