@@ -11,6 +11,10 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ### Changed
 
+- Media scripts (Music, Spotify) run off the main thread with a 2 s timeout, so a slow player cannot freeze the bar.
+- The bar window takes its frame once and its content animates inside it with a 0.26 s spring, instead of the window resizing every frame.
+- Hover refresh waits 300 ms for motion to settle.
+- The sidebar's other reveal animations use the same 0.26 s spring.
 - The window switcher does no work while it is closed, and forgets its thumbnails when it
   closes.
 - Running a search result no longer makes the bar refresh, rescan badges and re-check window
