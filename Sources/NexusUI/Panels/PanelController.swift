@@ -72,6 +72,12 @@ public final class PanelController {
     private var visibilityGeneration = 0
     /// Read wherever this controller gates an animation; injectable so tests can ask for either.
     var reduceMotion: () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    /// Fades the six popovers. A hide finishes after the fade, so `panel.isVisible` still reads
+    /// true just after one: the open flags below, and the popover models, say what is open.
+    private lazy var fade = PanelFade(reduceMotion: { [weak self] in self?.reduceMotion() ?? false })
+    private var playerIsOpen = false
+    private var volumeIsOpen = false
+    private var calendarIsOpen = false
     /// Every bar's window frame, for tests.
     var barFrames: [CGRect] { bars.map(\.frame) }
     /// Whether any bar's window is on screen, for tests.
@@ -154,7 +160,7 @@ public final class PanelController {
         model.showPlayer = { [weak self] in self?.showPlayer() }
         model.schedulePlayerHide = { [weak self] in self?.schedulePlayerHide() }
         model.playerContentChanged = { [weak self] in
-            guard let self, playerPanel?.isVisible == true else { return }
+            guard let self, playerIsOpen else { return }
             if model.showsNowPlayingRow { layoutPlayer() } else { hidePlayer() }
         }
         let playerHostingView = FirstMouseHostingView(
@@ -254,12 +260,12 @@ public final class PanelController {
         pointerMonitor = nil
         for bar in bars { bar.orderOut(nil) }
         for edge in edges { edge.orderOut(nil) }
-        flyoutPanel?.orderOut(nil)
-        groupPanel?.orderOut(nil)
-        folderPanel?.orderOut(nil)
-        playerPanel?.orderOut(nil)
-        volumePanel?.orderOut(nil)
-        calendarPanel?.orderOut(nil)
+        for panel in [flyoutPanel, groupPanel, folderPanel, playerPanel, volumePanel, calendarPanel] {
+            if let panel { fade.hide(panel) }
+        }
+        playerIsOpen = false
+        volumeIsOpen = false
+        calendarIsOpen = false
         model.volume.stop()
     }
 
@@ -287,10 +293,10 @@ public final class PanelController {
         if folderModel.folder != nil, folderPanel?.frame.contains(point) != true {
             folderModel.hide()
         }
-        if volumePanel?.isVisible == true, volumePanel?.frame.contains(point) != true {
+        if volumeIsOpen, volumePanel?.frame.contains(point) != true {
             hideVolume()
         }
-        if calendarPanel?.isVisible == true, calendarPanel?.frame.contains(point) != true {
+        if calendarIsOpen, calendarPanel?.frame.contains(point) != true {
             hideCalendar()
         }
         removeOutsideClickMonitorIfIdle()
@@ -298,7 +304,7 @@ public final class PanelController {
 
     private func removeOutsideClickMonitorIfIdle() {
         guard groupModel.group == nil, folderModel.folder == nil else { return }
-        guard volumePanel?.isVisible != true, calendarPanel?.isVisible != true else { return }
+        guard !volumeIsOpen, !calendarIsOpen else { return }
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
     }
@@ -311,7 +317,7 @@ public final class PanelController {
         hideFlyout()
         groupModel.show(group)
         layoutGroup()
-        groupPanel?.orderFrontRegardless()
+        if let panel = groupPanel { fade.show(panel) }
         installOutsideClickMonitor()
     }
 
@@ -319,7 +325,7 @@ public final class PanelController {
         groupHideTask?.cancel()
         groupHideTask = nil
         setGroupEditing(false)
-        groupPanel?.orderOut(nil)
+        if let panel = groupPanel { fade.hide(panel) }
         removeOutsideClickMonitorIfIdle()
     }
 
@@ -377,14 +383,14 @@ public final class PanelController {
         groupModel.hide()
         folderModel.show(folder)
         layoutFolder()
-        folderPanel?.orderFrontRegardless()
+        if let panel = folderPanel { fade.show(panel) }
         installOutsideClickMonitor()
     }
 
     private func hideFolder() {
         folderHideTask?.cancel()
         folderHideTask = nil
-        folderPanel?.orderOut(nil)
+        if let panel = folderPanel { fade.hide(panel) }
         removeOutsideClickMonitorIfIdle()
     }
 
@@ -480,13 +486,15 @@ public final class PanelController {
         playerHideTask?.cancel()
         playerHideTask = nil
         layoutPlayer()
-        playerPanel?.orderFrontRegardless()
+        playerIsOpen = true
+        if let panel = playerPanel { fade.show(panel) }
     }
 
     private func hidePlayer() {
         playerHideTask?.cancel()
         playerHideTask = nil
-        playerPanel?.orderOut(nil)
+        playerIsOpen = false
+        if let panel = playerPanel { fade.hide(panel) }
     }
 
     private func playerHoverChanged(_ hovering: Bool) {
@@ -501,7 +509,7 @@ public final class PanelController {
     /// The same grace period the other panels get: the pointer has to cross from the row to the
     /// panel, and the gap between them is not "outside".
     private func schedulePlayerHide() {
-        guard playerPanel?.isVisible == true else { return }
+        guard playerIsOpen else { return }
         playerHideTask?.cancel()
         playerHideTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(400))
@@ -552,12 +560,14 @@ public final class PanelController {
         // here than to keep a listener honest about a slider that is not on screen.
         model.volume.refresh()
         layout(panel: volumePanel, hosting: volumeHosting, section: model.volumeSectionIndex)
-        volumePanel?.orderFrontRegardless()
+        volumeIsOpen = true
+        if let panel = volumePanel { fade.show(panel) }
         installOutsideClickMonitor()
     }
 
     private func hideVolume() {
-        volumePanel?.orderOut(nil)
+        volumeIsOpen = false
+        if let panel = volumePanel { fade.hide(panel) }
         removeOutsideClickMonitorIfIdle()
     }
 
@@ -566,12 +576,14 @@ public final class PanelController {
         hideVolume()
         calendarModel.reset()
         layout(panel: calendarPanel, hosting: calendarHosting, section: model.clockSectionIndex)
-        calendarPanel?.orderFrontRegardless()
+        calendarIsOpen = true
+        if let panel = calendarPanel { fade.show(panel) }
         installOutsideClickMonitor()
     }
 
     private func hideCalendar() {
-        calendarPanel?.orderOut(nil)
+        calendarIsOpen = false
+        if let panel = calendarPanel { fade.hide(panel) }
         removeOutsideClickMonitorIfIdle()
     }
 
@@ -618,13 +630,13 @@ public final class PanelController {
         flyoutModel.flyoutSize = configuration.configuration.behavior.flyoutSize
         flyoutModel.show(identity, name: item.name)
         layoutFlyout()
-        flyoutPanel?.orderFrontRegardless()
+        if let panel = flyoutPanel { fade.show(panel) }
     }
 
     private func hideFlyout() {
         flyoutHideTask?.cancel()
         flyoutHideTask = nil
-        flyoutPanel?.orderOut(nil)
+        if let panel = flyoutPanel { fade.hide(panel) }
         model.flyoutClosed()
     }
 
@@ -883,7 +895,7 @@ public final class PanelController {
     public func reframe(animated: Bool) {
         // Hover-expanding the bar turns the compact player into the wide one, which draws
         // everything this panel does — so the panel steps aside rather than repeating it (D85).
-        if playerPanel?.isVisible == true, model.isMediaPlayerWide { hidePlayer() }
+        if playerIsOpen, model.isMediaPlayerWide { hidePlayer() }
         let screens = targetScreens
         syncPanels(to: screens)
         guard !screens.isEmpty, !isSuppressed else { return }
