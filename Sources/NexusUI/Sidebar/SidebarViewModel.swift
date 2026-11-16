@@ -1582,7 +1582,7 @@ public final class SidebarViewModel {
     public func pinApplications(at urls: [URL]) -> Bool {
         var accepted = false
         for url in urls {
-            if url.pathExtension == "app", let identifier = Bundle(url: url)?.bundleIdentifier {
+            if url.pathExtension.lowercased() == "app", let identifier = Bundle(url: url)?.bundleIdentifier {
                 pin(identifier)
                 accepted = true
                 continue

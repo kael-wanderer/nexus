@@ -155,10 +155,12 @@ public actor ApplicationService: ApplicationServing {
         do {
             _ = try await NSWorkspace.shared.open(urls, withApplicationAt: applicationURL, configuration: configuration)
         } catch {
+            // Cocoa errors embed the file paths they failed on: log the domain and code only.
+            let nsError = error as NSError
             Log.applications.error(
-                "Open failed for \(identity.bundleIdentifier, privacy: .public): \(String(describing: error), privacy: .public)"
+                "Open of \(urls.count, privacy: .public) file(s) failed for \(identity.bundleIdentifier, privacy: .public): \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)"
             )
-            throw NexusError.notFound
+            throw error
         }
     }
 

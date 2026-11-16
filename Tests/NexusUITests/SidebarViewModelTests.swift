@@ -674,6 +674,31 @@ struct SidebarViewModelTests {
         #expect(model.pinned.count == 2)
     }
 
+    @Test("An application bundle dropped on a row is pinned whatever the case of its extension")
+    func uppercaseBundleIsPinned() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let bundle = root.appendingPathComponent("Fake.APP")
+        try FileManager.default.createDirectory(
+            at: bundle.appendingPathComponent("Contents"), withIntermediateDirectories: true
+        )
+        let plist: [String: Any] = [
+            "CFBundleIdentifier": "com.example.fakeupper",
+            "CFBundleName": "Fake",
+            "CFBundlePackageType": "APPL",
+        ]
+        try (plist as NSDictionary).write(to: bundle.appendingPathComponent("Contents/Info.plist"))
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, configuration, item) = await droppedFilesModel()
+        await service.define(makeApplication("com.example.fakeupper", name: "FakeUpper"))
+
+        #expect(model.filesDropped([bundle], on: item))
+        #expect(await service.opened.isEmpty)
+        #expect(configuration.configuration.pinnedEntries.allSatisfy { if case .folder = $0 { false } else { true } })
+        #expect(configuration.configuration.pinnedApplications.contains("com.example.fakeupper"))
+        await model.refresh()
+        #expect(model.pinned.count == 2)
+    }
+
     @Test("More than 64 files are refused")
     func tooManyFiles() async throws {
         let (root, files) = try temporaryFiles(SidebarViewModel.maximumDroppedFiles + 1)
