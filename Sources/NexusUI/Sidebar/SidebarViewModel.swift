@@ -113,6 +113,12 @@ public final class SidebarViewModel {
 
     /// Hover-expanded (names visible). Never true when `behavior.hoverExpand` is off.
     public var isExpanded = false
+    /// Auto-hide has slid the bar off its edge, or is sliding it. Drives the bar's offset inside
+    /// its window; set by `PanelController`, which parks the window only once the slide is over.
+    public var isBarHidden = false
+    /// What size the bar's window is now: wide for the whole of any motion that touches the
+    /// expanded state, narrow only once a collapse has finished. Set by `PanelController` only.
+    public var windowIsExpanded = false
 
     /// What is playing, for the tail's now-playing row (M15). Empty until the service says
     /// otherwise, and the row is absent while it is.
@@ -244,6 +250,11 @@ public final class SidebarViewModel {
 
     /// Called whenever the number of rows or the appearance changes, so the panel can reframe.
     @ObservationIgnored public var layoutDidChange: (() -> Void)?
+    /// Called with the new value when hover-expand changes, *instead of* assigning `isExpanded`:
+    /// the panel sizes its window first and then assigns it inside its own animation, so the
+    /// window and the content move on one clock. `nil` without a panel, and then the model assigns
+    /// `isExpanded` itself.
+    @ObservationIgnored public var expansionWillChange: ((Bool) -> Void)?
     /// Injected by the composition root at Milestone 5; the search row is hidden until then.
     @ObservationIgnored public var openSearch: (() -> Void)?
     /// Injected at Milestone 11; the launcher row is hidden until then, and stays hidden unless
@@ -650,7 +661,8 @@ public final class SidebarViewModel {
     }
 
     public func configurationChanged() {
-        if !behavior.hoverExpand { isExpanded = false }
+        // Through `setExpanded`, so the panel shrinks the window back as well as the content.
+        if !behavior.hoverExpand { setExpanded(false) }
         let inputs = (
             appearance,
             behavior.showRunningApplications,
@@ -1578,6 +1590,10 @@ public final class SidebarViewModel {
         // shove every window on the screen.
         let next = behavior.hoverExpand && appearance.position.isVertical ? expanded : false
         guard next != isExpanded else { return }
+        if let expansionWillChange {
+            expansionWillChange(next)
+            return
+        }
         isExpanded = next
         layoutDidChange?()
     }
