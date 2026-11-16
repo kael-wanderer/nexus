@@ -111,14 +111,20 @@ if [[ "${DMG_FANCY:-1}" == "1" ]]; then
         -srcfolder "$STAGE" \
         -fs HFS+ -format UDRW -ov -quiet \
         "$RW_DMG"
-    ATTACH_OUT="$(hdiutil attach "$RW_DMG" -readwrite -noverify -nobrowse)"
+    # Attached browsable on purpose: Finder must see the volume to style it, and
+    # macOS 27 Finder never enumerates a -nobrowse volume (`tell disk` fails
+    # -1728 however long it waits). The volume shows in Finder for a few seconds.
+    ATTACH_OUT="$(hdiutil attach "$RW_DMG" -readwrite -noverify)"
     # Detach by device node: the rename below moves the mount point.
     DEV_NODE="$(echo "$ATTACH_OUT" | awk 'NR==1 {print $1}')"
     MOUNT_DIR="$(echo "$ATTACH_OUT" | awk -F'\t' '/\/Volumes\// {print $NF; exit}')"
+    # Finder can go on missing new mounts entirely (seen on macOS 27: `exists
+    # disk` stayed false for 30s+). Opening the volume makes Finder register it.
+    open -a Finder "$MOUNT_DIR"
 
     osascript > /dev/null << EOF
 tell application "Finder"
-    -- macOS registers a freshly attached -nobrowse volume lazily: the first
+    -- Finder registers a freshly attached volume lazily: the first
     -- \`tell disk\` errors -1728 ("Can't get disk") if Finder has not
     -- enumerated it yet. Probing \`exists disk\` forces that enumeration.
     set waited to 0
