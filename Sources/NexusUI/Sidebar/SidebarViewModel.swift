@@ -587,6 +587,8 @@ public final class SidebarViewModel {
         }
 
         items = resolved
+        // A row that went away mid-drag sends no exit event; do not leave it outlined.
+        if let target = fileDropTarget, resolved[target] == nil { fileDropTarget = nil }
         // Whatever has turned up is not launching any more, and its row stops being dimmed (M24).
         launching = launching.filter { resolved[$0]?.isRunning != true }
         alphabeticalRunning = runningApplications
@@ -705,7 +707,7 @@ public final class SidebarViewModel {
         }
         if !item.isRunning { markLaunching(item.id) }
         let own = Bundle.main.bundleIdentifier
-        Task { [applications] in
+        Task { [weak self, applications] in
             do {
                 if item.isRunning {
                     try await applications.activate(item.identity)
@@ -713,6 +715,8 @@ public final class SidebarViewModel {
                     try await applications.launch(item.identity)
                 }
             } catch {
+                // A failed launch must not keep the icon hopping until the timeout.
+                await self?.launchFailed(item.id)
                 return
             }
             if let previous, previous.bundleIdentifier != item.identity.bundleIdentifier,
@@ -733,6 +737,10 @@ public final class SidebarViewModel {
             try? await Task.sleep(for: .seconds(15))
             self?.launching.remove(identifier)
         }
+    }
+
+    private func launchFailed(_ identifier: String) {
+        launching.remove(identifier)
     }
 
     public func isLaunching(_ identifier: String) -> Bool { launching.contains(identifier) }

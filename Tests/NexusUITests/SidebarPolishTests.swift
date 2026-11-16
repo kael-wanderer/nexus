@@ -195,6 +195,28 @@ struct LaunchFeedbackTests {
         #expect(running.isLaunching("a") == false)
     }
 
+    @Test("A launch that fails stops marking the row")
+    func failedLaunchClearsMark() async throws {
+        let service = FakeApplicationService(apps(["a"]))
+        await service.setLaunchFails(true)
+        var initial = NexusConfiguration()
+        initial.pinnedEntries = [.application("a")]
+        let model = SidebarViewModel(
+            applications: service,
+            configuration: ConfigurationController(
+                store: InMemoryConfigurationStore(initial),
+                events: EventBus(),
+                saveDelay: .zero
+            ),
+            events: EventBus()
+        )
+        await model.refresh()
+
+        model.activateOrLaunch(model.pinnedItems[0])
+        try await waitUntil { model.isLaunching("a") == false }
+        #expect(model.isLaunching("a") == false)
+    }
+
     @Test("Activating something already running marks nothing")
     func runningIsNotLaunching() async {
         let (model, _) = makeModel(apps(["a"], running: true), entries: [.application("a")])

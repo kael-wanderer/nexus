@@ -756,4 +756,19 @@ struct SidebarViewModelTests {
         model.fileDragChanged(over: nil)
         #expect(model.rowState(for: a).isFileDropTarget == false)
     }
+
+    @Test("A file drag target whose row disappears is cleared on refresh")
+    func fileDropTargetClearedWhenRowGoes() async {
+        let (model, _, _) = makeModel(
+            [makeApplication("a", name: "A"), makeApplication("b", name: "B")],
+            pinned: ["a", "b"]
+        )
+        await model.refresh()
+        model.fileDragChanged(over: "a")
+        #expect(model.fileDropTarget == "a")
+
+        model.unpin("a")
+        await model.refresh()
+        #expect(model.fileDropTarget == nil)
+    }
 }

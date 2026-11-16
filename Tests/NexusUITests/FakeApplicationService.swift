@@ -10,6 +10,8 @@ actor FakeApplicationService: ApplicationServing {
     private(set) var revealed: [String] = []
     /// Makes `activate` throw, as it does for an application that has quit.
     var activateFails = false
+    /// Makes `launch` throw, as it does when LaunchServices cannot open the application.
+    var launchFails = false
     private(set) var hidden: [String] = []
     private(set) var hidOthersExcept: [String] = []
     private(set) var opened: [(urls: [URL], with: String)] = []
@@ -37,7 +39,10 @@ actor FakeApplicationService: ApplicationServing {
         catalogue.values.filter(\.isRunning).sorted { $0.name < $1.name }
     }
 
+    func setLaunchFails(_ fails: Bool) { launchFails = fails }
+
     func launch(_ identity: ApplicationIdentity) async throws {
+        if launchFails { throw NexusError.targetDisappeared }
         guard catalogue[identity.bundleIdentifier] != nil else { throw NexusError.notFound }
         launched.append(identity.bundleIdentifier)
     }
