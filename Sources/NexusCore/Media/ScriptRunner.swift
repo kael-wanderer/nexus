@@ -87,7 +87,9 @@ public final class AppleScriptRunner: ScriptRunning, @unchecked Sendable {
 
     private static func number(of descriptor: NSAppleEventDescriptor) -> Double {
         switch descriptor.descriptorType {
-        case DescType(typeTrue), DescType(typeBoolean) where descriptor.booleanValue:
+        case DescType(typeTrue):
+            return 1
+        case DescType(typeBoolean) where descriptor.booleanValue:
             return 1
         case DescType(typeFalse), DescType(typeBoolean):
             return 0
