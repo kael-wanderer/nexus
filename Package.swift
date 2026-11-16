@@ -13,7 +13,10 @@ let package = Package(
         .target(name: "NexusCore"),
         .target(name: "NexusUI", dependencies: ["NexusCore"]),
         .executableTarget(name: "NexusApp", dependencies: ["NexusCore", "NexusUI"]),
-        .testTarget(name: "NexusCoreTests", dependencies: ["NexusCore"]),
+        .testTarget(
+            name: "NexusCoreTests", dependencies: ["NexusCore"],
+            // Read through #filePath by GuideContentTests, not bundled.
+            exclude: ["Fixtures/guide-bad"]),
         .testTarget(name: "NexusUITests", dependencies: ["NexusUI"]),
     ]
 )

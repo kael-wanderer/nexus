@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "product": "nexus",
+  "title": "Fixture",
+  "groups": [
+    {
+      "title": "G",
+      "pages": [
+        {
+          "slug": "a/one",
+          "title": "One",
+          "summary": "The first page."
+        }
+      ]
+    }
+  ]
+}
