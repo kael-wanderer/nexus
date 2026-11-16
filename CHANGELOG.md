@@ -19,7 +19,7 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ### Changed
 
-- The window switcher opens with ⌥Tab by default instead of ⌃⌥W. A configuration that stored a shortcut keeps it, and one that switched the switcher off keeps it off; only a configuration with no stored choice gets the new default.
+- The window switcher opens with ⌥Tab by default instead of ⌃⌥W. A configuration that stored a shortcut keeps it, and one that switched the switcher off keeps it off; only a configuration with no stored choice gets the new default. Pressing it again with the switcher open moves focus to the next card instead of closing it.
 - The flyout, group, folder, now-playing, volume and calendar popovers fade in (0.12 s) and out (0.09 s) instead of appearing and vanishing (Reduce Motion: no fade).
 - Icons shrink a little under the pointer while pressed, and the launch hop is higher and repeats for as long as the application is launching (Reduce Motion: no movement).
 - Media scripts (Music, Spotify) run off the main thread with a 2 s timeout, so a slow player cannot freeze the bar.

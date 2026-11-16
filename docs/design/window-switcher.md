@@ -55,7 +55,7 @@ there.
 The panel appears on the display containing the pointer — the same rule the palette uses for its
 centred placement, and for the same reason: that is where the user is looking.
 
-**Close:** Escape, clicking a card, clicking the background, or the shortcut again. Losing key
+**Close:** Escape, clicking a card, or clicking the background. Pressing the shortcut again with the switcher open moves focus to the next card, as Tab does. Losing key
 status closes it too, exactly as the palette does. Focus goes back to whatever was frontmost
 unless a card was clicked — that card's window is the intended destination.
 

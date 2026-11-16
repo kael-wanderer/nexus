@@ -398,7 +398,7 @@ final class Composition {
             switch slot {
             case .search: searchPanel.toggle()
             case .focusBar: panels.focusBar()
-            case .windowSwitcher: switcherPanel.toggle()
+            case .windowSwitcher: switcherPanel.hotKeyPressed()
             }
         }
         // The switch is the search shortcut's own. The bar and the switcher each have theirs, so
