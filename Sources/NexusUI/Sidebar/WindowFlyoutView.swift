@@ -20,8 +20,9 @@ public struct WindowFlyoutView: View {
         // An `NSHostingView` evaluates its body as soon as it is constructed, whether or not its
         // panel is on screen. Gating the whole flyout on `target` is what keeps the permission
         // screen's 1 Hz poll scoped to a *visible* screen (D13) instead of running for the
-        // lifetime of the app.
-        if model.target != nil {
+        // lifetime of the app. `displayedTarget` rather than `target`: it outlives a hide by the
+        // length of the panel's fade, so the flyout goes out with its content.
+        if model.displayedTarget != nil {
             content
         }
     }

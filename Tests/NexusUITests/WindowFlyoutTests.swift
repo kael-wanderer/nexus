@@ -258,6 +258,57 @@ struct WindowFlyoutTests {
         #expect(model.target == nil)
     }
 
+    @Test("A hidden flyout keeps its content while it fades, then lets go of it")
+    func keepsContentWhileFading() async throws {
+        let identity = ApplicationIdentity(bundleIdentifier: "com.apple.Safari")
+        let model = WindowFlyoutViewModel(
+            service: FakeWindowService(["com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")]]),
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted, .screenRecording: .granted]),
+            events: EventBus()
+        )
+        model.fadeGrace = .milliseconds(40)
+        model.show(identity, name: "Safari")
+        await model.reload()
+
+        model.hide()
+        // Closed at once, as far as anything asking "is it open" can tell...
+        #expect(model.target == nil)
+        // ...but still drawn, so the panel fades out with its windows rather than empty.
+        #expect(model.displayedTarget == identity)
+        #expect(model.windows.map(\.title) == ["GitHub"])
+
+        try await waitUntil { model.displayedTarget == nil }
+        #expect(model.displayedTarget == nil)
+        #expect(model.windows.isEmpty)
+    }
+
+    @Test("Showing again during the fade keeps the new flyout's content")
+    func showDuringFade() async throws {
+        let safari = ApplicationIdentity(bundleIdentifier: "com.apple.Safari")
+        let mail = ApplicationIdentity(bundleIdentifier: "com.apple.mail")
+        let model = WindowFlyoutViewModel(
+            service: FakeWindowService([
+                "com.apple.Safari": [window("com.apple.Safari", 1, "GitHub")],
+                "com.apple.mail": [window("com.apple.mail", 2, "Inbox")],
+            ]),
+            previewService: FakePreviewService(),
+            permissions: FakePermissions([.accessibility: .granted, .screenRecording: .granted]),
+            events: EventBus()
+        )
+        model.fadeGrace = .milliseconds(40)
+        model.show(safari, name: "Safari")
+        await model.reload()
+        model.hide()
+        model.show(mail, name: "Mail")
+        await model.reload()
+
+        // Showing an absence: the old hide's clean-up must not fire, and only a sleep shows that.
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(model.displayedTarget == mail)
+        #expect(model.windows.map(\.title) == ["Inbox"])
+    }
+
     @Test("The flyout draws at medium size until told otherwise")
     func defaultSize() {
         let model = WindowFlyoutViewModel(

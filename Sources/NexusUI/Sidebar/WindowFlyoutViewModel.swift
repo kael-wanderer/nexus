@@ -7,6 +7,14 @@ import SwiftUI
 @Observable
 public final class WindowFlyoutViewModel {
     public private(set) var target: ApplicationIdentity?
+    /// What the view draws. It follows `target` while the flyout is open and outlives `hide()` by
+    /// `fadeGrace`, so the panel fades out with its windows instead of empty. `target` stays the
+    /// source of truth for whether the flyout is open.
+    public private(set) var displayedTarget: ApplicationIdentity?
+    /// How long a hidden flyout keeps its content: longer than the panel's fade-out, and short
+    /// enough that the permission screen's poll still stops with the flyout (D13). Tests shorten it.
+    @ObservationIgnored public var fadeGrace: Duration = .milliseconds(150)
+    @ObservationIgnored private var releaseTask: Task<Void, Never>?
     public private(set) var applicationName = ""
     public private(set) var windows: [NexusWindow] = []
     public private(set) var accessibility: PermissionStatus = .denied
@@ -93,7 +101,10 @@ public final class WindowFlyoutViewModel {
     }
 
     public func show(_ identity: ApplicationIdentity, name: String) {
+        releaseTask?.cancel()
+        releaseTask = nil
         target = identity
+        displayedTarget = identity
         applicationName = name
         windows = []
         previews = [:]
@@ -101,11 +112,19 @@ public final class WindowFlyoutViewModel {
         Task { await reload() }
     }
 
+    /// Closes the flyout now, and lets go of what it was showing once the panel has faded.
     public func hide() {
         target = nil
-        windows = []
-        previews = [:]
         onDismiss?()
+        releaseTask?.cancel()
+        releaseTask = Task { [weak self, grace = fadeGrace] in
+            try? await Task.sleep(for: grace)
+            guard !Task.isCancelled, let self, self.target == nil else { return }
+            self.displayedTarget = nil
+            self.windows = []
+            self.previews = [:]
+            self.releaseTask = nil
+        }
     }
 
     public func reload() async {
@@ -135,8 +154,8 @@ public final class WindowFlyoutViewModel {
     /// The header's icon. `IconCache` is keyed on a file URL rather than a bundle identifier, so
     /// this is the same `urlForApplication` lookup `ApplicationService` and the switcher use.
     public var applicationIcon: NSImage {
-        guard let target,
-              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: target.bundleIdentifier)
+        guard let displayedTarget,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: displayedTarget.bundleIdentifier)
         else { return NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage() }
         return IconCache.shared.icon(for: url, size: 20)
     }
