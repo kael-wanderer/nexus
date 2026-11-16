@@ -4,16 +4,22 @@ import SwiftUI
 
 /// A pinned folder's row: the folder's own icon, which is what makes a Downloads stack look like
 /// Downloads (M21). No running dot and no window count — a folder is not running.
-struct SidebarFolderView: View {
-    @Bindable var model: SidebarViewModel
+struct SidebarFolderView: View, Equatable {
+    /// Used only inside closures that run later: `body` reads `folder` and `state`, so SwiftUI can skip
+    /// a row whose own state did not change.
+    let model: SidebarViewModel
     let folder: SidebarFolder
-    let expanded: Bool
+    let state: RowState
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.folder == rhs.folder && lhs.state == rhs.state
+    }
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var iconSize: CGFloat { model.appearance.iconSize }
-    private var isVertical: Bool { model.appearance.position.isVertical }
+    private var iconSize: CGFloat { state.iconSize }
+    private var isVertical: Bool { state.isVertical }
 
     var body: some View {
         let layout = isVertical
@@ -24,7 +30,7 @@ struct SidebarFolderView: View {
                 .resizable()
                 .frame(width: iconSize, height: iconSize)
                 .nexusIconAnchor()
-            if expanded, isVertical {
+            if state.expanded, isVertical {
                 Text(folder.name)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -33,8 +39,8 @@ struct SidebarFolderView: View {
         }
         .padding(isVertical ? .horizontal : .vertical, 4)
         .frame(
-            width: isVertical ? nil : SidebarLayout.rowHeight(model.appearance),
-            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+            width: isVertical ? nil : state.rowHeight,
+            height: isVertical ? state.rowHeight : nil
         )
         .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
         .background {
@@ -42,10 +48,10 @@ struct SidebarFolderView: View {
                 .fill(isHovered ? AnyShapeStyle(.quinary) : AnyShapeStyle(.clear))
         }
         .contentShape(Rectangle())
-        .nexusFocusRing(model.focusedRowID == folder.id)
-        .nexusDropIndicator(after: model.dropEdge(for: folder.id), isVertical: isVertical)
-        .nexusJiggle(model.isEditing, reduceMotion: reduceMotion)
-        .opacity(model.draggingIdentifier == folder.id ? 0.35 : 1)
+        .nexusFocusRing(state.isFocused)
+        .nexusDropIndicator(after: state.dropEdge, isVertical: isVertical)
+        .nexusJiggle(state.isEditing, reduceMotion: reduceMotion)
+        .opacity(state.isDragging ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering
@@ -67,7 +73,7 @@ struct SidebarFolderView: View {
             },
             onLongPress: { model.beginEditing() }
         )
-        .nexusRemoveBadge(model.isEditing) { model.removeRow(folder.id) }
+        .nexusRemoveBadge(state.isEditing) { model.removeRow(folder.id) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(folder.name)
         .accessibilityValue(String(localized: "folder"))
