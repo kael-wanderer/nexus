@@ -12,6 +12,8 @@ public protocol ApplicationServing: Sendable {
     func hide(_ identity: ApplicationIdentity) async
     /// Hides every regular application except `identity` and this process.
     func hideOthers(except identity: ApplicationIdentity) async
+    /// Opens `urls` with the application, launching it first when it is not running.
+    func open(_ urls: [URL], with identity: ApplicationIdentity) async throws
 }
 
 /// `NSWorkspace` / `NSRunningApplication` over an actor. Every AppKit object stays inside the
@@ -139,6 +141,25 @@ public actor ApplicationService: ApplicationServing {
             throw NexusError.targetDisappeared
         }
         Log.applications.notice("Activated \(identity.bundleIdentifier, privacy: .public)")
+    }
+
+    public func open(_ urls: [URL], with identity: ApplicationIdentity) async throws {
+        guard let applicationURL = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: identity.bundleIdentifier
+        ) else {
+            Log.applications.error("Open failed: LaunchServices knows no \(identity.bundleIdentifier, privacy: .public)")
+            throw NexusError.notFound
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        do {
+            _ = try await NSWorkspace.shared.open(urls, withApplicationAt: applicationURL, configuration: configuration)
+        } catch {
+            Log.applications.error(
+                "Open failed for \(identity.bundleIdentifier, privacy: .public): \(String(describing: error), privacy: .public)"
+            )
+            throw NexusError.notFound
+        }
     }
 
     public func quit(_ identity: ApplicationIdentity, force: Bool) async throws {

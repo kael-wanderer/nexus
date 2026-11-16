@@ -14,7 +14,7 @@ public struct RowState: Equatable, Sendable {
     public var isLaunching: Bool
     public var isFocused: Bool
     public var isGroupCandidate: Bool
-    /// Always false until a file drop sets it.
+    /// A file from outside the bar is being dragged over this row.
     public var isFileDropTarget: Bool
     public var isDragging: Bool
     public var isEditing: Bool
@@ -37,7 +37,7 @@ extension SidebarViewModel {
             isLaunching: isLaunching(id),
             isFocused: focusedRowID == id,
             isGroupCandidate: groupCandidate == id,
-            isFileDropTarget: false,
+            isFileDropTarget: fileDropTarget == id,
             isDragging: draggingIdentifier == id,
             isEditing: isEditing,
             dropEdge: dropEdge(for: id),

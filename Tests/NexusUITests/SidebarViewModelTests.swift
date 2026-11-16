@@ -614,4 +614,121 @@ struct SidebarViewModelTests {
         #expect(accepted == false)
         #expect(configuration.configuration.pinnedApplications.isEmpty)
     }
+
+    // MARK: - Files dropped on a row
+
+    private func temporaryFiles(_ count: Int, directory: String = UUID().uuidString) throws -> (URL, [URL]) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(directory)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let files = try (0..<count).map { index in
+            let file = root.appendingPathComponent("file\(index).txt")
+            try Data().write(to: file)
+            return file
+        }
+        return (root, files)
+    }
+
+    private func droppedFilesModel() async -> (SidebarViewModel, FakeApplicationService, ConfigurationController, SidebarItem) {
+        let (model, service, configuration) = makeModel(
+            [makeApplication("com.apple.TextEdit", name: "TextEdit")],
+            pinned: ["com.apple.TextEdit"]
+        )
+        await model.refresh()
+        return (model, service, configuration, model.pinnedItems[0])
+    }
+
+    @Test("Files open in a row's application whether or not it runs")
+    func filesOpenInApplication() async throws {
+        let (root, files) = try temporaryFiles(1)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, _, item) = await droppedFilesModel()
+        #expect(item.isRunning == false)
+
+        #expect(model.filesDropped(files, on: item))
+        try await waitUntil { await service.opened.count == 1 }
+        #expect(await service.opened[0].urls == files)
+        #expect(await service.opened[0].with == item.id)
+    }
+
+    @Test("An application bundle dropped on a row is pinned")
+    func applicationBundleIsPinned() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let bundle = root.appendingPathComponent("Fake.app")
+        try FileManager.default.createDirectory(
+            at: bundle.appendingPathComponent("Contents"), withIntermediateDirectories: true
+        )
+        let plist: [String: Any] = [
+            "CFBundleIdentifier": "com.example.fake",
+            "CFBundleName": "Fake",
+            "CFBundlePackageType": "APPL",
+        ]
+        try (plist as NSDictionary).write(to: bundle.appendingPathComponent("Contents/Info.plist"))
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, configuration, item) = await droppedFilesModel()
+        await service.define(makeApplication("com.example.fake", name: "Fake"))
+
+        #expect(model.filesDropped([bundle], on: item))
+        #expect(await service.opened.isEmpty)
+        #expect(configuration.configuration.pinnedApplications.contains("com.example.fake"))
+        await model.refresh()
+        #expect(model.pinned.count == 2)
+    }
+
+    @Test("More than 64 files are refused")
+    func tooManyFiles() async throws {
+        let (root, files) = try temporaryFiles(SidebarViewModel.maximumDroppedFiles + 1)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, _, item) = await droppedFilesModel()
+
+        #expect(model.filesDropped(files, on: item) == false)
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("A URL that is not a file is refused")
+    func nonFileURL() async throws {
+        let (root, files) = try temporaryFiles(1)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, _, item) = await droppedFilesModel()
+
+        #expect(model.filesDropped([URL(string: "https://example.com/a.pdf")!], on: item) == false)
+        // One bad URL spoils the whole drop.
+        #expect(model.filesDropped(files + [URL(string: "https://example.com/a.pdf")!], on: item) == false)
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("A file that does not exist is refused")
+    func missingFile() async throws {
+        let (root, files) = try temporaryFiles(1)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (model, service, _, item) = await droppedFilesModel()
+        let missing = root.appendingPathComponent("missing.txt")
+
+        #expect(model.filesDropped([missing], on: item) == false)
+        #expect(model.filesDropped(files + [missing], on: item) == false)
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("An empty drop is refused")
+    func emptyDrop() async {
+        let (model, service, _, item) = await droppedFilesModel()
+        #expect(model.filesDropped([], on: item) == false)
+        #expect(await service.opened.isEmpty)
+    }
+
+    @Test("A file drag marks only the row under it")
+    func fileDragMarksRow() async {
+        let (model, _, _) = makeModel(
+            [makeApplication("a", name: "A"), makeApplication("b", name: "B")],
+            pinned: ["a", "b"]
+        )
+        await model.refresh()
+        let a = model.pinnedItems[0].id
+        let b = model.pinnedItems[1].id
+
+        model.fileDragChanged(over: a)
+        #expect(model.rowState(for: a).isFileDropTarget)
+        #expect(model.rowState(for: b).isFileDropTarget == false)
+        model.fileDragChanged(over: nil)
+        #expect(model.rowState(for: a).isFileDropTarget == false)
+    }
 }

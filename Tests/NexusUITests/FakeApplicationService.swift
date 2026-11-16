@@ -12,6 +12,7 @@ actor FakeApplicationService: ApplicationServing {
     var activateFails = false
     private(set) var hidden: [String] = []
     private(set) var hidOthersExcept: [String] = []
+    private(set) var opened: [(urls: [URL], with: String)] = []
 
     init(_ applications: [NexusApplication] = []) {
         for application in applications { catalogue[application.identity.bundleIdentifier] = application }
@@ -62,6 +63,10 @@ actor FakeApplicationService: ApplicationServing {
 
     func hideOthers(except identity: ApplicationIdentity) async {
         hidOthersExcept.append(identity.bundleIdentifier)
+    }
+
+    func open(_ urls: [URL], with identity: ApplicationIdentity) async throws {
+        opened.append((urls, identity.bundleIdentifier))
     }
 }
 

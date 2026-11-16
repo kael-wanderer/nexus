@@ -391,6 +391,13 @@ struct SidebarItemView: View, Equatable {
                     .strokeBorder(.tint, lineWidth: 2)
             }
         }
+        .overlay {
+            // A file from outside is over this application: same outline as a group candidate.
+            if state.isFileDropTarget {
+                RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
+                    .strokeBorder(.tint, lineWidth: 2)
+            }
+        }
         .contentShape(Rectangle())
         .nexusFocusRing(state.isFocused)
         .nexusDropIndicator(after: state.dropEdge, isVertical: isVertical)
@@ -426,7 +433,9 @@ struct SidebarItemView: View, Equatable {
                 if model.dragDroppedOutside() { Poof.show(at: point) }
             },
             onLongPress: item.isPinned ? { model.beginEditing() } : nil,
-            onPressChange: { isPressed = $0 }
+            onPressChange: { isPressed = $0 },
+            onFileDrag: { entered in model.fileDragChanged(over: entered ? item.id : nil) },
+            onFileDrop: { urls in model.filesDropped(urls, on: item) }
         )
         .nexusRemoveBadge(state.isEditing && item.isPinned) { model.removeRow(item.id) }
         .accessibilityElement(children: .ignore)

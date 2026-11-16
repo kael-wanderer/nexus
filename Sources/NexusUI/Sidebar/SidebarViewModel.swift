@@ -156,6 +156,10 @@ public final class SidebarViewModel {
     /// The row the drag is over the *middle* of, which is what means "put these together" rather
     /// than "move me here" — highlighted while it holds, and what a drop acts on (M13, D103).
     public private(set) var groupCandidate: String?
+    /// The most files one drop may carry. A drop is untrusted input.
+    public static let maximumDroppedFiles = 64
+    /// The row a file from outside the bar is being dragged over.
+    public private(set) var fileDropTarget: String?
     /// Where the rows would land if the drag were dropped now — one list per section. Never
     /// written to the configuration until the drop lands.
     private var previewPinned: [DockEntry]?
@@ -1590,6 +1594,39 @@ public final class SidebarViewModel {
             accepted = pinFolder(at: url) || accepted
         }
         return accepted
+    }
+
+    public func fileDragChanged(over id: String?) {
+        guard fileDropTarget != id else { return }
+        fileDropTarget = id
+    }
+
+    /// Files dropped on an application row. Anything that is not at most 64 existing file URLs is
+    /// refused whole. An application bundle among them is a pin, wherever on the bar it lands;
+    /// otherwise the files open in the row's application. `true` when the drop was used.
+    @discardableResult
+    public func filesDropped(_ urls: [URL], on item: SidebarItem) -> Bool {
+        fileDropTarget = nil
+        guard !urls.isEmpty, urls.count <= Self.maximumDroppedFiles,
+              urls.allSatisfy(\.isFileURL),
+              urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) })
+        else { return false }
+        if urls.contains(where: { $0.pathExtension.lowercased() == "app" }) {
+            return pinApplications(at: urls)
+        }
+        Task { [applications] in
+            do {
+                try await applications.open(urls, with: item.identity)
+                Log.sidebar.notice(
+                    "Opened \(urls.count, privacy: .public) dropped file(s) with \(item.identity.bundleIdentifier, privacy: .public)"
+                )
+            } catch {
+                Log.sidebar.error(
+                    "Could not open dropped files with \(item.identity.bundleIdentifier, privacy: .public)"
+                )
+            }
+        }
+        return true
     }
 
     public func revealInFinder(_ item: SidebarItem) {
