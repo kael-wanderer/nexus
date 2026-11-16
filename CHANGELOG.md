@@ -7,6 +7,7 @@ this project follows [Semantic Versioning](https://semver.org).
 
 ### Added
 
+- A folder stack can sort by Date Added (newest first) from its row menu, Sort By. Downloads starts on Date Added; every other folder on Name.
 - The row menu of a running application has Hide and Hide Others, after Show All Windows. ⌥-click on a row opens its application and hides the one you were in.
 
 ### Removed

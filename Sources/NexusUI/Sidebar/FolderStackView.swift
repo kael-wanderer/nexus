@@ -16,7 +16,7 @@ public final class FolderStackViewModel {
     public private(set) var listing: FolderListing = .items([])
 
     /// Injected so tests do not need a directory on disk.
-    @ObservationIgnored public var read: (URL) -> FolderListing = { FolderStackService.list($0) }
+    @ObservationIgnored public var read: (SidebarFolder) -> FolderListing = { FolderStackService.list($0.url) }
     /// Set by the composition root: opening a file is the system's business, not this type's.
     @ObservationIgnored public var open: ((URL) -> Void)?
     @ObservationIgnored public var onDismiss: (() -> Void)?
@@ -26,7 +26,13 @@ public final class FolderStackViewModel {
     public func show(_ folder: SidebarFolder) {
         self.folder = folder
         displayedFolder = folder
-        listing = read(folder.url)
+        listing = read(folder)
+    }
+
+    /// The folder's sort changed: an open stack of it re-reads so it shows the new order now.
+    public func reload(path: String) {
+        guard let folder, folder.path == path else { return }
+        listing = read(folder)
     }
 
     /// Called after every dock edit: the popover follows its folder, and closes if that folder

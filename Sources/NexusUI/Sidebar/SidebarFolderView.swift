@@ -97,6 +97,7 @@ struct SidebarFolderView: View, Equatable {
     private func contextMenuItems() -> [NSMenuItem] {
         [
             ClosureMenuItem(title: String(localized: "Show Contents")) { model.openFolder(folder) },
+            sortMenuItem(),
             ClosureMenuItem(title: String(localized: "Open in Finder")) {
                 NSWorkspace.shared.open(folder.url)
             },
@@ -117,5 +118,22 @@ struct SidebarFolderView: View, Equatable {
                 model.movePinnedToEnd(folder.id)
             },
         ]
+    }
+
+    /// Name or Date Added, the current one ticked.
+    private func sortMenuItem() -> NSMenuItem {
+        let parent = NSMenuItem(title: String(localized: "Sort By"), action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        let current = model.behavior.sort(forFolder: folder.path)
+        for (sort, title) in [
+            (FolderSort.name, String(localized: "Name")),
+            (FolderSort.dateAdded, String(localized: "Date Added")),
+        ] {
+            let item = ClosureMenuItem(title: title) { model.setSort(sort, forFolder: folder.path) }
+            item.state = current == sort ? .on : .off
+            submenu.addItem(item)
+        }
+        parent.submenu = submenu
+        return parent
     }
 }

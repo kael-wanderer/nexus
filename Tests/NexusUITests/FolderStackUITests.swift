@@ -87,6 +87,37 @@ struct FolderRowTests {
         #expect(configuration.configuration.pinnedEntries == [.application("a"), .application("b")])
     }
 
+    @Test("Unpinning a folder forgets its sort")
+    func unpinForgetsSort() async throws {
+        let url = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (model, configuration) = makeModel(["a"], entries: [.application("a"), .folder(url.path)])
+        await model.refresh()
+
+        model.setSort(.dateAdded, forFolder: url.path)
+        #expect(configuration.configuration.behavior.folderSort[url.path] == .dateAdded)
+        model.unpinFolder(DockEntry.folder(url.path).id)
+        #expect(configuration.configuration.behavior.folderSort[url.path] == nil)
+    }
+
+    @Test("Changing the sort re-reads an open stack of that folder")
+    func sortRereads() {
+        var sorts: [FolderSort] = []
+        let model = FolderStackViewModel()
+        model.read = { folder in
+            sorts.append(folder.path == "/t" ? .dateAdded : .name)
+            return .items([])
+        }
+        model.show(SidebarFolder(path: "/t", name: "t"))
+        model.reload(path: "/other")
+        #expect(sorts.count == 1)
+        model.reload(path: "/t")
+        #expect(sorts.count == 2)
+        model.hide()
+        model.reload(path: "/t")
+        #expect(sorts.count == 2)
+    }
+
     @Test("A folder is not a group member, and dropping onto one does not group")
     func foldersDoNotGroup() async throws {
         let url = try temporaryDirectory()

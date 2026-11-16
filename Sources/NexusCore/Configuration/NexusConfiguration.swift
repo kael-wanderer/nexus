@@ -326,7 +326,13 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
     public var flyoutSize: FlyoutSize = .medium
     /// Icons or a list inside an opened group (M13).
     public var groupLayout: GroupLayout = .icons
+    /// A stack's chosen order, keyed by the folder's stored path. Absent means the default for it.
+    public var folderSort: [String: FolderSort] = [:]
     public init() {}
+
+    public func sort(forFolder path: String) -> FolderSort {
+        folderSort[path] ?? FolderSort.defaultSort(forPath: path)
+    }
 
     public static let hoverPreviewDelayRange: ClosedRange<Double> = 0.2...1.5
 
@@ -359,6 +365,9 @@ public struct BehaviorConfiguration: Codable, Sendable, Equatable {
         windowSwitcherThumbnails = try container.decodeIfPresent(Bool.self, forKey: .windowSwitcherThumbnails) ?? true
         flyoutSize = try container.decodeIfPresent(FlyoutSize.self, forKey: .flyoutSize) ?? .medium
         groupLayout = try container.decodeIfPresent(GroupLayout.self, forKey: .groupLayout) ?? .icons
+        // Raw strings, so one unknown value (a later build's sort) drops only its own entry.
+        let stored = try container.decodeIfPresent([String: String].self, forKey: .folderSort) ?? [:]
+        folderSort = stored.compactMapValues(FolderSort.init(rawValue:))
     }
 
     public static let groupCapacities = [9, 16]

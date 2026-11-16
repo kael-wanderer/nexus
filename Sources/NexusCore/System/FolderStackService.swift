@@ -6,13 +6,31 @@ public struct FolderItem: Sendable, Equatable, Identifiable {
     public var url: URL
     public var name: String
     public var isDirectory: Bool
+    /// When it arrived in the folder, else when it was created; `nil` if the file system says neither.
+    public var dateAdded: Date?
 
     public var id: String { url.path }
 
-    public init(url: URL, name: String, isDirectory: Bool) {
+    public init(url: URL, name: String, isDirectory: Bool, dateAdded: Date? = nil) {
         self.url = url
         self.name = name
         self.isDirectory = isDirectory
+        self.dateAdded = dateAdded
+    }
+}
+
+/// How a stack orders what it lists.
+public enum FolderSort: String, Codable, Sendable, CaseIterable {
+    case name, dateAdded
+}
+
+extension FolderSort {
+    /// Downloads is useful because the newest file is on top; everything else reads by name.
+    public static func defaultSort(
+        forPath path: String,
+        downloads: String = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ?? ""
+    ) -> FolderSort {
+        !downloads.isEmpty && path == downloads ? .dateAdded : .name
     }
 }
 
@@ -37,7 +55,7 @@ public enum FolderStackService {
     /// what is listed — a folder with more shows this many, with no sign that there are others.
     public static let limit = 60
 
-    public static func list(_ url: URL, limit: Int = limit) -> FolderListing {
+    public static func list(_ url: URL, limit: Int = limit, sort: FolderSort = .name) -> FolderListing {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
               isDirectory.boolValue
@@ -47,7 +65,7 @@ public enum FolderStackService {
         do {
             contents = try FileManager.default.contentsOfDirectory(
                 at: url,
-                includingPropertiesForKeys: [.isDirectoryKey, .isPackageKey, .localizedNameKey],
+                includingPropertiesForKeys: Self.keys,
                 options: [.skipsHiddenFiles]
             )
         } catch {
@@ -58,25 +76,43 @@ public enum FolderStackService {
         }
 
         let items = contents.map { item -> FolderItem in
-            let values = try? item.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey, .localizedNameKey])
+            let values = try? item.resourceValues(forKeys: Set(Self.keys))
             // An application is one item, not a directory to walk into — and neither is any other
             // package.
             let isDirectory = (values?.isDirectory ?? false) && !(values?.isPackage ?? false)
             return FolderItem(
                 url: item,
                 name: values?.localizedName ?? item.lastPathComponent,
-                isDirectory: isDirectory
+                isDirectory: isDirectory,
+                dateAdded: values?.addedToDirectoryDate ?? values?.creationDate
             )
         }
-        return .items(Array(sorted(items).prefix(limit)))
+        // Sorted before the limit: the newest 60 are not the first 60 by name.
+        return .items(Array(sorted(items, by: sort).prefix(limit)))
     }
 
-    /// Folders first, then files, each alphabetical the way Finder sorts them. Sorting by date is
-    /// the Dock's other option and one comparator away, when somebody asks for it.
-    static func sorted(_ items: [FolderItem]) -> [FolderItem] {
-        items.sorted { left, right in
-            if left.isDirectory != right.isDirectory { return left.isDirectory }
-            return left.name.localizedStandardCompare(right.name) == .orderedAscending
+    private static let keys: [URLResourceKey] = [
+        .isDirectoryKey, .isPackageKey, .localizedNameKey, .addedToDirectoryDateKey, .creationDateKey,
+    ]
+
+    /// By name: folders first, then files, each alphabetical the way Finder sorts them. By date:
+    /// newest first, folders mixed in, undated last, ties by name.
+    static func sorted(_ items: [FolderItem], by sort: FolderSort = .name) -> [FolderItem] {
+        switch sort {
+        case .name:
+            return items.sorted { left, right in
+                if left.isDirectory != right.isDirectory { return left.isDirectory }
+                return left.name.localizedStandardCompare(right.name) == .orderedAscending
+            }
+        case .dateAdded:
+            return items.sorted { left, right in
+                switch (left.dateAdded, right.dateAdded) {
+                case let (a?, b?) where a != b: return a > b
+                case (nil, .some): return false
+                case (.some, nil): return true
+                default: return left.name.localizedStandardCompare(right.name) == .orderedAscending
+                }
+            }
         }
     }
 

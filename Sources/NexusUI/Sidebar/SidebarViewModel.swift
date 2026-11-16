@@ -291,6 +291,8 @@ public final class SidebarViewModel {
     @ObservationIgnored public var showGroup: ((SidebarGroup) -> Void)?
     /// Opens a pinned folder's stack, the same way `showGroup` opens a group (M21).
     @ObservationIgnored public var showFolder: ((SidebarFolder) -> Void)?
+    /// Told after a stack's sort changes, so an open stack of that folder re-reads.
+    @ObservationIgnored public var folderSortChanged: ((String) -> Void)?
     /// The system volume, held rather than pushed: the row draws three of its properties and the
     /// slider writes one back, which is a lot of pushing for what is already `@Observable`. Nothing
     /// starts until the composition root calls `start()`, so tests get an inert one for free.
@@ -1030,7 +1032,16 @@ public final class SidebarViewModel {
     }
 
     public func unpinFolder(_ id: String) {
+        // A folder pinned again later starts from its default, not from a choice made long ago.
+        if case .folder(let path)? = configuration.configuration.pinnedEntries.first(where: { $0.id == id }) {
+            configuration.update { $0.behavior.folderSort[path] = nil }
+        }
         setEntries(configuration.configuration.pinnedEntries.filter { $0.id != id })
+    }
+
+    public func setSort(_ sort: FolderSort, forFolder path: String) {
+        configuration.update { $0.behavior.folderSort[path] = sort }
+        folderSortChanged?(path)
     }
 
     /// Pins a folder at the end of the dock. Idempotent: a folder already on the bar keeps its
