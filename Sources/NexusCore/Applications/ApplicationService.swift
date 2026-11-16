@@ -114,8 +114,10 @@ public actor ApplicationService: ApplicationServing {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
             Log.applications.notice("Launched \(identity.bundleIdentifier, privacy: .public)")
         } catch {
+            // Cocoa errors embed the paths they failed on: log the domain and code only.
+            let nsError = error as NSError
             Log.applications.error(
-                "Launch failed for \(identity.bundleIdentifier, privacy: .public): \(String(describing: error), privacy: .public)"
+                "Launch failed for \(identity.bundleIdentifier, privacy: .public): \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)"
             )
             throw NexusError.notFound
         }
@@ -135,8 +137,10 @@ public actor ApplicationService: ApplicationServing {
         do {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
         } catch {
+            // Cocoa errors embed the paths they failed on: log the domain and code only.
+            let nsError = error as NSError
             Log.applications.error(
-                "Activate failed for \(identity.bundleIdentifier, privacy: .public): \(String(describing: error), privacy: .public)"
+                "Activate failed for \(identity.bundleIdentifier, privacy: .public): \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)"
             )
             throw NexusError.targetDisappeared
         }
