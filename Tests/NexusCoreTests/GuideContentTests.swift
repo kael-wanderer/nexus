@@ -1,6 +1,8 @@
 import Foundation
 import Testing
 
+@testable import NexusCore
+
 /// The user guide published at kael.io.vn/projects/nexus/docs is content in this
 /// repository, so a broken guide fails the test run like any other defect.
 @Suite struct GuideContentTests {
@@ -21,8 +23,25 @@ import Testing
 
     @Test func realGuideHasNoProblems() throws {
         let problems = try GuideValidator.validate(
-            root: Self.repositoryRoot.appending(path: "docs/guide"), appSlugs: [])
+            root: Self.repositoryRoot.appending(path: "docs/guide"), appSlugs: Self.appSlugs)
         #expect(problems == [])
+    }
+
+    /// Every page the app links to, so a removed or renamed page fails here before a shipped
+    /// build's link 404s.
+    private static var appSlugs: [String] {
+        GuideLink.Page.allCases.map(\.rawValue).filter { !$0.isEmpty }
+    }
+
+    @Test func guideLinkURLs() {
+        #expect(
+            GuideLink.url(.replaceTheDock).absoluteString
+                == "https://kael.io.vn/projects/nexus/docs/recipes/replace-the-dock")
+        #expect(GuideLink.url(.home).absoluteString == "https://kael.io.vn/projects/nexus/docs")
+        for page in GuideLink.Page.allCases {
+            #expect(GuideLink.url(page).scheme == "https")
+            #expect(GuideLink.url(page).host == "kael.io.vn")
+        }
     }
 
     @Test func missingFileFails() throws {

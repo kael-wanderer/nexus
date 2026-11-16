@@ -3,12 +3,17 @@ title: Privacy and permissions
 summary: No account and no telemetry. Which permission each feature needs, and what works without it.
 ---
 
-Nexus has no account and sends nothing anywhere. The source contains no network code, so it has no way to phone home.
+Nexus has no account and no analytics. The only thing it asks the internet is whether a newer version exists, and you can switch that off.
+
+## What goes online
+- **The update check.** On launch and once a day, Nexus fetches one small file from kael.io.vn that names the newest version. The request carries nothing about you or your Mac: no account, no identifier, no cookies, no list of apps. Like any web request, the server sees your IP address.
+- To stop it, switch off Settings › **About** › **Check for updates automatically**. **Check Now** in the same place still works when you ask.
+- **Guide links** in Settings, the menu-bar menu and setup open pages of this guide in your browser. Nexus itself fetches nothing for them.
 
 ## What is stored
 - **Settings, pinned apps, groups and folders** are stored on this Mac in macOS preferences (UserDefaults).
 - **Search history** is a count and a last-used time for results you ran, so the palette can rank them. Nexus keeps the last 500 and forgets the oldest first.
-- Nothing is uploaded, and there is no analytics.
+- Nothing is uploaded, and there is no analytics. The update check only downloads.
 - File search uses the Spotlight index already on your Mac.
 
 ## Permissions

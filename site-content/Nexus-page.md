@@ -8,7 +8,7 @@ Counts are characters; the figure after the slash is the admin's limit.
 - **Name:** Nexus
 - **Pronunciation:** — (left blank; see questions)
 - **Summary / tagline:** A vertical dock and a search palette for macOS in one menu-bar app. Pin and group apps, see every window, and find apps, windows and files from one shortcut.  `(157/200)`
-- **Details:** Nexus replaces the macOS Dock with a bar on any screen edge and adds a search palette. The bar holds your apps, groups, folders, the Trash, a clock and a volume control. Hover an app to see its windows, or press ⌥Tab to see every window on the Mac at once. The palette (⌥Space) searches apps, open windows, files and System Settings panes. It all runs locally: no account, no network, and your Dock settings are put back exactly when Nexus quits.  `(445, target 300–600)`
+- **Details:** Nexus replaces the macOS Dock with a bar on any screen edge and adds a search palette. The bar holds your apps, groups, folders, the Trash, a clock and a volume control. Hover an app to see its windows, or press ⌥Tab to see every window on the Mac at once. The palette (⌥Space) searches apps, open windows, files and System Settings panes. It all runs locally: no account, no analytics, and your Dock settings are put back exactly when Nexus quits.  `(448, target 300–600)`
 - **Category:** Utilities
 - **Tags:** dock, launcher, window switcher, search, menu bar, productivity
 - **Platform / OS:** macOS
@@ -54,7 +54,7 @@ All 2880 × 1800 px PNG (1440 × 900 pt at 2×), in `screenshots/`.
   1. **Search palette  `(14/40)`** — picture `02-search.png`
      Caption: ⌥Space searches apps, open windows, files, folders and System Settings panes, ranked by what you use.  `(101/120)`
   2. **Window switcher  `(15/40)`** — picture `03-window-switcher.png`
-     Caption: ⌥Tab shows every window as a card. Type to filter, Return to open, ⌘W to close.  `(78/120)`
+     Caption: ⌥Tab shows every window as a card. Type to filter, Return to open, ⌘W to close.  `(79/120)`
   3. **Groups  `(6/40)`** — picture `04-groups.png`
      Caption: Drop one app on another to make a group. Rename it, give it a colour and an emoji.  `(82/120)`
   4. **Folder stacks  `(13/40)`** — picture `05-folder-stack.png`
@@ -86,16 +86,16 @@ All 2880 × 1800 px PNG (1440 × 900 pt at 2×), in `screenshots/`.
   3. **Arrange  `(7/40)`**
      Drag apps onto the bar and into order. Drop one app on another to group them. Drag folders in from Finder.  `(106/200)`
   4. **Use the shortcuts  `(17/40)`**
-     ⌥Space opens search, ⌥Tab opens the window switcher, ⌃⌥Space puts the keyboard on the bar. All three can be changed.  `(115/200)`
+     ⌥Space opens search, ⌥Tab opens the window switcher, ⌃⌥Space puts the keyboard on the bar. All three can be changed.  `(116/200)`
 
 ### 5. Privacy and permissions — `cards`, background `tint`, numbered `no`
 
 - **Kicker:** Privacy and permissions  `(23/40)`
 - **Title:** Local, quiet, and asks for little  `(33/70)`
-- **Description:** Nexus has no account and makes no network connections. Permissions are requested only by the features that need them, never at launch, and never asked for twice.  `(161/320)`
+- **Description:** Nexus has no account and no analytics; it only checks for updates. Permissions are requested only by the features that need them, never at launch, and never asked for twice.  `(173/320)`
 - **Cards:**
   1. **Nothing leaves your Mac  `(23/40)`**
-     No sign-in, no analytics, no network code. Your setup is stored in macOS preferences on this Mac.  `(97/200)`
+     No sign-in, no analytics. Its one request online is an update check you can switch off.  `(87/200)`
   2. **Works with nothing granted  `(26/40)`**
      The bar, launching, pinning, window counts, and app and file search all work with every permission denied.  `(106/200)`
   3. **Accessibility for windows  `(25/40)`**
@@ -108,7 +108,7 @@ All 2880 × 1800 px PNG (1440 × 900 pt at 2×), in `screenshots/`.
 ## FAQ
 
 1. **What is Nexus?  `(14/120)`**
-   Nexus is a macOS app that puts a dock-style bar on any edge of your screen and adds a search palette. The bar holds apps, groups, folders, the Trash, a clock and a volume control, and shows each app's windows on hover. The palette finds apps, open windows, files, folders and System Settings panes. A window switcher (⌥Tab) shows every open window at once.  `(355/600)`
+   Nexus is a macOS app that puts a dock-style bar on any edge of your screen and adds a search palette. The bar holds apps, groups, folders, the Trash, a clock and a volume control, and shows each app's windows on hover. The palette finds apps, open windows, files, folders and System Settings panes. A window switcher (⌥Tab) shows every open window at once.  `(356/600)`
 
 2. **Who is it for?  `(14/120)`**
    People who keep many apps and windows open and find the Dock and ⌘Tab too limited: you want a vertical bar on a wide display, folders of apps, a way to reach a specific window rather than an app, or one shortcut that searches apps, windows and files together.  `(259/600)`
@@ -120,13 +120,13 @@ All 2880 × 1800 px PNG (1440 × 900 pt at 2×), in `screenshots/`.
    Nexus is open source under the MIT licence. The source code is on GitHub at github.com/kael-wanderer/nexus, so you can also build it yourself.  `(142/600)`
 
 5. **Where is my data stored? Is anything sent online?  `(49/120)`**
-   Everything stays on your Mac. Your pinned apps, groups and settings are stored in macOS preferences for this Mac. Nexus has no account, no analytics and no network code. File search uses Spotlight's existing index on your Mac.  `(226/600)`
+   Everything stays on your Mac. Your pinned apps, groups and settings are stored in macOS preferences for this Mac. Nexus has no account and no analytics. The only thing it asks online is whether a newer version exists, once a day, and you can switch that off. File search uses Spotlight's existing index on your Mac.  `(315/600)`
 
 6. **Does it work offline, and does it sync between Macs?  `(52/120)`**
-   It works fully offline; nothing in it needs a connection. There is no sync: each Mac keeps its own setup, and permissions such as Accessibility are granted separately on each Mac.  `(179/600)`
+   It works fully offline; only the update check needs a connection. There is no sync: each Mac keeps its own setup, and permissions such as Accessibility are granted separately on each Mac.  `(187/600)`
 
 7. **How do I install and update it?  `(31/120)`**
-   Open the disk image and drag Nexus to Applications. The app is not notarised, so the first time macOS will block it: right-click Nexus, choose Open, then confirm. macOS remembers after that. Nexus does not check for updates itself; to update, download the new version and replace the app in Applications. Your settings are kept.  `(328/600)`
+   Open the disk image and drag Nexus to Applications. The app is not notarised, so the first time macOS will block it: right-click Nexus, choose Open, then confirm. macOS remembers after that. Nexus checks for a newer version once a day and names it in its menu-bar menu; it never installs anything itself. To update, download the new version and replace the app in Applications. Your settings are kept.  `(401/600)`
 
 8. **Can I import or export my setup?  `(32/120)`**
    There is no import or export button. Your setup lives in macOS preferences under com.congbui.nexus, so you can back it up in Terminal with "defaults export com.congbui.nexus nexus.plist" and restore it with "defaults import".  `(225/600)`

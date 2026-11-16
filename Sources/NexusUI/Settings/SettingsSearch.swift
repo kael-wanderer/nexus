@@ -134,6 +134,10 @@ public enum SettingsSearch {
         // About
         SettingsEntry(String(localized: "Version"), "build number about", .about),
         SettingsEntry(String(localized: "Copy Version Details"), "diagnostics support", .about),
+        SettingsEntry(String(localized: "Check for Updates"), "update new version upgrade release", .about),
+        SettingsEntry(String(localized: "Check for updates automatically"), "update daily launch network", .about),
+        SettingsEntry(String(localized: "Update channel"), "beta stable release", .about),
+        SettingsEntry(String(localized: "Nexus Guide"), "help manual documentation docs troubleshooting", .about),
     ]
 
     /// Every token has to be somewhere in the entry — title, keywords or the tab's own name — so

@@ -16,6 +16,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         /// bar — the one piece of chrome an `LSUIElement` app always has — says so.
         var isDockHidden: (() -> Bool)?
         var restoreDock: (() -> Void)?
+        var openGuide: (() -> Void)?
+        /// Read live: an update found by the daily check shows here, since an `LSUIElement` app
+        /// has no other place to say so without a notification permission.
+        var offeredUpdate: (() -> UpdateAvailable?)?
     }
 
     /// Point size the template icon is drawn at. `NSStatusBar.system.thickness` is the ceiling.
@@ -75,6 +79,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
+        if let update = actions.offeredUpdate?() {
+            let item = actionItem(
+                String(localized: "Nexus \(update.displayVersion) Is Available…"), #selector(openUpdate), "")
+            item.representedObject = update.releaseURL
+            menu.addItem(item)
+            menu.addItem(.separator())
+        }
         if let isDockHidden = actions.isDockHidden {
             let hidden = isDockHidden()
             let status = NSMenuItem(
@@ -111,6 +122,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if actions.runSetupAgain != nil {
             menu.addItem(actionItem(String(localized: "Run Setup Again…"), #selector(runSetupAgain), ""))
         }
+        if actions.openGuide != nil {
+            menu.addItem(actionItem(String(localized: "Nexus Guide"), #selector(openGuide), ""))
+        }
         menu.addItem(.separator())
         menu.addItem(actionItem(String(localized: "Quit Nexus"), #selector(quit), "q"))
         return menu
@@ -123,6 +137,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleSidebar() { actions.toggleSidebar?() }
+    @objc private func openGuide() { actions.openGuide?() }
+
+    /// Opens the release page in the browser. Nothing is downloaded or installed by Nexus. The
+    /// URL was already held to `https` when the feed was read.
+    @objc private func openUpdate(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL, url.scheme == "https" else { return }
+        NSWorkspace.shared.open(url)
+    }
     @objc private func openSettings() { actions.openSettings?() }
     @objc private func runSetupAgain() { actions.runSetupAgain?() }
     @objc private func openSearch() { actions.openSearch?() }

@@ -51,7 +51,14 @@ Move Nexus to Applications first. Otherwise Settings says login would start it f
 
 ### Update
 
-Nexus does not update itself. Download the new DMG, quit Nexus, and drag the new Nexus into Applications, replacing the old one. Your settings are kept.
+Nexus tells you when a newer version is out, and leaves installing it to you.
+
+1. When a new version exists, the menu-bar icon's menu starts with an item such as **Nexus 0.4.0 (5) Is Available…**. Settings › **About** shows the same offer on the **Check for Updates** button.
+2. Click either one. The release page opens in your browser.
+3. Download the new DMG, choose **Quit Nexus**, and drag the new Nexus into Applications, replacing the old one.
+4. Open Nexus again. Your settings are kept.
+
+To look right away, open Settings › **About** and click **Check Now**. To stop the daily check, switch off **Check for updates automatically** there.
 
 ### Uninstall
 
@@ -63,7 +70,7 @@ If you used Nexus instead of the Dock, the Dock comes back on its own when Nexus
 ## What it will not do
 
 - It does not install anything outside the Nexus app and its settings.
-- It does not check for updates.
+- It does not download or install updates by itself. It only tells you one exists.
 
 ## Next steps
 

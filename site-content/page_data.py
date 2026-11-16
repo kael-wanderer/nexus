@@ -12,7 +12,7 @@ CATALOG = {
         "The bar holds your apps, groups, folders, the Trash, a clock and a volume control. Hover "
         "an app to see its windows, or press ⌥Tab to see every window on the Mac at once. The "
         "palette (⌥Space) searches apps, open windows, files and System Settings panes. It all "
-        "runs locally: no account, no network, and your Dock settings are put back exactly when "
+        "runs locally: no account, no analytics, and your Dock settings are put back exactly when "
         "Nexus quits."
     ),
     "category": "Utilities",
@@ -139,7 +139,7 @@ FEATURES = [
         "kicker": "Privacy and permissions",
         "title": "Local, quiet, and asks for little",
         "description": (
-            "Nexus has no account and makes no network connections. Permissions are requested only "
+            "Nexus has no account and no analytics; it only checks for updates. Permissions are requested only "
             "by the features that need them, never at launch, and never asked for twice."
         ),
         "layout": "cards",
@@ -147,7 +147,7 @@ FEATURES = [
         "cards": [
             {
                 "title": "Nothing leaves your Mac",
-                "text": "No sign-in, no analytics, no network code. Your setup is stored in macOS preferences on this Mac.",
+                "text": "No sign-in, no analytics. Its one request online is an update check you can switch off.",
             },
             {
                 "title": "Works with nothing granted",
@@ -197,20 +197,22 @@ FAQ = [
     (
         "Where is my data stored? Is anything sent online?",
         "Everything stays on your Mac. Your pinned apps, groups and settings are stored in macOS "
-        "preferences for this Mac. Nexus has no account, no analytics and no network code. File "
+        "preferences for this Mac. Nexus has no account and no analytics. The only thing it asks "
+        "online is whether a newer version exists, once a day, and you can switch that off. File "
         "search uses Spotlight's existing index on your Mac.",
     ),
     (
         "Does it work offline, and does it sync between Macs?",
-        "It works fully offline; nothing in it needs a connection. There is no sync: each Mac keeps "
+        "It works fully offline; only the update check needs a connection. There is no sync: each Mac keeps "
         "its own setup, and permissions such as Accessibility are granted separately on each Mac.",
     ),
     (
         "How do I install and update it?",
         "Open the disk image and drag Nexus to Applications. The app is not notarised, so the first "
         "time macOS will block it: right-click Nexus, choose Open, then confirm. macOS remembers "
-        "after that. Nexus does not check for updates itself; to update, download the new version "
-        "and replace the app in Applications. Your settings are kept.",
+        "after that. Nexus checks for a newer version once a day and names it in its menu-bar "
+        "menu; it never installs anything itself. To update, download the new version and "
+        "replace the app in Applications. Your settings are kept.",
     ),
     (
         "Can I import or export my setup?",

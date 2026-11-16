@@ -9,19 +9,22 @@ public struct SettingsView: View {
     let dockReplacement: DockReplacementController
     let validateShortcut: (NexusCore.KeyboardShortcut) -> String?
     let runOnboarding: () -> Void
+    let updates: UpdateChecker
 
     public init(
         configuration: ConfigurationController,
         permissions: any PermissionChecking,
         dockReplacement: DockReplacementController,
         validateShortcut: @escaping (NexusCore.KeyboardShortcut) -> String?,
-        runOnboarding: @escaping () -> Void
+        runOnboarding: @escaping () -> Void,
+        updates: UpdateChecker
     ) {
         self.configuration = configuration
         self.permissions = permissions
         self.dockReplacement = dockReplacement
         self.validateShortcut = validateShortcut
         self.runOnboarding = runOnboarding
+        self.updates = updates
     }
 
     /// Which tab is showing, as state rather than `TabView`'s own: a search result has to be able
@@ -95,7 +98,7 @@ public struct SettingsView: View {
             PermissionsPane(permissions: permissions)
                 .tabItem { Label(SettingsTab.permissions.title, systemImage: SettingsTab.permissions.symbol) }
                 .tag(SettingsTab.permissions)
-            AboutPane()
+            AboutPane(configuration: configuration, updates: updates)
                 .tabItem { Label(SettingsTab.about.title, systemImage: SettingsTab.about.symbol) }
                 .tag(SettingsTab.about)
         }
@@ -220,6 +223,7 @@ struct DockPane: View {
                     : String(localized: "The macOS Dock is left alone, so both are on screen. Choose “My Dock” to have Nexus replace it."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                GuideLinkButton(String(localized: "How replacing the Dock works"), page: .replaceTheDock)
             }
             Section {
                 SidebarPositionPicker(configuration: configuration)
@@ -564,6 +568,9 @@ struct ShortcutsPane: View {
                         .foregroundStyle(.red)
                 }
             }
+            Section {
+                GuideLinkButton(String(localized: "Every shortcut Nexus listens for"), page: .keyboardShortcuts)
+            }
         }
         .formStyle(.grouped)
     }
@@ -649,6 +656,7 @@ struct PermissionsPane: View {
                 Text("Nexus never asks for a permission at launch and never re-asks after a refusal.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                GuideLinkButton(String(localized: "What each permission is for"), page: .privacyAndPermissions)
             }
             .padding(16)
         }
@@ -797,6 +805,10 @@ struct BarPane: View {
 
 /// What is running, and where it came from.
 struct AboutPane: View {
+    @Bindable var configuration: ConfigurationController
+    let updates: UpdateChecker
+    @State private var confirmBeta = false
+
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
     }
@@ -833,6 +845,15 @@ struct AboutPane: View {
                 }
                 .padding(.vertical, 4)
             }
+            updatesSection
+            Section(String(localized: "Help")) {
+                LabeledContent(String(localized: "Nexus Guide")) {
+                    GuideLinkButton(String(localized: "Open"), page: .home)
+                }
+                LabeledContent(String(localized: "Troubleshooting")) {
+                    GuideLinkButton(String(localized: "Open"), page: .troubleshooting)
+                }
+            }
             Section {
                 LabeledContent(String(localized: "Author"), value: "Cong Bui")
                 LabeledContent(String(localized: "Licence"), value: copyright)
@@ -854,6 +875,82 @@ struct AboutPane: View {
             }
         }
         .formStyle(.grouped)
+        // One check per visit to the pane, not per render.
+        .task { if updates.state == .idle { await updates.checkNow() } }
+        // A channel change invalidates the answer on screen: it was measured against the other feed.
+        .onChange(of: configuration.configuration.general.updateChannel) { updates.check() }
+        .alert(String(localized: "Switch to Beta updates?"), isPresented: $confirmBeta) {
+            Button(String(localized: "Switch to Beta")) {
+                configuration.update { $0.general.updateChannel = .beta }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text("Beta builds arrive earlier and can be less stable. You are still offered a Stable release when it is newer.")
+        }
+    }
+
+    private var updatesSection: some View {
+        Section {
+            Toggle(String(localized: "Check for updates automatically"), isOn: configuration.binding(\.general.checkForUpdates))
+            Picker(String(localized: "Update channel"), selection: channelChoice) {
+                ForEach(UpdateChannel.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            LabeledContent(String(localized: "Check for Updates")) {
+                Button(updates.buttonLabel) {
+                    if let update = updates.offeredUpdate {
+                        NSWorkspace.shared.open(update.releaseURL)
+                    } else {
+                        updates.check()
+                    }
+                }
+                .disabled(updates.state == .checking)
+            }
+            if let failure = updates.failureText {
+                Text(failure)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Updates")
+        } footer: {
+            Text("Nexus asks kael.io.vn for the newest version on launch and once a day, and never downloads or installs anything itself: a newer version opens its release page in your browser.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Beta explains itself before it is chosen; Stable is the safe direction and needs no
+    /// confirmation.
+    private var channelChoice: Binding<UpdateChannel> {
+        Binding(
+            get: { configuration.configuration.general.updateChannel },
+            set: { channel in
+                if channel == .beta, configuration.configuration.general.updateChannel != .beta {
+                    confirmBeta = true
+                } else {
+                    configuration.update { $0.general.updateChannel = channel }
+                }
+            }
+        )
+    }
+}
+
+/// A link into the online guide. Built only from `GuideLink.Page`, never from a string, so every
+/// target is a slug `GuideContentTests` has checked.
+struct GuideLinkButton: View {
+    let title: String
+    let page: GuideLink.Page
+
+    init(_ title: String, page: GuideLink.Page) {
+        self.title = title
+        self.page = page
+    }
+
+    var body: some View {
+        Link(destination: GuideLink.url(page)) {
+            Label(title, systemImage: "arrow.up.right.square")
+        }
+        .help(String(localized: "Opens the Nexus Guide on kael.io.vn"))
     }
 }
 

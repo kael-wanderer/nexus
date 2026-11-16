@@ -141,3 +141,35 @@ processes report the name of a helper binary instead.
 
 Nexus hiding the Dock (M20) does not take the badges with it — the Dock keeps its Accessibility tree
 whether or not it is on screen, which was tested with the Dock autohidden.
+
+## D124. Nexus checks a feed for a newer version and opens its release page; it never installs one.
+
+Nexus had no way to say a newer build exists, and the Bug Apps site already publishes
+`/projects/nexus/latest.json` for every release. The check is Bugler's, ported (same author):
+`UpdateFeedFetcher` reads that one URL over https on launch and every 24 hours while Nexus runs,
+when `general.checkForUpdates` is on (the default, as in Bugler); Settings › About checks on demand
+either way. `general.updateChannel` picks Stable or Beta, and Beta asks first.
+
+An offer is a version and a release page. It appears at the top of the menu-bar menu, because an
+`LSUIElement` app has no window to put a banner in and a notification would need a permission
+Nexus otherwise never asks for. Clicking it opens the page in the browser. Nothing is downloaded,
+replaced or relaunched: that is Sparkle's job, out of scope (§77), and a self-replacing unsigned
+bundle would reset every TCC grant anyway.
+
+It is the first network code in Nexus, so it is bounded the way Bugler bounds its own: a 4 s idle
+and 20 s total timeout, a 64 KB body cap enforced while reading, a nesting check before the
+parser, no cookies and no cache, no redirect away from https, and a release URL that is not
+`https` with a host is dropped, so the update is not offered at all. A failed check says
+**Retry** and why, never **Up to Date**.
+
+## D125. In-app guide links are built from `GuideLink.Page`, and the test suite keeps every one alive.
+
+The user guide lives in `docs/guide/` and is published at kael.io.vn/projects/nexus/docs from a
+`guide-…` tag. The app links into it from Settings (About, Dock, Shortcuts, Permissions), the
+menu-bar menu and the last setup step. Every link is a case of `GuideLink.Page`, never a string at
+the call site, and `GuideContentTests` fails when one of those slugs, or any slug ever listed in
+`docs/guide/published-slugs.txt`, no longer resolves in `guide.json`. A page that moves gets a
+`redirects` entry, so a link in a shipped build keeps working.
+
+No Start-here window or upgrade banner, unlike Bugler: Nexus has no main window to hang a banner
+on, and its setup's last step already names what to try first. The guide link sits there instead.

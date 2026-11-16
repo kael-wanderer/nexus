@@ -157,6 +157,11 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
     public var showClock = true
     /// The volume control in the bar's tail (M27): one slot, opens a slider.
     public var showVolume = true
+    /// Look for a newer Nexus on launch and once a day: one request to the Bug Apps site's update
+    /// feed. On by default, like Bugler's. Checking from Settings › About works either way.
+    public var checkForUpdates = true
+    /// Which builds the update check offers.
+    public var updateChannel: UpdateChannel = .stable
     public init() {}
 
     // Written out because `encode(to:)` is now hand-written too (to give `windowSwitcherShortcut`
@@ -166,6 +171,7 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
         case launchAtLogin, showInMenuBar, globalShortcutEnabled, showStartMenu
         case focusBarShortcut, showNowPlaying, windowSwitcherShortcut
         case showClock, showVolume
+        case checkForUpdates, updateChannel
     }
 
     /// Tolerant like `NexusConfiguration`'s: a synthesised decoder treats a missing key as an
@@ -199,6 +205,11 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
             : .windowSwitcherDefault
         showClock = try container.decodeIfPresent(Bool.self, forKey: .showClock) ?? true
         showVolume = try container.decodeIfPresent(Bool.self, forKey: .showVolume) ?? true
+        checkForUpdates = try container.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? true
+        // Read as a string: a channel this build does not know (written by a newer one) resolves
+        // to Stable instead of failing the whole section.
+        updateChannel = UpdateChannel.resolve(
+            try container.decodeIfPresent(String.self, forKey: .updateChannel))
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -217,6 +228,8 @@ public struct GeneralConfiguration: Codable, Sendable, Equatable {
         try container.encode(windowSwitcherShortcut, forKey: .windowSwitcherShortcut)
         try container.encode(showClock, forKey: .showClock)
         try container.encode(showVolume, forKey: .showVolume)
+        try container.encode(checkForUpdates, forKey: .checkForUpdates)
+        try container.encode(updateChannel, forKey: .updateChannel)
     }
 }
 
