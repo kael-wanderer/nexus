@@ -49,7 +49,7 @@ there.
 
 ## 2. Opening and closing
 
-**Open:** the global shortcut in `HotKeyService.Slot.windowSwitcher`, default **`⌃⌥W`**.
+**Open:** the global shortcut in `HotKeyService.Slot.windowSwitcher`, default **`⌥Tab`** (`⌃⌥W` before 0.3.0).
 `⌥Space` is the palette, `⌃⌥Space` is the bar (D101), and `⌘Tab` and `⌃↓` belong to the system.
 
 The panel appears on the display containing the pointer — the same rule the palette uses for its
@@ -195,7 +195,7 @@ In `general`, beside `focusBarShortcut`, because that is where a global shortcut
 
 | | |
 |---|---|
-| `windowSwitcherShortcut` | `KeyboardShortcut?`, default `⌃⌥W`. `nil` switches it off. |
+| `windowSwitcherShortcut` | `KeyboardShortcut?`, default `⌥Tab`. `nil` switches it off. |
 
 
 And in `behavior`:

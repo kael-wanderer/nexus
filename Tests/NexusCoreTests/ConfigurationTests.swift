@@ -46,6 +46,36 @@ struct ConfigurationTests {
         #expect(configuration.behavior.flyoutSize == .medium)
     }
 
+    @Test("The default switcher shortcut is option-tab")
+    func defaultIsOptionTab() {
+        #expect(KeyboardShortcut.windowSwitcherDefault == KeyboardShortcut(keyCode: 48, modifiers: KeyboardShortcut.optionKey))
+        #expect(GeneralConfiguration().windowSwitcherShortcut == .windowSwitcherDefault)
+    }
+
+    @Test("A stored control-option-W is kept")
+    func storedControlOptionWIsKept() throws {
+        let json = Data("""
+        {"windowSwitcherShortcut": {"keyCode": 13, "modifiers": 6144}}
+        """.utf8)
+        let general = try JSONDecoder().decode(GeneralConfiguration.self, from: json)
+        #expect(general.windowSwitcherShortcut == KeyboardShortcut(keyCode: 13, modifiers: KeyboardShortcut.controlKey | KeyboardShortcut.optionKey))
+    }
+
+    @Test("A stored null keeps the switcher off")
+    func storedNullKeepsSwitcherOff() throws {
+        let json = Data("""
+        {"windowSwitcherShortcut": null}
+        """.utf8)
+        let general = try JSONDecoder().decode(GeneralConfiguration.self, from: json)
+        #expect(general.windowSwitcherShortcut == nil)
+    }
+
+    @Test("A configuration with no switcher key gets the default")
+    func absentKeyGetsDefault() throws {
+        let general = try JSONDecoder().decode(GeneralConfiguration.self, from: Data("{}".utf8))
+        #expect(general.windowSwitcherShortcut == .windowSwitcherDefault)
+    }
+
     @Test("The switcher shortcut is a valid, non-colliding combination")
     func windowSwitcherShortcutIsValid() {
         let shortcut = KeyboardShortcut.windowSwitcherDefault

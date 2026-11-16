@@ -8,7 +8,7 @@ Counts are characters; the figure after the slash is the admin's limit.
 - **Name:** Nexus
 - **Pronunciation:** — (left blank; see questions)
 - **Summary / tagline:** A vertical dock and a search palette for macOS in one menu-bar app. Pin and group apps, see every window, and find apps, windows and files from one shortcut.  `(157/200)`
-- **Details:** Nexus replaces the macOS Dock with a bar on any screen edge and adds a search palette. The bar holds your apps, groups, folders, the Trash, a clock and a volume control. Hover an app to see its windows, or press ⌃⌥W to see every window on the Mac at once. The palette (⌥Space) searches apps, open windows, files and System Settings panes. It all runs locally: no account, no network, and your Dock settings are put back exactly when Nexus quits.  `(445, target 300–600)`
+- **Details:** Nexus replaces the macOS Dock with a bar on any screen edge and adds a search palette. The bar holds your apps, groups, folders, the Trash, a clock and a volume control. Hover an app to see its windows, or press ⌥Tab to see every window on the Mac at once. The palette (⌥Space) searches apps, open windows, files and System Settings panes. It all runs locally: no account, no network, and your Dock settings are put back exactly when Nexus quits.  `(445, target 300–600)`
 - **Category:** Utilities
 - **Tags:** dock, launcher, window switcher, search, menu bar, productivity
 - **Platform / OS:** macOS
@@ -54,7 +54,7 @@ All 2880 × 1800 px PNG (1440 × 900 pt at 2×), in `screenshots/`.
   1. **Search palette  `(14/40)`** — picture `02-search.png`
      Caption: ⌥Space searches apps, open windows, files, folders and System Settings panes, ranked by what you use.  `(101/120)`
   2. **Window switcher  `(15/40)`** — picture `03-window-switcher.png`
-     Caption: ⌃⌥W shows every window as a card. Type to filter, Return to open, ⌘W to close.  `(78/120)`
+     Caption: ⌥Tab shows every window as a card. Type to filter, Return to open, ⌘W to close.  `(78/120)`
   3. **Groups  `(6/40)`** — picture `04-groups.png`
      Caption: Drop one app on another to make a group. Rename it, give it a colour and an emoji.  `(82/120)`
   4. **Folder stacks  `(13/40)`** — picture `05-folder-stack.png`
@@ -86,7 +86,7 @@ All 2880 × 1800 px PNG (1440 × 900 pt at 2×), in `screenshots/`.
   3. **Arrange  `(7/40)`**
      Drag apps onto the bar and into order. Drop one app on another to group them. Drag folders in from Finder.  `(106/200)`
   4. **Use the shortcuts  `(17/40)`**
-     ⌥Space opens search, ⌃⌥W opens the window switcher, ⌃⌥Space puts the keyboard on the bar. All three can be changed.  `(115/200)`
+     ⌥Space opens search, ⌥Tab opens the window switcher, ⌃⌥Space puts the keyboard on the bar. All three can be changed.  `(115/200)`
 
 ### 5. Privacy and permissions — `cards`, background `tint`, numbered `no`
 
@@ -108,7 +108,7 @@ All 2880 × 1800 px PNG (1440 × 900 pt at 2×), in `screenshots/`.
 ## FAQ
 
 1. **What is Nexus?  `(14/120)`**
-   Nexus is a macOS app that puts a dock-style bar on any edge of your screen and adds a search palette. The bar holds apps, groups, folders, the Trash, a clock and a volume control, and shows each app's windows on hover. The palette finds apps, open windows, files, folders and System Settings panes. A window switcher (⌃⌥W) shows every open window at once.  `(355/600)`
+   Nexus is a macOS app that puts a dock-style bar on any edge of your screen and adds a search palette. The bar holds apps, groups, folders, the Trash, a clock and a volume control, and shows each app's windows on hover. The palette finds apps, open windows, files, folders and System Settings panes. A window switcher (⌥Tab) shows every open window at once.  `(355/600)`
 
 2. **Who is it for?  `(14/120)`**
    People who keep many apps and windows open and find the Dock and ⌘Tab too limited: you want a vertical bar on a wide display, folders of apps, a way to reach a specific window rather than an app, or one shortcut that searches apps, windows and files together.  `(259/600)`
