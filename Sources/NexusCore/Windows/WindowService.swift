@@ -32,20 +32,25 @@ public actor WindowService: WindowServing {
     private var snapshot: [ApplicationIdentity: [NexusWindow]] = [:]
     /// Revocation is only observable when a call is made — macOS publishes no TCC notification
     /// and Nexus does not poll (D13). The transition is detected here and announced once.
-    private var wasTrusted = AX.isTrusted
+    private var wasTrusted: Bool
     private let events: EventBus?
+    /// Whether Accessibility is granted. The system's answer in the app; tests pass a fixed one so
+    /// the refusal path is exercised on a machine where the grant exists.
+    private let trustCheck: @Sendable () -> Bool
 
-    public init(events: EventBus? = nil) {
+    public init(events: EventBus? = nil, isTrusted: @escaping @Sendable () -> Bool = { AX.isTrusted }) {
         self.events = events
+        self.trustCheck = isTrusted
+        self.wasTrusted = isTrusted()
     }
 
-    public var isTrusted: Bool { AX.isTrusted }
+    public var isTrusted: Bool { trustCheck() }
 
     /// Returns whether Accessibility is currently granted, publishing a `.permissionChanged`
     /// the first time it flips either way.
     @discardableResult
     private func checkTrust() -> Bool {
-        let trusted = AX.isTrusted
+        let trusted = trustCheck()
         if trusted != wasTrusted {
             wasTrusted = trusted
             if !trusted {

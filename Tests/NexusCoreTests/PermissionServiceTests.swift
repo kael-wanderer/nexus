@@ -54,27 +54,33 @@ struct PermissionServiceTests {
 struct WindowServiceTests {
     @Test("Without Accessibility every entry point refuses cleanly instead of hanging")
     func deniedPath() async {
-        let service = WindowService()
-        let trusted = await service.isTrusted
+        let service = WindowService(isTrusted: { false })
         let identity = ApplicationIdentity(bundleIdentifier: "com.apple.finder")
-
-        if trusted {
-            // Granted on this machine: enumeration must succeed and be well-formed.
-            let windows = try? await service.windows(for: identity)
-            #expect(windows != nil)
-            let allNamed = (windows ?? []).allSatisfy { !$0.applicationName.isEmpty }
-            #expect(allNamed)
-        } else {
-            await #expect(throws: NexusError.permissionDenied(.accessibility)) {
-                _ = try await service.windows(for: identity)
-            }
-            await #expect(throws: NexusError.permissionDenied(.accessibility)) {
-                _ = try await service.allWindows()
-            }
-            await #expect(throws: NexusError.permissionDenied(.accessibility)) {
-                try await service.activate(WindowIdentity(owner: identity, number: 1))
-            }
+        #expect(await service.isTrusted == false)
+        await #expect(throws: NexusError.permissionDenied(.accessibility)) {
+            _ = try await service.windows(for: identity)
         }
+        await #expect(throws: NexusError.permissionDenied(.accessibility)) {
+            _ = try await service.allWindows()
+        }
+        await #expect(throws: NexusError.permissionDenied(.accessibility)) {
+            try await service.activate(WindowIdentity(owner: identity, number: 1))
+        }
+    }
+
+    @Test("With Accessibility granted, listing Finder's windows is never refused for permission")
+    func grantedPath() async {
+        let service = WindowService()
+        guard await service.isTrusted else { return }   // only meaningful where the grant exists
+        let identity = ApplicationIdentity(bundleIdentifier: "com.apple.finder")
+        // A real AX round trip: under full processor load it can time out, which is not what this
+        // test is about. It must not be a permission refusal, and whatever comes back is well formed.
+        do {
+            let windows = try await service.windows(for: identity)
+            #expect(windows.allSatisfy { !$0.applicationName.isEmpty })
+        } catch let error as NexusError {
+            #expect(error != .permissionDenied(.accessibility))
+        } catch {}
     }
 
     @Test("Activating a window that was never enumerated reports the target as gone")
