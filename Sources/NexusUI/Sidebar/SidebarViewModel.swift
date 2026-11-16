@@ -162,6 +162,10 @@ public final class SidebarViewModel {
     public private(set) var dropIndicator: DropIndicator?
     /// Opens a group's popover mid-drag, so the drag can carry on into it (M24).
     @ObservationIgnored private var springTask: Task<Void, Never>?
+    /// Waits out the expand motion before the hover refreshes run; cancelled on hover-out or a new hover-in.
+    @ObservationIgnored private var hoverSettleTask: Task<Void, Never>?
+    /// How long hover-in waits before refreshing. Tests shorten it.
+    @ObservationIgnored public var hoverSettleDelay: Duration = Design.settleDelay
 
     /// Where the insertion caret goes: on one edge of a row that is still drawn.
     public struct DropIndicator: Equatable, Sendable {
@@ -1553,10 +1557,17 @@ public final class SidebarViewModel {
     /// via `onHoverChange`, the auto-hide grace timer in `PanelController`.
     public func hoverChanged(_ hovering: Bool) {
         setExpanded(hovering)
+        hoverSettleTask?.cancel()
+        hoverSettleTask = nil
         if hovering {
-            refreshWindowCounts?()
-            refreshBadges?()
-            refreshTrash()
+            hoverSettleTask = Task { [weak self, delay = hoverSettleDelay] in
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled, let self else { return }
+                self.hoverSettleTask = nil
+                self.refreshWindowCounts?()
+                self.refreshBadges?()
+                self.refreshTrash()
+            }
         }
         if !hovering { endEditing() }
         onHoverChange?(hovering)

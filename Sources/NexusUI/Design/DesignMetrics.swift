@@ -21,6 +21,10 @@ public enum Design {
 
     public static let reveal = Animation.easeOut(duration: 0.18)
     public static let hover = Animation.easeOut(duration: 0.12)
+
+    /// How long the bar is left alone after a hover-expand starts, so the refreshes it triggers
+    /// do not rebuild the rows while they are still moving.
+    public static let settleDelay: Duration = .milliseconds(300)
 }
 
 extension Design {
