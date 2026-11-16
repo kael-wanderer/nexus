@@ -391,4 +391,40 @@ struct BarWindowMotionTests {
         #expect(!model.windowIsExpanded)
         #expect(!model.isExpanded)
     }
+    @Test("The shadow is recomputed once an expand has finished")
+    func shadowAfterExpand() async throws {
+        let (panels, model, _) = await makePanels(reduceMotion: false)
+        defer { panels.stop() }
+
+        model.setExpanded(true)
+        let atStart = panels.shadowInvalidations
+        try await waitUntil { panels.shadowInvalidations > atStart }
+        #expect(panels.shadowInvalidations > atStart)
+    }
+
+    @Test("The shadow is recomputed once a reveal has finished")
+    func shadowAfterReveal() async throws {
+        let (panels, model, _) = await makePanels(reduceMotion: false, autoHide: true)
+        defer { panels.stop() }
+
+        // Hover reveals and expands; the expand's own invalidation is counted separately.
+        model.hoverChanged(true)
+        let atStart = panels.shadowInvalidations
+        try await waitUntil { panels.shadowInvalidations >= atStart + 2 }
+        #expect(panels.shadowInvalidations >= atStart + 2)
+    }
+
+    @Test("A motion still running when the panels stop never shows a bar again")
+    func stopDuringMotion() async throws {
+        let (panels, model, _) = await makePanels(reduceMotion: false)
+
+        model.setExpanded(true)
+        try await Task.sleep(for: .milliseconds(400))
+        model.setExpanded(false)
+        panels.stop()
+        // Showing an absence needs a fixed wait: longer than the 0.26 s motion.
+        try await Task.sleep(for: .milliseconds(400))
+
+        #expect(!panels.barsAreVisible)
+    }
 }

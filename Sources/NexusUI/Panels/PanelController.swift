@@ -74,6 +74,10 @@ public final class PanelController {
     var reduceMotion: () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     /// Every bar's window frame, for tests.
     var barFrames: [CGRect] { bars.map(\.frame) }
+    /// Whether any bar's window is on screen, for tests.
+    var barsAreVisible: Bool { bars.contains(where: \.isVisible) }
+    /// How many times the bars' shadows have been recomputed, for tests.
+    private(set) var shadowInvalidations = 0
     /// Every display showing a full-screen space, whose bar steps aside (D111). Per display, so a
     /// full-screen window on one monitor leaves the other monitor's bar alone.
     private var fullScreenDisplays: Set<CGDirectDisplayID> = []
@@ -228,6 +232,10 @@ public final class PanelController {
     }
 
     public func stop() {
+        // A motion still running finds its generation gone and does nothing: its completion
+        // would otherwise reframe, and a reframe orders the bars front again.
+        expansionGeneration += 1
+        visibilityGeneration += 1
         hideTask?.cancel()
         flyoutHideTask?.cancel()
         eventTask?.cancel()
@@ -1092,7 +1100,12 @@ public final class PanelController {
         let generation = expansionGeneration
         if expanded {
             model.windowIsExpanded = BarMotion.windowExpanded(from: model.isExpanded, to: true)
-            animateBar({ model.isExpanded = true }, completion: {})
+            // The shadow follows the window's shape, which is only the bar's once it has grown.
+            animateBar({ model.isExpanded = true }, completion: { [weak self] in
+                guard let self, generation == self.expansionGeneration, self.model.isExpanded
+                else { return }
+                self.invalidateBarShadows()
+            })
             // In the same turn, so before any frame of the motion is drawn — and after the state
             // change, because an expanded bar can be longer as well as wider (a search field, the
             // wide player), and the window is sized for what the bar is about to become.
@@ -1111,6 +1124,7 @@ public final class PanelController {
     }
 
     private func invalidateBarShadows() {
+        shadowInvalidations += 1
         for bar in bars { bar.invalidateShadow() }
     }
 
@@ -1122,8 +1136,12 @@ public final class PanelController {
         isRevealed = true
         isParked = false
         visibilityGeneration += 1
+        let generation = visibilityGeneration
         reframe(animated: false)
-        animateBar({ model.isBarHidden = false }, completion: {})
+        animateBar({ model.isBarHidden = false }, completion: { [weak self] in
+            guard let self, generation == self.visibilityGeneration else { return }
+            self.invalidateBarShadows()
+        })
     }
 
     private func scheduleHide() {
