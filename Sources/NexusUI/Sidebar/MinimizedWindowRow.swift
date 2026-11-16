@@ -9,17 +9,23 @@ import SwiftUI
 /// No thumbnail. A preview needs Screen Recording (M10), and a tile that is blank without a
 /// permission is worse than one that is honestly an icon — the hover flyout still shows thumbnails
 /// to anybody who granted it.
-struct MinimizedWindowRow: View {
-    @Bindable var model: SidebarViewModel
+struct MinimizedWindowRow: View, Equatable {
+    /// Used only inside closures that run later: `body` reads `window` and `state`, so SwiftUI can skip
+    /// a row whose own state did not change.
+    let model: SidebarViewModel
     let window: MinimizedWindow
-    let expanded: Bool
+    let state: RowState
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.window == rhs.window && lhs.state == rhs.state
+    }
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Smaller than an application icon, and never so small it stops being that application.
-    private var iconSize: CGFloat { max(16, model.appearance.iconSize * 0.7) }
-    private var isVertical: Bool { model.appearance.position.isVertical }
+    private var iconSize: CGFloat { max(16, state.iconSize * 0.7) }
+    private var isVertical: Bool { state.isVertical }
 
     var body: some View {
         let layout = isVertical
@@ -27,7 +33,7 @@ struct MinimizedWindowRow: View {
             : AnyLayout(VStackLayout(spacing: 2))
         return layout {
             icon
-            if expanded, isVertical {
+            if state.expanded, isVertical {
                 Text(window.name)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -36,8 +42,8 @@ struct MinimizedWindowRow: View {
         }
         .padding(isVertical ? .horizontal : .vertical, 4)
         .frame(
-            width: isVertical ? nil : SidebarLayout.rowHeight(model.appearance),
-            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+            width: isVertical ? nil : state.rowHeight,
+            height: isVertical ? state.rowHeight : nil
         )
         .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
         .background {
@@ -45,7 +51,7 @@ struct MinimizedWindowRow: View {
                 .fill(isHovered ? AnyShapeStyle(.quinary) : AnyShapeStyle(.clear))
         }
         .contentShape(Rectangle())
-        .nexusFocusRing(model.focusedRowID == window.id)
+        .nexusFocusRing(state.isFocused)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering

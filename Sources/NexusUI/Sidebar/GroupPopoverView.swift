@@ -10,6 +10,10 @@ import SwiftUI
 @Observable
 public final class GroupPopoverViewModel {
     public private(set) var group: SidebarGroup?
+    /// What the view draws. It follows `group` while the popover is open and keeps the last group
+    /// after `hide()`, so the panel fades out with its content instead of empty. `group` stays
+    /// the source of truth for whether the popover is open.
+    public private(set) var displayedGroup: SidebarGroup?
 
     /// Whether the title is being edited, and what has been typed into it so far.
     public private(set) var isRenaming = false
@@ -41,6 +45,7 @@ public final class GroupPopoverViewModel {
 
     public func show(_ group: SidebarGroup) {
         self.group = group
+        displayedGroup = group
     }
 
     // MARK: - Renaming
@@ -88,6 +93,7 @@ public final class GroupPopoverViewModel {
             return
         }
         group = match
+        displayedGroup = match
     }
 
     public func hide() {
@@ -99,7 +105,7 @@ public final class GroupPopoverViewModel {
 
     /// Columns for the grid: 3 for a group of up to 9, 4 beyond that. Same shape as the capacity.
     public var columns: Int {
-        (group?.items.count ?? 0) > 9 ? 4 : 3
+        (displayedGroup?.items.count ?? 0) > 9 ? 4 : 3
     }
 
     /// How wide the panel draws. The grid is as wide as its columns; the list is one width for
@@ -128,7 +134,7 @@ public struct GroupPopoverView: View {
 
     public var body: some View {
         Group {
-            if let group = model.group {
+            if let group = model.displayedGroup {
                 content(group)
             } else {
                 Color.clear.frame(width: 1, height: 1)
@@ -141,7 +147,7 @@ public struct GroupPopoverView: View {
                 .strokeBorder(.separator, lineWidth: 0.5)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(model.group?.name ?? String(localized: "Group"))
+        .accessibilityLabel(model.displayedGroup?.name ?? String(localized: "Group"))
     }
 
     private func content(_ group: SidebarGroup) -> some View {

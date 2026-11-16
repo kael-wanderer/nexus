@@ -4,17 +4,24 @@ import SwiftUI
 
 /// A group's row: the first four member icons on a 2×2 grid inside a rounded tile, which is what
 /// both iOS and Launchpad do and what stays readable at 40 pt (M13).
-struct SidebarGroupView: View {
-    @Bindable var model: SidebarViewModel
+struct SidebarGroupView: View, Equatable {
+    /// Used only inside closures that run later: `body` reads `group` and `state`, so SwiftUI can skip
+    /// a row whose own state did not change.
+    let model: SidebarViewModel
     let group: SidebarGroup
-    let expanded: Bool
+    let state: RowState
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.group == rhs.group && lhs.state == rhs.state
+    }
 
     @State private var isHovered = false
+    @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var iconSize: CGFloat { model.appearance.iconSize }
-    private var isVertical: Bool { model.appearance.position.isVertical }
-    private var isGroupTarget: Bool { model.groupCandidate == group.id }
+    private var iconSize: CGFloat { state.iconSize }
+    private var isVertical: Bool { state.isVertical }
+    private var isGroupTarget: Bool { state.isGroupCandidate }
 
     var body: some View {
         let layout = isVertical
@@ -22,7 +29,7 @@ struct SidebarGroupView: View {
             : AnyLayout(VStackLayout(spacing: 2))
         return layout {
             tile
-            if expanded, isVertical {
+            if state.expanded, isVertical {
                 Text(group.name)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -32,8 +39,8 @@ struct SidebarGroupView: View {
         }
         .padding(isVertical ? .horizontal : .vertical, 4)
         .frame(
-            width: isVertical ? nil : SidebarLayout.rowHeight(model.appearance),
-            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+            width: isVertical ? nil : state.rowHeight,
+            height: isVertical ? state.rowHeight : nil
         )
         .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
         .background {
@@ -47,10 +54,10 @@ struct SidebarGroupView: View {
             }
         }
         .contentShape(Rectangle())
-        .nexusFocusRing(model.focusedRowID == group.id)
-        .nexusDropIndicator(after: model.dropEdge(for: group.id), isVertical: isVertical)
-        .nexusJiggle(model.isEditing, reduceMotion: reduceMotion)
-        .opacity(model.draggingIdentifier == group.id ? 0.35 : 1)
+        .nexusFocusRing(state.isFocused)
+        .nexusDropIndicator(after: state.dropEdge, isVertical: isVertical)
+        .nexusJiggle(state.isEditing, reduceMotion: reduceMotion)
+        .opacity(state.isDragging ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering
@@ -68,9 +75,10 @@ struct SidebarGroupView: View {
             onDragOut: { point in
                 if model.dragDroppedOutside() { Poof.show(at: point) }
             },
-            onLongPress: { model.beginEditing() }
+            onLongPress: { model.beginEditing() },
+            onPressChange: { isPressed = $0 }
         )
-        .nexusRemoveBadge(model.isEditing) { model.removeRow(group.id) }
+        .nexusRemoveBadge(state.isEditing) { model.removeRow(group.id) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(group.name)
         .accessibilityValue(
@@ -83,12 +91,12 @@ struct SidebarGroupView: View {
 
     /// The colour the group was given, if colours are switched on at all (D108).
     private var tint: Color? {
-        guard model.behavior.groupColorsAndEmoji else { return nil }
+        guard state.showsGroupStyle else { return nil }
         return group.group.tint?.color
     }
 
     private var emoji: String? {
-        guard model.behavior.groupColorsAndEmoji else { return nil }
+        guard state.showsGroupStyle else { return nil }
         return group.group.emoji
     }
 
@@ -126,11 +134,13 @@ struct SidebarGroupView: View {
                 }
             }
             .overlay(alignment: .topTrailing) {
-                if let badge = model.badge(forGroup: group) {
+                if let badge = state.badge {
                     DockBadge(label: badge, iconSize: iconSize)
                         .offset(x: iconSize * 0.16, y: -iconSize * 0.1)
                 }
             }
+            .scaleEffect(isPressed && !reduceMotion ? Design.pressScale : 1)
+            .animation(Design.animation(Design.press, reduceMotion: reduceMotion), value: isPressed)
             .nexusIconAnchor()
     }
 

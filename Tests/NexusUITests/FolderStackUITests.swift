@@ -118,7 +118,7 @@ struct FolderStackPopoverTests {
         )
     }
 
-    @Test("Opening reads the folder once, and closing forgets what it read")
+    @Test("Opening reads the folder once, and closing keeps what it read for the fade-out")
     func showAndHide() {
         var reads = 0
         let model = FolderStackViewModel()
@@ -135,7 +135,9 @@ struct FolderStackPopoverTests {
         model.hide()
         #expect(dismissed)
         #expect(model.folder == nil)
-        #expect(model.listing.items.isEmpty)
+        // The panel fades out showing its content, so closing keeps it until the next show.
+        #expect(model.displayedFolder != nil)
+        #expect(model.listing.items.count == 1)
     }
 
     @Test("A refusal is kept as a refusal, not flattened into an empty folder")

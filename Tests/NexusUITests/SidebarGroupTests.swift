@@ -421,6 +421,15 @@ struct GroupPopoverTests {
         #expect(model.isRenaming == false)
         #expect(model.group == nil)
     }
+
+    @Test("Hiding keeps the content drawn for the fade-out, while the group reads as closed")
+    func contentSurvivesHide() {
+        let (model, _) = makePopover()
+        #expect(model.displayedGroup != nil)
+        model.hide()
+        #expect(model.group == nil)
+        #expect(model.displayedGroup != nil)
+    }
 }
 
 @Suite("Naming a group")

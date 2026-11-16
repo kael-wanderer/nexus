@@ -10,6 +10,9 @@ import SwiftUI
 @Observable
 public final class FolderStackViewModel {
     public private(set) var folder: SidebarFolder?
+    /// What the view draws: kept after `hide()` so the panel fades out with its content. `folder`
+    /// stays the source of truth for whether the popover is open.
+    public private(set) var displayedFolder: SidebarFolder?
     public private(set) var listing: FolderListing = .items([])
 
     /// Injected so tests do not need a directory on disk.
@@ -22,6 +25,7 @@ public final class FolderStackViewModel {
 
     public func show(_ folder: SidebarFolder) {
         self.folder = folder
+        displayedFolder = folder
         listing = read(folder.url)
     }
 
@@ -38,7 +42,6 @@ public final class FolderStackViewModel {
     public func hide() {
         guard folder != nil else { return }
         folder = nil
-        listing = .items([])
         onDismiss?()
     }
 
@@ -58,7 +61,7 @@ public struct FolderStackView: View {
 
     public var body: some View {
         Group {
-            if let folder = model.folder {
+            if let folder = model.displayedFolder {
                 content(folder)
             } else {
                 Color.clear.frame(width: 1, height: 1)
@@ -71,7 +74,7 @@ public struct FolderStackView: View {
                 .strokeBorder(.separator, lineWidth: 0.5)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(model.folder?.name ?? String(localized: "Folder"))
+        .accessibilityLabel(model.displayedFolder?.name ?? String(localized: "Folder"))
     }
 
     private func content(_ folder: SidebarFolder) -> some View {

@@ -94,6 +94,9 @@ struct PanelRowInteraction: NSViewRepresentable {
     var onDragOut: ((NSPoint) -> Void)?
     /// Pressed and held without moving (D107).
     var onLongPress: (() -> Void)?
+    /// `true` when the button goes down on the row, `false` when it comes up, a drag starts or a
+    /// long press takes over.
+    var onPressChange: ((Bool) -> Void)?
 
     func makeNSView(context: Context) -> NSView {
         let view = CatcherView(onClick: onClick, items: items)
@@ -117,6 +120,7 @@ struct PanelRowInteraction: NSViewRepresentable {
         view.onDragEnd = onDragEnd
         view.onDragOut = onDragOut
         view.onLongPress = onLongPress
+        view.onPressChange = onPressChange
     }
 
     final class CatcherView: NSView, NSDraggingSource {
@@ -132,6 +136,7 @@ struct PanelRowInteraction: NSViewRepresentable {
         var onDragEnd: ((Bool) -> Void)?
         var onDragOut: ((NSPoint) -> Void)?
         var onLongPress: (() -> Void)?
+        var onPressChange: ((Bool) -> Void)?
 
         private var mouseDownLocation: NSPoint?
         private var isDragging = false
@@ -180,10 +185,12 @@ struct PanelRowInteraction: NSViewRepresentable {
 
         override func mouseDown(with event: NSEvent) {
             mouseDownLocation = event.locationInWindow
+            onPressChange?(true)
             guard let onLongPress else { return }
-            longPressTask = Task { @MainActor in
+            longPressTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: Self.longPress)
                 guard !Task.isCancelled else { return }
+                self?.onPressChange?(false)
                 onLongPress()
             }
         }
@@ -201,6 +208,7 @@ struct PanelRowInteraction: NSViewRepresentable {
             // Travelling means this is a drag, so it is not a long press.
             longPressTask?.cancel()
             longPressTask = nil
+            onPressChange?(false)
 
             let item = NSPasteboardItem()
             item.setString(payload, forType: Self.rowType)
@@ -292,6 +300,7 @@ struct PanelRowInteraction: NSViewRepresentable {
 
         override func mouseUp(with event: NSEvent) {
             defer { mouseDownLocation = nil }
+            onPressChange?(false)
             longPressTask?.cancel()
             longPressTask = nil
             guard let onClick, let start = mouseDownLocation else { return }
@@ -322,7 +331,8 @@ extension View {
         onDragOver: ((String, CGPoint) -> Void)? = nil,
         onDragEnd: ((Bool) -> Void)? = nil,
         onDragOut: ((NSPoint) -> Void)? = nil,
-        onLongPress: (() -> Void)? = nil
+        onLongPress: (() -> Void)? = nil,
+        onPressChange: ((Bool) -> Void)? = nil
     ) -> some View {
         overlay(
             PanelRowInteraction(
@@ -335,7 +345,8 @@ extension View {
                 onDragOver: onDragOver,
                 onDragEnd: onDragEnd,
                 onDragOut: onDragOut,
-                onLongPress: onLongPress
+                onLongPress: onLongPress,
+                onPressChange: onPressChange
             )
         )
     }

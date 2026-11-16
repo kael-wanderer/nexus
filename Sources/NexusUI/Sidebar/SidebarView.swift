@@ -109,11 +109,14 @@ public struct SidebarView: View {
             ForEach(model.pinned) { row in
                 switch row {
                 case .application(let item):
-                    SidebarItemView(model: model, item: item, expanded: model.isExpanded)
+                    SidebarItemView(model: model, item: item, state: model.rowState(for: item.id))
+                        .equatable()
                 case .group(let group):
-                    SidebarGroupView(model: model, group: group, expanded: model.isExpanded)
+                    SidebarGroupView(model: model, group: group, state: model.rowState(forGroup: group))
+                        .equatable()
                 case .folder(let folder):
-                    SidebarFolderView(model: model, folder: folder, expanded: model.isExpanded)
+                    SidebarFolderView(model: model, folder: folder, state: model.rowState(for: folder.id))
+                        .equatable()
                 }
             }
         }
@@ -130,7 +133,8 @@ public struct SidebarView: View {
             : AnyLayout(HStackLayout(spacing: spacing))
         return layout {
             ForEach(items) { item in
-                SidebarItemView(model: model, item: item, expanded: model.isExpanded)
+                SidebarItemView(model: model, item: item, state: model.rowState(for: item.id))
+                    .equatable()
             }
         }
         // Rows are keyed by bundle identifier, so reordering the array is all SwiftUI needs to
@@ -207,7 +211,8 @@ public struct SidebarView: View {
             : AnyLayout(HStackLayout(spacing: spacing))
         return layout {
             ForEach(model.minimizedRows) { window in
-                MinimizedWindowRow(model: model, window: window, expanded: model.isExpanded)
+                MinimizedWindowRow(model: model, window: window, state: model.rowState(for: window.id))
+                    .equatable()
             }
         }
         .animation(
@@ -295,24 +300,31 @@ public struct SidebarView: View {
     }
 }
 
-struct SidebarItemView: View {
-    @Bindable var model: SidebarViewModel
+struct SidebarItemView: View, Equatable {
+    /// Used only inside closures that run later (click, menu, drag, hover): `body` reads `item` and
+    /// `state`, so SwiftUI can skip a row whose own state did not change.
+    let model: SidebarViewModel
     let item: SidebarItem
-    let expanded: Bool
+    let state: RowState
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.item == rhs.item && lhs.state == rhs.state
+    }
 
     @State private var isHovered = false
-    @State private var bounced = false
+    @State private var isPressed = false
+    @State private var hopTrigger = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var iconSize: CGFloat { model.appearance.iconSize }
-    private var isVertical: Bool { model.appearance.position.isVertical }
-    private var isLaunching: Bool { model.isLaunching(item.id) }
+    private var iconSize: CGFloat { state.iconSize }
+    private var isVertical: Bool { state.isVertical }
+    private var isLaunching: Bool { state.isLaunching }
 
-    /// The hop, away from the edge the bar is on — which is the direction the Dock bounces, and the
-    /// only one with room. Reduce Motion gets the dimming and no movement.
-    private var bounceOffset: CGSize {
-        guard bounced, !reduceMotion else { return .zero }
-        switch model.appearance.position {
+    /// The top of the hop, away from the edge the bar is on — which is the direction the Dock
+    /// bounces, and the only one with room. Reduce Motion gets the dimming and no movement.
+    private var hopOffset: CGSize {
+        guard !reduceMotion else { return .zero }
+        switch state.position {
         case .left: return CGSize(width: Design.launchBounce, height: 0)
         case .right: return CGSize(width: -Design.launchBounce, height: 0)
         case .top: return CGSize(width: 0, height: Design.launchBounce)
@@ -329,7 +341,7 @@ struct SidebarItemView: View {
                 Image(nsImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize))
                     .resizable()
                     .frame(width: iconSize, height: iconSize)
-                if model.behavior.showWindowCount, model.windowCountsAreExact, item.windowCount > 1 {
+                if state.showsWindowCount, item.windowCount > 1 {
                     Text("\(item.windowCount)")
                         .font(.system(size: max(8, iconSize * 0.24), weight: .semibold))
                         .padding(.horizontal, 4)
@@ -338,17 +350,23 @@ struct SidebarItemView: View {
                         .accessibilityHidden(true)
                 }
             }
-            // Dimmed until the application turns up, and it hops once on the way (M24).
+            .scaleEffect(isPressed && !reduceMotion ? Design.pressScale : 1)
+            .animation(Design.animation(Design.press, reduceMotion: reduceMotion), value: isPressed)
+            // Dimmed until the application turns up, and it hops for as long as that takes (M24).
             .opacity(isLaunching ? 0.45 : 1)
-            .offset(bounceOffset)
+            .phaseAnimator([false, true], trigger: hopTrigger) { view, up in
+                view.offset(up ? hopOffset : .zero)
+            } animation: { up in
+                up ? Design.hopUp : Design.hopDown
+            }
             .overlay(alignment: .topTrailing) {
-                if let badge = model.badge(for: item.id) {
+                if let badge = state.badge {
                     DockBadge(label: badge, iconSize: iconSize)
                         .offset(x: iconSize * 0.16, y: -iconSize * 0.1)
                 }
             }
             .nexusIconAnchor()
-            if expanded, isVertical {
+            if state.expanded, isVertical {
                 Text(item.name)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -358,8 +376,8 @@ struct SidebarItemView: View {
         }
         .padding(isVertical ? .horizontal : .vertical, 4)
         .frame(
-            width: isVertical ? nil : SidebarLayout.rowHeight(model.appearance),
-            height: isVertical ? SidebarLayout.rowHeight(model.appearance) : nil
+            width: isVertical ? nil : state.rowHeight,
+            height: isVertical ? state.rowHeight : nil
         )
         .frame(maxWidth: isVertical ? .infinity : nil, maxHeight: isVertical ? nil : .infinity)
         .background {
@@ -368,16 +386,16 @@ struct SidebarItemView: View {
         }
         .overlay {
             // The drag has been resting here long enough to mean "put these together" (M13).
-            if model.groupCandidate == item.id {
+            if state.isGroupCandidate {
                 RoundedRectangle(cornerRadius: Design.itemCornerRadius, style: .continuous)
                     .strokeBorder(.tint, lineWidth: 2)
             }
         }
         .contentShape(Rectangle())
-        .nexusFocusRing(model.focusedRowID == item.id)
-        .nexusDropIndicator(after: model.dropEdge(for: item.id), isVertical: isVertical)
-        .nexusJiggle(model.isEditing, reduceMotion: reduceMotion)
-        .opacity(model.draggingIdentifier == item.id ? 0.35 : 1)
+        .nexusFocusRing(state.isFocused)
+        .nexusDropIndicator(after: state.dropEdge, isVertical: isVertical)
+        .nexusJiggle(state.isEditing, reduceMotion: reduceMotion)
+        .opacity(state.isDragging ? 0.35 : 1)
         .onHover { hovering in
             withAnimation(Design.animation(Design.hover, reduceMotion: reduceMotion)) {
                 isHovered = hovering
@@ -385,11 +403,13 @@ struct SidebarItemView: View {
             // Warms the window titles the context menu needs (D60) and drives the hover flyout.
             model.rowHoverChanged(item, hovering: hovering)
         }
-        // One hop when the click lands, and only when something was actually launched.
-        .onChange(of: isLaunching) { _, launching in
-            guard launching, !reduceMotion else { return }
-            withAnimation(Design.bounce) { bounced = true }
-            bounced = false
+        // One hop every 400 ms while something is launching; cancelled when it turns up.
+        .task(id: state.isLaunching) {
+            guard state.isLaunching, !reduceMotion else { return }
+            while !Task.isCancelled {
+                hopTrigger += 1
+                try? await Task.sleep(for: .milliseconds(400))
+            }
         }
         // The drag is AppKit's, not SwiftUI's: this panel can never become key, so
         // PanelRowInteraction claims every mouse-down and SwiftUI's own drag gestures never fire.
@@ -397,7 +417,7 @@ struct SidebarItemView: View {
             onClick: { click() },
             menu: { contextMenuItems() },
             dragPayload: item.id,
-            dragImage: IconCache.shared.icon(for: item.bundleURL, size: iconSize),
+            dragImage: IconCache.shared.icon(for: item.bundleURL, size: state.iconSize),
             onDrop: { dragged in model.dropPinned(dragged, on: item.id) },
             onDragBegin: { dragged in model.beginDrag(dragged) },
             onDragOver: { _, location in model.dragMoved(over: item.id, at: location) },
@@ -405,9 +425,10 @@ struct SidebarItemView: View {
             onDragOut: { point in
                 if model.dragDroppedOutside() { Poof.show(at: point) }
             },
-            onLongPress: item.isPinned ? { model.beginEditing() } : nil
+            onLongPress: item.isPinned ? { model.beginEditing() } : nil,
+            onPressChange: { isPressed = $0 }
         )
-        .nexusRemoveBadge(model.isEditing && item.isPinned) { model.removeRow(item.id) }
+        .nexusRemoveBadge(state.isEditing && item.isPinned) { model.removeRow(item.id) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
         .accessibilityValue(accessibilityValue)
@@ -551,6 +572,7 @@ struct SidebarGlyphRow: View {
     let action: () -> Void
 
     @State private var isHovered = false
+    @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -569,6 +591,8 @@ struct SidebarGlyphRow: View {
                 }
             }
             .frame(width: iconSize, height: iconSize)
+            .scaleEffect(isPressed && !reduceMotion ? Design.pressScale : 1)
+            .animation(Design.animation(Design.press, reduceMotion: reduceMotion), value: isPressed)
             if expanded, isVertical {
                 Text(title)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -588,7 +612,7 @@ struct SidebarGlyphRow: View {
                 isHovered = hovering
             }
         }
-        .nexusRow(onClick: action, menu: menu)
+        .nexusRow(onClick: action, menu: menu, onPressChange: { isPressed = $0 })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityHint(hint)

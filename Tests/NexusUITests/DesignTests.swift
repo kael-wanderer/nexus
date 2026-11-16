@@ -13,6 +13,29 @@ struct DesignTests {
         #expect(Design.animation(Design.reveal, reduceMotion: false) != nil)
     }
 
+    @Test("Row motion tokens: press shrinks to 0.92 and the launch hop travels 10 points")
+    func rowMotionTokens() {
+        #expect(Design.pressScale == 0.92)
+        #expect(Design.launchBounce == 10)
+    }
+
+    @MainActor
+    @Test("The catcher reports a press when the button goes down and its end when it comes up")
+    func catcherReportsPress() throws {
+        let view = PanelRowInteraction.CatcherView(onClick: nil, items: { [] })
+        var changes: [Bool] = []
+        view.onPressChange = { changes.append($0) }
+        func event(_ type: NSEvent.EventType) throws -> NSEvent {
+            try #require(NSEvent.mouseEvent(
+                with: type, location: NSPoint(x: 5, y: 5), modifierFlags: [], timestamp: 0,
+                windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+            ))
+        }
+        view.mouseDown(with: try event(.leftMouseDown))
+        view.mouseUp(with: try event(.leftMouseUp))
+        #expect(changes == [true, false])
+    }
+
     /// The badge must never hang over the edge of the row it decorates: outside the row is outside
     /// the row's hover region, and that is what made it flash (D110).
     @Test("The remove badge always lands wholly inside the row")
