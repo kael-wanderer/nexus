@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "docs/design/2026-11-16-motion-and-menus-mockup.html"
+        ],
+        "createdAt": "2026-11-16T07:24:21.630Z",
+        "reason": "mockup copies real bar metrics"
+      }
+    ]
+  }
+}
