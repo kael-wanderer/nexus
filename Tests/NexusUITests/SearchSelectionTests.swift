@@ -67,10 +67,7 @@ private func waitForResults(
     count: Int,
     timeout: Duration = .seconds(2)
 ) async throws {
-    let deadline = ContinuousClock.now + timeout
-    while model.results.count < count, ContinuousClock.now < deadline {
-        try await Task.sleep(for: .milliseconds(10))
-    }
+    try await waitUntil(timeout: timeout) { model.results.count >= count }
     try #require(model.results.count >= count)
 }
 
