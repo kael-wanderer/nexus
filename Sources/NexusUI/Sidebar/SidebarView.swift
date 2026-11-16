@@ -435,7 +435,9 @@ struct SidebarItemView: View, Equatable {
             onLongPress: item.isPinned ? { model.beginEditing() } : nil,
             onPressChange: { isPressed = $0 },
             onFileDrag: { entered in model.fileDragChanged(over: entered ? item.id : nil) },
-            onFileDrop: { urls in model.filesDropped(urls, on: item) }
+            onFileDrop: { urls in
+                model.filesDropped(urls, on: item, openingFolders: NSEvent.modifierFlags.contains(.option))
+            }
         )
         .nexusRemoveBadge(state.isEditing && item.isPinned) { model.removeRow(item.id) }
         .accessibilityElement(children: .ignore)

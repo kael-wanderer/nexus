@@ -79,7 +79,7 @@ scope).
 |---|---|---|---|
 | Auto-hide | M2 | None | Edge-hover reveal, configurable delay |
 | Hover expand | M2 | None | Widened panel with names; must not steal focus |
-| Drag and drop | M2 (pin from Finder), M9 (reorder) | None | Dropping an `.app` onto the sidebar pins it. Dragging a row onto another reorders the pins, and dragging a running application onto them pins it in that slot. Dropping files onto an app icon opens them in that application, launching it when it is not running; a dropped `.app` is pinned instead (at most 64 existing files per drop) |
+| Drag and drop | M2 (pin from Finder), M9 (reorder) | None | Dropping an `.app` onto the sidebar pins it. Dragging a row onto another reorders the pins, and dragging a running application onto them pins it in that slot. Dropping files onto an app icon opens them in that application, launching it when it is not running; a dropped `.app` is pinned instead, and so are folders dropped on their own, unless ⌥ is held, which opens them in the application (at most 64 existing files per drop) |
 | Smooth animations | M2 → M7 | None | Reduce Motion honoured from the first animation written |
 | Custom icon size | M2 | None | |
 | Custom sidebar width | M2 | None | |
